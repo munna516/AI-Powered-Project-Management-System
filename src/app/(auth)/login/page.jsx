@@ -1,63 +1,78 @@
-import { FaGoogle } from "react-icons/fa";
+"use client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { EyeIcon, EyeOffIcon, Lock } from "lucide-react";
 
 export default function Login() {
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberPassword, setRememberPassword] = useState(false);
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-6">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 space-y-6">
         <div className="space-y-1 text-center">
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Welcome back
+          <h1 className="text-[40px] font-semibold text-primary mb-4">
+            Project Pilot
           </h1>
-          <p className="text-sm text-slate-500">
-            Sign in to access your AI-powered project dashboard.
+          <p className="text-sm text-primary font-medium text-[30px] mb-5">
+            Login to your Account
+          </p>
+          <p className="text-sm text-secondary   mb-7">
+            Please enter your email and password to continue
           </p>
         </div>
 
-        <button
-          type="button"
-          className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 transition cursor-pointer"
-        >
-          <FaGoogle className="w-4 h-4 text-blue-500" />
-
-          <span>Continue with Google</span>
-        </button>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-slate-200" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-slate-400">or</span>
-          </div>
-        </div>
-
-        <form className="space-y-4">
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">
+        <form className="space-y-6">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-secondary">
               Email
             </label>
-            <input
-              type="email"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary"
-              placeholder="you@example.com"
-            />
+            <Input type="email" placeholder="you@example.com" className="" />
           </div>
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">
+          <div className="relative space-y-2">
+            <label className="block text-sm font-medium text-secondary">
               Password
             </label>
-            <input
-              type="password"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary"
-              placeholder="••••••••"
+            <Input
+              type={showPassword ? "text" : "password"}
+              placeholder="*******"
             />
+            <p
+              className="absolute right-3 top-11 -translate-y-1/2 bg-none cursor-pointer text-primary font-semibold"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? (
+                <EyeIcon className="w-4 h-4" />
+              ) : (
+                <EyeOffIcon className="w-4 h-4" />
+              )}
+            </p>
           </div>
-          <button
+          <div className="flex items-center justify-between ">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberPassword}
+                onChange={(e) => setRememberPassword(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+              />
+              <span className="text-sm text-secondary">Remember Password</span>
+            </label>
+            <a
+              href="#"
+              className="text-sm text-slate-500 hover:underline hover:text-primary font-medium"
+            >
+              Forget Password?
+            </a>
+          </div>
+          <Button
             type="submit"
-            className="w-full rounded-lg bg-primary text-white py-2.5 text-sm font-medium hover:bg-primary/90 transition cursor-pointer"
+            variant="primary"
+            size="lg"
+            className="w-full cursor-pointer mt-3"
           >
             Sign in
-          </button>
+          </Button>
         </form>
       </div>
     </div>
