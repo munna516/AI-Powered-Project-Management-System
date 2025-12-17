@@ -59,7 +59,7 @@ export default function Login() {
               <span className="text-sm text-secondary">Remember Password</span>
             </label>
             <a
-              href="#"
+              href="/forget-password"
               className="text-sm text-slate-500 hover:underline hover:text-primary font-medium"
             >
               Forget Password?
