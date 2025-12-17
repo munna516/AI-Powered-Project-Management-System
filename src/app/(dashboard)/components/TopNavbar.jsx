@@ -5,7 +5,7 @@ export default function TopNavbar() {
     return (
         <header className="h-16 bg-white hidden md:flex items-center justify-end px-3 md:px-10 gap-6 ">
             {/* Notification icon */}
-            <button className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-primary hover:bg-slate-200 transition">
+            <button className="h-10 w-10 rounded-full bg-slate-300 flex items-center justify-center text-primary hover:bg-slate-400 cursor-pointer transition">
                 <FiBell className="h-5 w-5" />
             </button>
 
