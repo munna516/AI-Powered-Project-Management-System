@@ -112,11 +112,10 @@ export default function Sidebar() {
 
         const button = (
           <button
-            className={`w-full flex items-center gap-4 rounded-md px-3 py-2 font-medium cursor-pointer transition-all duration-300 ${textSizeClasses} ${
-              isActive
-                ? "bg-primary text-white"
-                : "bg-white/10 hover:bg-primary/10 text-slate-800"
-            }`}
+            className={`w-full flex items-center gap-4 rounded-md px-3 py-2 font-medium cursor-pointer transition-all duration-300 ${textSizeClasses} ${isActive
+              ? "bg-primary text-white"
+              : "bg-white/10 hover:bg-primary/10 text-slate-800"
+              }`}
           >
             <span className={`w-5 h-5 font-bold ${iconSizeClasses}`}>
               {item.icon}
@@ -134,17 +133,24 @@ export default function Sidebar() {
     </nav>
   );
 
+  const isSettingsActive = pathname === "/settings";
+
   const footer = (
     <div className="border-t border-white/10 p-4 space-y-2 text-sm">
       <Link href="/settings">
-        <button className="w-full text-left rounded-md px-3 py-2 hover:bg-white/5 flex items-center gap-2 text-md md:text-lg lg:text-xl  cursor-pointer font-bold">
-          <IoIosSettings className="w-5 h-5 " />
+        <button
+          className={`w-full text-left rounded-md px-3 py-2 flex items-center gap-2 text-md md:text-lg lg:text-xl cursor-pointer font-bold transition-all duration-300 ${isSettingsActive
+            ? "bg-primary text-white"
+            : "text-slate-800 hover:bg-primary/10"
+            }`}
+        >
+          <IoIosSettings className="w-5 h-5" />
           Settings
         </button>
       </Link>
       <Link href="/">
-        <button className="w-full text-left rounded-md px-3 py-2 hover:bg-white/5 flex items-center gap-2 text-md md:text-lg lg:text-xl  cursor-pointer font-bold text-red-500">
-          <MdOutlineLogout className="w-5 h-5 " />
+        <button className="w-full text-left rounded-md px-3 py-2 flex items-center gap-2 text-md md:text-lg lg:text-xl cursor-pointer font-bold text-red-500 hover:bg-red-50 transition-all duration-300">
+          <MdOutlineLogout className="w-5 h-5" />
           Log Out
         </button>
       </Link>
@@ -191,7 +197,7 @@ export default function Sidebar() {
           <SheetContent side="left" className="p-0 w-72">
             <SheetHeader className="px-4 pt-4 pb-2 border-b border-white/10">
               <SheetTitle className="text-xl font-semibold text-primary text-center ">
-               Project Pilot
+                Project Pilot
               </SheetTitle>
             </SheetHeader>
             <aside className="h-[calc(100%-56px)]  bg-white text-black flex flex-col">

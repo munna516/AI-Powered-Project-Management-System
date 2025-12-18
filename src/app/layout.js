@@ -1,5 +1,6 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "react-hot-toast";
 
 const interSans = Inter({
   variable: "--font-inter",
@@ -26,6 +27,7 @@ export default function RootLayout({ children }) {
         className={`${interSans.variable} ${interMono.variable} antialiased`}
       >
         {children}
+        <Toaster />
       </body>
     </html>
   );
