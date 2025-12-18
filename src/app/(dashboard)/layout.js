@@ -3,7 +3,7 @@ import TopNavbar from "./components/TopNavbar";
 
 export default function DashboardLayout({ children }) {
     return (
-        <div className="min-h-screen md:h-screen flex flex-col md:flex-row bg-slate-100 text-slate-900 md:overflow-hidden">
+        <div className="min-h-screen md:h-screen flex flex-col md:flex-row bg-slate-100/50 text-slate-900 md:overflow-hidden">
             <Sidebar />
 
             <div className="flex-1 flex flex-col min-h-0">

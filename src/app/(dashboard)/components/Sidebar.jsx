@@ -96,7 +96,7 @@ export default function Sidebar() {
   const renderNav = (isMobile = false) => (
     <nav className="flex-1 overflow-y-auto p-3 md:p-4 space-y-1 ">
       {sidebarItems.map((item) => {
-        const isActive = pathname === item.href;
+        const isActive = pathname.includes(item.href);
 
         const iconSizeClasses = isMobile
           ? "text-md"
@@ -104,7 +104,7 @@ export default function Sidebar() {
 
         const labelSizeClasses = isMobile
           ? "text-md"
-          : "text-md md:text-lg lg:text-xl";
+          : "text-sm md:text-base lg:text-lg";
 
         const textSizeClasses = isMobile
           ? "text-md"
