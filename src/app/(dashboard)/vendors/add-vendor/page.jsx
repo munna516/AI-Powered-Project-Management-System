@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FiUpload, FiX, FiFile, FiImage } from "react-icons/fi";
+import { FiUpload, FiX, FiFile, FiImage, FiHelpCircle } from "react-icons/fi";
 import toast from "react-hot-toast";
 
 export default function AddVendor() {
@@ -31,6 +31,7 @@ export default function AddVendor() {
     const [photo, setPhoto] = useState(null);
     const [documents, setDocuments] = useState([]);
     const [slaFiles, setSlaFiles] = useState([]);
+    const [meetingLinks, setMeetingLinks] = useState([""]);
     const [isDraggingDocuments, setIsDraggingDocuments] = useState(false);
     const [isDraggingSla, setIsDraggingSla] = useState(false);
 
@@ -146,6 +147,47 @@ export default function AddVendor() {
         }
     };
 
+    const handleMeetingLinkChange = (index, value) => {
+        const newLinks = [...meetingLinks];
+        newLinks[index] = value;
+        setMeetingLinks(newLinks);
+        if (errors.meetingLinks) {
+            setErrors((prev) => ({ ...prev, meetingLinks: "" }));
+        }
+    };
+
+    const handlePasteLink = async (index) => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+                handleMeetingLinkChange(index, text);
+                toast.success("Link pasted successfully");
+            }
+        } catch (err) {
+            toast.error("Failed to paste from clipboard");
+        }
+    };
+
+    const addMeetingLinkField = () => {
+        setMeetingLinks([...meetingLinks, ""]);
+    };
+
+    const removeMeetingLink = (index) => {
+        if (meetingLinks.length > 1) {
+            const newLinks = meetingLinks.filter((_, i) => i !== index);
+            setMeetingLinks(newLinks);
+        }
+    };
+
+    const isValidUrl = (string) => {
+        try {
+            const url = new URL(string);
+            return url.protocol === "http:" || url.protocol === "https:";
+        } catch (_) {
+            return false;
+        }
+    };
+
     const validateForm = () => {
         const newErrors = {};
 
@@ -201,6 +243,18 @@ export default function AddVendor() {
             newErrors.slaFiles = "Please upload at least one SLA file";
         }
 
+        // Meeting links validation
+        const validLinks = meetingLinks.filter(link => link.trim() !== "");
+        if (validLinks.length === 0) {
+            newErrors.meetingLinks = "At least one meeting link is required";
+        } else {
+            // Validate each link is a valid URL
+            const invalidLinks = validLinks.filter(link => !isValidUrl(link.trim()));
+            if (invalidLinks.length > 0) {
+                newErrors.meetingLinks = "Please enter valid meeting links (http:// or https://)";
+            }
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -209,7 +263,8 @@ export default function AddVendor() {
         e.preventDefault();
 
         if (validateForm()) {
-            console.log("Form submitted:", { ...formData, photo, documents, slaFiles });
+            const validMeetingLinks = meetingLinks.filter(link => link.trim() !== "");
+            console.log("Form submitted:", { ...formData, photo, documents, slaFiles, meetingLinks: validMeetingLinks });
             toast.success("Vendor added successfully!");
             router.push("/vendors");
         } else {
@@ -486,7 +541,62 @@ export default function AddVendor() {
                     </div>
                 </div>
 
-                {/* Upload Meeting or Document */}
+                {/* Upload Meeting Links */}
+                <div className="space-y-4">
+                    <h2 className="text-lg font-semibold text-slate-900">
+                        Upload meeting links <span className="text-red-500">*</span>
+                    </h2>
+
+                    {meetingLinks.map((link, index) => (
+                        <div key={index} className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <div className="relative flex-1">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                                        <FiHelpCircle className="h-5 w-5 text-[#6051E2]" />
+                                    </div>
+                                    <Input
+                                        type="url"
+                                        value={link}
+                                        onChange={(e) => handleMeetingLinkChange(index, e.target.value)}
+                                        placeholder="Upload meeting link here"
+                                        className={`pl-10 pr-24 py-6 bg-white border-[#6051E2] placeholder:text-slate-400 ${errors.meetingLinks ? "border-red-500 focus-visible:ring-red-500" : ""
+                                            }`}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handlePasteLink(index)}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-[#6051E2] text-white rounded-md text-sm font-medium hover:bg-[#6051E2]/90 transition cursor-pointer"
+                                    >
+                                        Paste
+                                    </button>
+                                </div>
+                                {meetingLinks.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeMeetingLink(index)}
+                                        className="h-10 w-10 flex items-center justify-center text-slate-400 hover:text-red-500 transition cursor-pointer"
+                                    >
+                                        <FiX className="h-5 w-5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+
+                    <button
+                        type="button"
+                        onClick={addMeetingLinkField}
+                        className="text-sm text-primary hover:underline font-medium cursor-pointer"
+                    >
+                        + Add another link
+                    </button>
+
+                    {errors.meetingLinks && (
+                        <p className="text-xs text-red-500">{errors.meetingLinks}</p>
+                    )}
+                </div>
+
+                {/* Upload  Document */}
                 <div className="space-y-4">
                     <h2 className="text-lg font-semibold text-slate-900">
                         Upload meeting or Document <span className="text-red-500">*</span>
