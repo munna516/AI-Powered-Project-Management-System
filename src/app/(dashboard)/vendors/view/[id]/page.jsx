@@ -170,7 +170,7 @@ export default function ViewVendor() {
                     <CardContent className="p-0">
                         <div className="flex items-center gap-2 mb-3">
                             <HiOutlineSparkles className="h-4 w-4 text-primary" />
-                            <p className="text-sm font-semibold text-slate-900">Project AI Summary</p>
+                            <p className="text-sm font-semibold text-primary font-medium">Project AI Summary</p>
                         </div>
                         <p className="text-xs text-slate-600 leading-relaxed line-clamp-4">
                             {vendorData.projectSummary}
@@ -187,10 +187,10 @@ export default function ViewVendor() {
                     {/* Left Column - AI Cards */}
                     <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* AI Risk */}
-                        <Card className="p-4">
+                        <Card className="p-4 bg-[#EFEEFC]">
                             <CardContent className="p-0 space-y-3">
                                 <h3 className="font-semibold text-slate-900">AI Risk</h3>
-                                <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg">
+                                <div className="flex items-start gap-2 p-3  rounded-lg">
                                     <HiOutlineSparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                                     <div>
                                         <p className="text-xs font-medium text-slate-700 mb-1">AI SUMMARY</p>
@@ -212,12 +212,12 @@ export default function ViewVendor() {
                         </Card>
 
                         {/* AI Assumptions */}
-                        <Card className="p-4">
+                        <Card className="p-4 bg-[#EFEEFC]">
                             <CardContent className="p-0 space-y-3">
                                 <h3 className="font-semibold text-slate-900">AI Assumptions</h3>
-                                <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg">
+                                <div className="flex items-start gap-2 p-3  rounded-lg">
                                     <HiOutlineSparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                                    <div>
+                                    <div >
                                         <p className="text-xs font-medium text-slate-700 mb-1">AI SUMMARY</p>
                                         <p className="text-xs text-slate-600 leading-relaxed">{vendorData.aiAssumptions.summary}</p>
                                     </div>
@@ -237,10 +237,10 @@ export default function ViewVendor() {
                         </Card>
 
                         {/* AI Dependencies */}
-                        <Card className="p-4">
+                        <Card className="p-4 bg-[#EFEEFC]">
                             <CardContent className="p-0 space-y-3">
                                 <h3 className="font-semibold text-slate-900">AI Dependencies</h3>
-                                <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg">
+                                <div className="flex items-start gap-2 p-3  rounded-lg">
                                     <HiOutlineSparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                                     <div>
                                         <p className="text-xs font-medium text-slate-700 mb-1">AI SUMMARY</p>
@@ -262,10 +262,10 @@ export default function ViewVendor() {
                         </Card>
 
                         {/* AI Decisions */}
-                        <Card className="p-4">
+                        <Card className="p-4 bg-[#EFEEFC]">
                             <CardContent className="p-0 space-y-3">
                                 <h3 className="font-semibold text-slate-900">AI Decisions</h3>
-                                <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg">
+                                <div className="flex items-start gap-2 p-3  rounded-lg">
                                     <HiOutlineSparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                                     <div>
                                         <p className="text-xs font-medium text-slate-700 mb-1">AI SUMMARY</p>
