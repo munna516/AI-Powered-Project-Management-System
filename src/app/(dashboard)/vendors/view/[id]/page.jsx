@@ -6,6 +6,15 @@ import Image from "next/image";
 import { FiArrowLeft, FiMail, FiPhone, FiDownload, FiCheckCircle, FiClock, FiAlertCircle } from "react-icons/fi";
 import { HiOutlineSparkles } from "react-icons/hi2";
 import { MdOutlineEmail, MdOutlinePhone } from "react-icons/md";
+import {
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+} from "recharts";
 
 // Dummy vendor data
 const vendorData = {
@@ -64,8 +73,16 @@ const vendorData = {
     },
     performanceHistory: {
         percentage: 75,
-        trend: "+7%",
-        data: [30, 45, 35, 50, 45, 65, 55]
+        trend: "+10%",
+        chartData: [
+            { month: "Jan", value: 42 },
+            { month: "Feb", value: 38 },
+            { month: "Mar", value: 45 },
+            { month: "Apr", value: 35 },
+            { month: "May", value: 28 },
+            { month: "Jun", value: 48 },
+            { month: "Jul", value: 45 },
+        ]
     },
     slaDocuments: [
         { name: "Master_Service_Agreement.pdf", size: "2.3 MB" },
@@ -369,58 +386,50 @@ export default function ViewVendor() {
                             </div>
                             <p className="text-xs text-slate-500 mb-4">Last 30 Days</p>
 
-                            {/* Simple Chart Visualization */}
-                            <div className="h-40 flex items-end gap-1 relative">
-                                {/* Grid lines */}
-                                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                                    {[...Array(5)].map((_, i) => (
-                                        <div key={i} className="border-t border-slate-100 w-full"></div>
-                                    ))}
-                                </div>
-
-                                {/* Area Chart */}
-                                <svg className="w-full h-full" preserveAspectRatio="none">
-                                    <defs>
-                                        <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                                            <stop offset="0%" stopColor="#015093" stopOpacity="0.3" />
-                                            <stop offset="100%" stopColor="#015093" stopOpacity="0.05" />
-                                        </linearGradient>
-                                    </defs>
-                                    <path
-                                        d={`M 0 ${160 - vendorData.performanceHistory.data[0] * 1.6} 
-                                            Q ${100 / 6 * 0.5} ${160 - vendorData.performanceHistory.data[0] * 1.4} ${100 / 6} ${160 - vendorData.performanceHistory.data[1] * 1.6}
-                                            Q ${100 / 6 * 1.5} ${160 - vendorData.performanceHistory.data[1] * 1.8} ${100 / 6 * 2} ${160 - vendorData.performanceHistory.data[2] * 1.6}
-                                            Q ${100 / 6 * 2.5} ${160 - vendorData.performanceHistory.data[2] * 1.4} ${100 / 6 * 3} ${160 - vendorData.performanceHistory.data[3] * 1.6}
-                                            Q ${100 / 6 * 3.5} ${160 - vendorData.performanceHistory.data[3] * 1.8} ${100 / 6 * 4} ${160 - vendorData.performanceHistory.data[4] * 1.6}
-                                            Q ${100 / 6 * 4.5} ${160 - vendorData.performanceHistory.data[4] * 1.4} ${100 / 6 * 5} ${160 - vendorData.performanceHistory.data[5] * 1.6}
-                                            Q ${100 / 6 * 5.5} ${160 - vendorData.performanceHistory.data[5] * 1.8} 100 ${160 - vendorData.performanceHistory.data[6] * 1.6}
-                                            L 100 160 L 0 160 Z`}
-                                        fill="url(#areaGradient)"
-                                    />
-                                    <path
-                                        d={`M 0 ${160 - vendorData.performanceHistory.data[0] * 1.6} 
-                                            Q ${100 / 6 * 0.5} ${160 - vendorData.performanceHistory.data[0] * 1.4} ${100 / 6} ${160 - vendorData.performanceHistory.data[1] * 1.6}
-                                            Q ${100 / 6 * 1.5} ${160 - vendorData.performanceHistory.data[1] * 1.8} ${100 / 6 * 2} ${160 - vendorData.performanceHistory.data[2] * 1.6}
-                                            Q ${100 / 6 * 2.5} ${160 - vendorData.performanceHistory.data[2] * 1.4} ${100 / 6 * 3} ${160 - vendorData.performanceHistory.data[3] * 1.6}
-                                            Q ${100 / 6 * 3.5} ${160 - vendorData.performanceHistory.data[3] * 1.8} ${100 / 6 * 4} ${160 - vendorData.performanceHistory.data[4] * 1.6}
-                                            Q ${100 / 6 * 4.5} ${160 - vendorData.performanceHistory.data[4] * 1.4} ${100 / 6 * 5} ${160 - vendorData.performanceHistory.data[5] * 1.6}
-                                            Q ${100 / 6 * 5.5} ${160 - vendorData.performanceHistory.data[5] * 1.8} 100 ${160 - vendorData.performanceHistory.data[6] * 1.6}`}
-                                        fill="none"
-                                        stroke="#015093"
-                                        strokeWidth="2"
-                                    />
-                                </svg>
-                            </div>
-
-                            {/* X-axis Labels */}
-                            <div className="flex justify-between mt-3 text-xs text-slate-500">
-                                <span>Jan</span>
-                                <span>Feb</span>
-                                <span>Mar</span>
-                                <span>Apr</span>
-                                <span>May</span>
-                                <span>Jun</span>
-                                <span>Jul</span>
+                            {/* Recharts Area Chart */}
+                            <div className="w-full h-64 sm:h-80">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart
+                                        data={vendorData.performanceHistory.chartData}
+                                        margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                                    >
+                                        <defs>
+                                            <linearGradient id="performanceGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#6051E2" stopOpacity={0.3} />
+                                                <stop offset="100%" stopColor="#6051E2" stopOpacity={0.05} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                        <XAxis
+                                            dataKey="month"
+                                            stroke="#94a3b8"
+                                            style={{ fontSize: "12px" }}
+                                            tickLine={false}
+                                        />
+                                        <YAxis
+                                            stroke="#94a3b8"
+                                            style={{ fontSize: "12px" }}
+                                            tickLine={false}
+                                            domain={[0, 50]}
+                                        />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: "#fff",
+                                                border: "1px solid #e2e8f0",
+                                                borderRadius: "8px",
+                                                padding: "8px 12px",
+                                            }}
+                                            labelStyle={{ color: "#64748b", fontSize: "12px" }}
+                                        />
+                                        <Area
+                                            type="monotone"
+                                            dataKey="value"
+                                            stroke="#6051E2"
+                                            strokeWidth={2}
+                                            fill="url(#performanceGradient)"
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
                             </div>
                         </CardContent>
                     </Card>
@@ -459,14 +468,14 @@ export default function ViewVendor() {
                                     <div className="flex items-center gap-1.5 mt-1">
                                         {getStatusIcon(project.status)}
                                         <span className={`text-xs font-medium ${project.status === "In Progress" ? "text-yellow-600" :
-                                                project.status === "Completed" ? "text-green-600" :
-                                                    "text-red-600"
+                                            project.status === "Completed" ? "text-green-600" :
+                                                "text-red-600"
                                             }`}>
                                             Status: {project.status}
                                         </span>
                                     </div>
                                 </div>
-                                
+
                             </div>
                         ))}
                     </div>
