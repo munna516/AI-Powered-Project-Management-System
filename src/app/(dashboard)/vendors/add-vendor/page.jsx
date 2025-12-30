@@ -31,6 +31,8 @@ export default function AddVendor() {
     const [photo, setPhoto] = useState(null);
     const [documents, setDocuments] = useState([]);
     const [slaFiles, setSlaFiles] = useState([]);
+    const [isDraggingDocuments, setIsDraggingDocuments] = useState(false);
+    const [isDraggingSla, setIsDraggingSla] = useState(false);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -94,14 +96,30 @@ export default function AddVendor() {
         setSlaFiles((prev) => prev.filter((_, i) => i !== index));
     };
 
-    const handleDragOver = (e) => {
+    const handleDragOver = (e, type) => {
         e.preventDefault();
         e.stopPropagation();
+        if (type === "documents") {
+            setIsDraggingDocuments(true);
+        } else if (type === "sla") {
+            setIsDraggingSla(true);
+        }
+    };
+
+    const handleDragLeave = (e, type) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (type === "documents") {
+            setIsDraggingDocuments(false);
+        } else if (type === "sla") {
+            setIsDraggingSla(false);
+        }
     };
 
     const handleDocumentDrop = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        setIsDraggingDocuments(false);
         const files = Array.from(e.dataTransfer.files);
         const newDocs = files.map((file) => ({
             name: file.name,
@@ -116,6 +134,7 @@ export default function AddVendor() {
     const handleSlaDrop = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        setIsDraggingSla(false);
         const files = Array.from(e.dataTransfer.files);
         const newFiles = files.map((file) => ({
             name: file.name,
@@ -318,7 +337,7 @@ export default function AddVendor() {
                             className="hidden"
                         />
                         {photo ? (
-                            <div className="h-[38px] border border-slate-300 rounded-md flex items-center justify-between px-3 bg-white">
+                            <div className="h-[38px] border border-primary rounded-md flex items-center justify-between px-3 bg-white">
                                 <div className="flex items-center gap-2 text-sm text-slate-600 truncate">
                                     <FiImage className="h-4 w-4 text-slate-400 flex-shrink-0" />
                                     <span className="truncate">{photo.name}</span>
@@ -334,7 +353,7 @@ export default function AddVendor() {
                         ) : (
                             <div
                                 onClick={() => photoInputRef.current?.click()}
-                                className={`h-[38px] border border-dashed rounded-md flex items-center justify-end px-3 bg-white cursor-pointer hover:bg-slate-50 transition ${errors.photo ? "border-red-500" : "border-slate-300"}`}
+                                className={`h-[38px] border border-dashed rounded-md flex items-center justify-end px-3 bg-white cursor-pointer hover:bg-slate-50 transition ${errors.photo ? "border-red-500" : "border-primary"}`}
                             >
                                 <FiUpload className="h-5 w-5 text-slate-400" />
                             </div>
@@ -480,9 +499,15 @@ export default function AddVendor() {
                         className="hidden"
                     />
                     <Card
-                        className={`border-2 border-dashed bg-slate-50 cursor-pointer hover:bg-slate-100 transition ${errors.documents ? "border-red-500" : "border-slate-300"}`}
+                        className={`border-2 border-dashed bg-slate-50 cursor-pointer hover:bg-slate-100 transition ${errors.documents
+                            ? "border-red-500"
+                            : isDraggingDocuments
+                                ? "border-primary"
+                                : "border-slate-300"
+                            }`}
                         onClick={() => documentInputRef.current?.click()}
-                        onDragOver={handleDragOver}
+                        onDragOver={(e) => handleDragOver(e, "documents")}
+                        onDragLeave={(e) => handleDragLeave(e, "documents")}
                         onDrop={handleDocumentDrop}
                     >
                         <CardContent className="p-8">
@@ -540,16 +565,22 @@ export default function AddVendor() {
                         className="hidden"
                     />
                     <Card
-                        className={`border-2 border-dashed bg-blue-50/30 cursor-pointer hover:bg-blue-50 transition ${errors.slaFiles ? "border-red-500" : "border-primary/30"}`}
+                        className={`border-2 border-dashed bg-slate-50 cursor-pointer hover:bg-slate-100 transition ${errors.slaFiles
+                            ? "border-red-500"
+                            : isDraggingSla
+                                ? "border-primary"
+                                : "border-slate-300"
+                            }`}
                         onClick={() => slaInputRef.current?.click()}
-                        onDragOver={handleDragOver}
+                        onDragOver={(e) => handleDragOver(e, "sla")}
+                        onDragLeave={(e) => handleDragLeave(e, "sla")}
                         onDrop={handleSlaDrop}
                     >
                         <CardContent className="p-8">
                             <div className="flex flex-col items-center justify-center text-center space-y-2">
-                                <FiUpload className="h-8 w-8 text-primary" />
+                                <FiUpload className="h-8 w-8 text-slate-400" />
                                 <p className="text-sm text-slate-600">
-                                    <span className="text-primary font-medium">click to upload or drag & drop</span>
+                                    <span className="text-primary font-medium">click to upload</span> or drag & drop
                                 </p>
                                 <p className="text-xs text-slate-400">
                                     Max 100 MB files are allowed
@@ -565,10 +596,10 @@ export default function AddVendor() {
                             {slaFiles.map((file, index) => (
                                 <div
                                     key={index}
-                                    className="flex items-center justify-between p-3 bg-blue-50 border border-primary/20 rounded-md"
+                                    className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-md"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <FiFile className="h-5 w-5 text-primary" />
+                                        <FiFile className="h-5 w-5 text-slate-400" />
                                         <div>
                                             <p className="text-sm font-medium text-slate-700">{file.name}</p>
                                             <p className="text-xs text-slate-400">{file.size}</p>
