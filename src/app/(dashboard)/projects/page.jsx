@@ -171,7 +171,7 @@ export default function Projects() {
                 searchValue={searchValue}
                 onSearchChange={(e) => setSearchValue(e.target.value)}
                 buttonLabel="Create Project"
-                onButtonClick={() => router.push("/projects/create")}
+                onButtonClick={() => router.push("/projects/create-project")}
                 buttonIcon={<FiPlus className="h-4 w-4" />}
             />
 
@@ -292,17 +292,10 @@ export default function Projects() {
                                                 </p>
                                             </div>
                                             <div className="flex flex-wrap gap-3 justify-end">
-                                                <Button
-                                                    variant="outline"
-                                                    className="flex items-center gap-2 text-blue-600 border-blue-300 hover:bg-blue-50 cursor-pointer"
-                                                    onClick={() => router.push(`/projects/${project.id}/documents`)}
-                                                >
-                                                    <FiFile className="h-4 w-4" />
-                                                    <span className="text-sm">Document</span>
-                                                </Button>
+                                               
                                                 <Button
                                                     className="flex items-center gap-2 bg-[#6051E2] text-white hover:bg-[#6051E2]/90 cursor-pointer"
-                                                    onClick={() => router.push(`/projects/${project.id}`)}
+                                                    onClick={() => router.push(`/projects/project-details/${project.id}`)}
                                                 >
                                                     <FiStar className="h-4 w-4" />
                                                     <span className="text-sm">Full view</span>
