@@ -498,68 +498,67 @@ export default function ProjectDetails() {
                             <h3 className="text-lg font-semibold text-slate-900 mb-6">
                                 Milestones
                             </h3>
-                            <div className="space-y-6">
-                                {project.milestones.map((milestone, index) => (
-                                    <div key={milestone.id} className="relative pl-8">
-                                        {/* Timeline Line */}
-                                        {index < project.milestones.length - 1 && (
-                                            <div
-                                                className={`absolute left-3 top-8 w-0.5 h-full ${milestone.status === "complete"
-                                                    ? "bg-green-500"
-                                                    : "bg-slate-300"
-                                                    }`}
-                                                style={{ height: "calc(100% + 1.5rem)" }}
-                                            ></div>
-                                        )}
+                            <div className="relative">
+                                {/* Vertical Timeline Line - positioned on left-center */}
+                                <div className="absolute left-32 top-0 bottom-0 w-0.5 bg-slate-300 hidden md:block"></div>
 
-                                        {/* Timeline Dot */}
+                                <div className="space-y-8">
+                                    {project.milestones.map((milestone, index) => (
                                         <div
-                                            className={`absolute left-0 top-1 w-6 h-6 rounded-full border-2 flex items-center justify-center ${milestone.status === "complete"
-                                                ? "bg-green-400 border-green-400"
-                                                : "bg-white border-orange-400"
-                                                }`}
+                                            key={milestone.id}
+                                            className="relative flex flex-col md:flex-row items-start"
                                         >
-                                            {milestone.status === "complete" ? (
-                                                <CheckCircle2 className="w-4 h-4 text-white" />
-                                            ) : (
-                                                <Circle className="w-4 h-4 text-orange-400" />
-                                            )}
-                                        </div>
+                                            {/* Date on Left */}
+                                            <div className="w-full md:w-32 text-left md:text-right md:pr-6 flex-shrink-0">
+                                                <p className="text-sm font-medium text-slate-700">
+                                                    {milestone.date.split(", ")[0]}
+                                                </p>
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    {milestone.date.includes(", ")
+                                                        ? milestone.date.split(", ")[1]
+                                                        : "10:00 AM"}
+                                                </p>
+                                            </div>
 
-                                        {/* Milestone Content */}
-                                        <div className="space-y-2">
-                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                                <div>
-                                                    <p className="text-sm font-medium text-slate-700">
-                                                        {milestone.phase}
-                                                    </p>
-                                                    <p className="text-xs text-slate-500 mt-1">
-                                                        {milestone.date}
-                                                    </p>
+                                            {/* Timeline Dot - on the line */}
+                                            <div className="absolute left-32 transform -translate-x-1/2 -translate-y-1 z-10 hidden md:block">
+                                                <div
+                                                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${milestone.status === "complete"
+                                                        ? "bg-green-500 border-green-500"
+                                                        : "bg-white border-orange-400"
+                                                        }`}
+                                                >
+                                                    {milestone.status === "complete" ? (
+                                                        <CheckCircle2 className="w-4 h-4 text-white" />
+                                                    ) : (
+                                                        <Circle className="w-4 h-4 text-orange-400 fill-orange-400" />
+                                                    )}
                                                 </div>
+                                            </div>
+
+                                            {/* Phase Content on Right */}
+                                            <div className="w-full md:flex-1 md:pl-12 space-y-2">
+                                                <p className="text-sm font-medium text-slate-700">
+                                                    {milestone.phase.replace("Phase ", "Phase: ")}
+                                                </p>
+                                                <p className="text-sm text-slate-600">
+                                                    {milestone.description}
+                                                </p>
                                                 <Button
                                                     size="sm"
-                                                    variant={
-                                                        milestone.status === "complete"
-                                                            ? "default"
-                                                            : "outline"
-                                                    }
-                                                    className={`cursor-pointer ${milestone.status === "complete"
-                                                        ? "bg-green-500 hover:bg-green-600 text-white"
-                                                        : "bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border-yellow-300"
-                                                        }`}
+                                                    className={`cursor-pointer rounded-full ${milestone.status === "complete"
+                                                        ? "bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
+                                                        : "bg-orange-100 hover:bg-orange-200 text-orange-800 border-orange-300"
+                                                        } border`}
                                                 >
                                                     {milestone.status === "complete"
                                                         ? "Complete"
                                                         : "Upcoming"}
                                                 </Button>
                                             </div>
-                                            <p className="text-sm text-slate-600">
-                                                {milestone.description}
-                                            </p>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
