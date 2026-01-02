@@ -10,31 +10,128 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { FiSearch, FiArrowLeft, FiArrowRight } from "react-icons/fi";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { FiSearch, FiArrowLeft, FiArrowRight, FiEdit2, FiX } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader/PageHeader";
+import toast from "react-hot-toast";
 
 // Dummy data for Lessons Learned
 const lessonsData = [
-    { id: 1, projectId: "654645", projectName: "NexaPay", owner: "Arlene McCoy", mail: "abc@gm..", date: "20 Nov, 2025", logger: "Email", lessonLearned: "view" },
-    { id: 2, projectId: "654645", projectName: "Fit-loop", owner: "Albert Flores", mail: "abc@gm..", date: "20 Nov, 2025", logger: "Meeting notes", lessonLearned: "view" },
-    { id: 3, projectId: "654645", projectName: "ShopEase", owner: "Esther Howard", mail: "abc@gm..", date: "20 Nov, 2025", logger: "Recording", lessonLearned: "view" },
-    { id: 4, projectId: "457832", projectName: "EduSphere", owner: "Cameron Williamson", mail: "abc@gm..", date: "20 Nov, 2025", logger: "Meeting transcript", lessonLearned: "view" },
-    { id: 5, projectId: "487525", projectName: "Foodio", owner: "Guy Hawkins", mail: "abc@gm..", date: "20 Nov, 2025", logger: "Attachment", lessonLearned: "view" },
-    { id: 6, projectId: "654645", projectName: "Eventify", owner: "Savannah Nguyen", mail: "abc@gm..", date: "20 Nov, 2025", logger: "Email", lessonLearned: "view" },
-    { id: 7, projectId: "564657", projectName: "FinPro", owner: "Kristin Watson", mail: "abc@gm..", date: "20 Nov, 2025", logger: "Meeting notes", lessonLearned: "view" },
-
+    {
+        id: 1,
+        projectId: "654645",
+        projectName: "NexaPay(05-46-45)",
+        owner: "Arlene McCoy",
+        mail: "abc@gm..",
+        date: "28 Nov, 2025",
+        logger: "Email",
+        lessonLearned: "view",
+        title: "Communication Delays Impacted Project Timeline",
+        client: "Mr Mirja",
+        description: "During the user testing phase, we identified significant communication gaps between the design and development teams. Feedback from designers was not relayed to developers in a timely manner, causing rework and extending the project timeline by approximately two weeks. Implementing a daily stand-up call and using a shared project management board for real-time updates could mitigate this issue in future projects.",
+    },
+    {
+        id: 2,
+        projectId: "654645",
+        projectName: "Fit-loop",
+        owner: "Albert Flores",
+        mail: "abc@gm..",
+        date: "20 Nov, 2025",
+        logger: "Meeting notes",
+        lessonLearned: "view",
+        title: "Resource Allocation Challenges",
+        client: "Mr Smith",
+        description: "The project faced delays due to insufficient resource allocation during peak development phases. Better planning and resource forecasting could have prevented these issues.",
+    },
+    {
+        id: 3,
+        projectId: "654645",
+        projectName: "ShopEase",
+        owner: "Esther Howard",
+        mail: "abc@gm..",
+        date: "20 Nov, 2025",
+        logger: "Recording",
+        lessonLearned: "view",
+        title: "Scope Creep Management",
+        client: "Ms Johnson",
+        description: "Uncontrolled scope changes led to timeline extensions. Implementing stricter change control processes would help manage future projects more effectively.",
+    },
+    {
+        id: 4,
+        projectId: "457832",
+        projectName: "EduSphere",
+        owner: "Cameron Williamson",
+        mail: "abc@gm..",
+        date: "20 Nov, 2025",
+        logger: "Meeting transcript",
+        lessonLearned: "view",
+        title: "Testing Phase Optimization",
+        client: "Dr Brown",
+        description: "Early integration of testing phases helped identify issues sooner. This approach should be adopted for all future projects.",
+    },
+    {
+        id: 5,
+        projectId: "487525",
+        projectName: "Foodio",
+        owner: "Guy Hawkins",
+        mail: "abc@gm..",
+        date: "20 Nov, 2025",
+        logger: "Attachment",
+        lessonLearned: "view",
+        title: "Client Communication Best Practices",
+        client: "Mr Davis",
+        description: "Regular client updates and transparent communication improved project satisfaction and reduced revision cycles.",
+    },
+    {
+        id: 6,
+        projectId: "654645",
+        projectName: "Eventify",
+        owner: "Savannah Nguyen",
+        mail: "abc@gm..",
+        date: "20 Nov, 2025",
+        logger: "Email",
+        lessonLearned: "view",
+        title: "Technology Stack Selection",
+        client: "Ms Wilson",
+        description: "Choosing the right technology stack early in the project prevented major refactoring later. This decision should be made during the planning phase.",
+    },
+    {
+        id: 7,
+        projectId: "564657",
+        projectName: "FinPro",
+        owner: "Kristin Watson",
+        mail: "abc@gm..",
+        date: "20 Nov, 2025",
+        logger: "Meeting notes",
+        lessonLearned: "view",
+        title: "Documentation Importance",
+        client: "Mr Taylor",
+        description: "Comprehensive documentation throughout the project lifecycle significantly reduced onboarding time for new team members and improved knowledge transfer.",
+    },
 ];
 
 export default function Lessons() {
     const router = useRouter();
     const [searchValue, setSearchValue] = useState("");
+    const [lessons, setLessons] = useState(lessonsData);
+    const [selectedLesson, setSelectedLesson] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [editedData, setEditedData] = useState(null);
 
     const filteredLessons = useMemo(() => {
-        if (!searchValue.trim()) return lessonsData;
+        if (!searchValue.trim()) return lessons;
 
         const searchLower = searchValue.toLowerCase();
-        return lessonsData.filter(
+        return lessons.filter(
             (lesson) =>
                 lesson.projectId.toLowerCase().includes(searchLower) ||
                 lesson.projectName.toLowerCase().includes(searchLower) ||
@@ -43,11 +140,56 @@ export default function Lessons() {
                 lesson.date.toLowerCase().includes(searchLower) ||
                 lesson.logger.toLowerCase().includes(searchLower)
         );
-    }, [searchValue]);
+    }, [searchValue, lessons]);
 
     const handleViewLesson = (id) => {
-        // Navigate to lesson detail page or open modal
-        console.log("View lesson:", id);
+        const lesson = lessons.find((l) => l.id === id);
+        if (lesson) {
+            setSelectedLesson(lesson);
+            setEditedData({
+                title: lesson.title,
+                projectName: lesson.projectName,
+                date: lesson.date,
+                client: lesson.client,
+                description: lesson.description,
+            });
+            setIsEditMode(false);
+            setIsModalOpen(true);
+        }
+    };
+
+    const handleEdit = () => {
+        setIsEditMode(true);
+    };
+
+    const handleSave = () => {
+        if (editedData && selectedLesson) {
+            // Update the lesson data
+            setLessons((prevLessons) =>
+                prevLessons.map((lesson) =>
+                    lesson.id === selectedLesson.id
+                        ? {
+                            ...lesson,
+                            ...editedData,
+                        }
+                        : lesson
+                )
+            );
+            // Update selected lesson to reflect changes
+            setSelectedLesson({
+                ...selectedLesson,
+                ...editedData,
+            });
+            toast.success("Lesson learned updated successfully!");
+            setIsEditMode(false);
+        }
+    };
+
+    const handleClose = () => {
+        setIsModalOpen(false);
+        setIsEditMode(false);
+        setSelectedLesson(null);
+        setEditedData(null);
     };
 
     return (
@@ -202,6 +344,149 @@ export default function Lessons() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Lesson Detail Modal */}
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogContent className="max-w-2xl bg-white p-0 overflow-hidden rounded-xl" showCloseButton={false}>
+                    <div className="bg-[#EFEEFC] p-6">
+                        <DialogHeader className="relative">
+                            <div className="flex items-start justify-between gap-4">
+                                {isEditMode ? (
+                                    <Input
+                                        value={editedData?.title || ""}
+                                        onChange={(e) =>
+                                            setEditedData({
+                                                ...editedData,
+                                                title: e.target.value,
+                                            })
+                                        }
+                                        className="text-xl sm:text-2xl font-bold text-slate-900 bg-white border-slate-300 flex-1"
+                                    />
+                                ) : (
+                                    <DialogTitle className="text-xl sm:text-2xl font-bold text-slate-900 pr-8 flex-1">
+                                        {selectedLesson?.title || ""}
+                                    </DialogTitle>
+                                )}
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    {!isEditMode && (
+                                        <button
+                                            onClick={handleEdit}
+                                            className="p-2 hover:bg-white/50 rounded-lg transition-colors cursor-pointer"
+                                            title="Edit"
+                                        >
+                                            <FiEdit2 className="h-5 w-5 text-slate-600" />
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={handleClose}
+                                        className="p-2 hover:bg-white/50 rounded-lg transition-colors cursor-pointer"
+                                        title="Close"
+                                    >
+                                        <FiX className="h-5 w-5 text-slate-600" />
+                                    </button>
+                                </div>
+                            </div>
+                        </DialogHeader>
+
+                        {/* Project Information */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                            <div>
+                                <p className="text-xs text-slate-600 mb-1">Project Name</p>
+                                {isEditMode ? (
+                                    <Input
+                                        value={editedData?.projectName || ""}
+                                        onChange={(e) =>
+                                            setEditedData({
+                                                ...editedData,
+                                                projectName: e.target.value,
+                                            })
+                                        }
+                                        className="bg-white border-slate-300"
+                                    />
+                                ) : (
+                                    <p className="text-sm font-medium text-slate-900">
+                                        {selectedLesson?.projectName || ""}
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-600 mb-1">Logged Date</p>
+                                {isEditMode ? (
+                                    <Input
+                                        value={editedData?.date || ""}
+                                        onChange={(e) =>
+                                            setEditedData({
+                                                ...editedData,
+                                                date: e.target.value,
+                                            })
+                                        }
+                                        className="bg-white border-slate-300"
+                                    />
+                                ) : (
+                                    <p className="text-sm font-medium text-slate-900">
+                                        {selectedLesson?.date || ""}
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-600 mb-1">Clients</p>
+                                {isEditMode ? (
+                                    <Input
+                                        value={editedData?.client || ""}
+                                        onChange={(e) =>
+                                            setEditedData({
+                                                ...editedData,
+                                                client: e.target.value,
+                                            })
+                                        }
+                                        className="bg-white border-slate-300"
+                                    />
+                                ) : (
+                                    <p className="text-sm font-medium text-slate-900">
+                                        {selectedLesson?.client || ""}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Description Section */}
+                    <div className="p-6">
+                        <p className="text-sm font-medium text-slate-700 mb-3">Description</p>
+                        {isEditMode ? (
+                            <Textarea
+                                value={editedData?.description || ""}
+                                onChange={(e) =>
+                                    setEditedData({
+                                        ...editedData,
+                                        description: e.target.value,
+                                    })
+                                }
+                                className="min-h-[150px] bg-white border-slate-300"
+                                placeholder="Enter description..."
+                            />
+                        ) : (
+                            <div className="min-h-[150px] p-4 bg-slate-50 rounded-md border border-slate-200">
+                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                    {selectedLesson?.description || ""}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Save Button */}
+                        {isEditMode && (
+                            <div className="flex justify-end mt-6">
+                                <Button
+                                    onClick={handleSave}
+                                    className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-2 cursor-pointer"
+                                >
+                                    Save
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
