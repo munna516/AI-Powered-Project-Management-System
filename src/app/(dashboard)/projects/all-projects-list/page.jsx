@@ -156,7 +156,7 @@ export default function AllProjectsList() {
                                         <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
                                             <button
                                                 className="text-primary hover:underline text-xs lg:text-sm font-medium cursor-pointer"
-                                                onClick={() => router.push(`/projects/view/${project.id}`)}
+                                                onClick={() => router.push(`/projects/project-details/${project.id}`)}
                                             >
                                                 view
                                             </button>
@@ -231,7 +231,7 @@ export default function AllProjectsList() {
                                         <TableCell className="py-3 px-4 text-center">
                                             <button
                                                 className="text-primary hover:underline text-xs font-medium cursor-pointer"
-                                                onClick={() => router.push(`/projects/view/${project.id}`)}
+                                                onClick={() => router.push(`/projects/project-details/${project.id}`)}
                                             >
                                                 view
                                             </button>
@@ -296,7 +296,7 @@ export default function AllProjectsList() {
                                 </div>
                                 <button
                                     className="w-full text-center text-primary hover:underline text-sm font-medium cursor-pointer pt-2"
-                                    onClick={() => router.push(`/projects/view/${project.id}`)}
+                                    onClick={() => router.push(`/projects/project-details/${project.id}`)}
                                 >
                                     View Details
                                 </button>
