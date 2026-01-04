@@ -1,10 +1,21 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 export default function AdminOTP() {
     const [otp, setOtp] = useState(["", "", "", "", ""]);
+    const [email, setEmail] = useState("");
     const inputRefs = useRef([]);
+    const router = useRouter();
+
+    useEffect(() => {
+        // Get email from sessionStorage
+        
+        // Auto-focus first input on mount
+        inputRefs.current[0]?.focus();
+    }, []);
 
     const handleChange = (index, value) => {
         // Only allow single digit
@@ -45,11 +56,6 @@ export default function AdminOTP() {
         }
     };
 
-    // Auto-focus first input on mount
-    useEffect(() => {
-        inputRefs.current[0]?.focus();
-    }, []);
-
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-6">
             <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 space-y-6">
@@ -61,12 +67,22 @@ export default function AdminOTP() {
                         Check your Email
                     </p>
                     <p className="text-sm text-secondary mb-7 px-2 sm:px-0">
-                        We sent a code to your email address @. Please check your email for
+                        We sent a code to your email address {email || "@"}. Please check your email for
                         the 5 digit code.
                     </p>
                 </div>
 
-                <form className="space-y-6">
+                <form
+                    className="space-y-6"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        const otpValue = otp.join("");
+                        if (otpValue.length === 5) {
+                            // Navigate to reset password page
+                            router.push("/admin/forget-password/reset");
+                        }
+                    }}
+                >
                     <div className="flex justify-center gap-2 sm:gap-3">
                         {otp.map((digit, index) => (
                             <input
