@@ -10,7 +10,7 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { MdDashboard, MdOutlineLogout } from "react-icons/md";
-import { FaUsers } from "react-icons/fa";
+import { FaUsers, FaUserShield } from "react-icons/fa";
 import { HiOutlineMenu } from "react-icons/hi";
 import { IoIosSettings } from "react-icons/io";
 import { FiBell } from "react-icons/fi";
@@ -25,6 +25,7 @@ const USER_NAME = "Robert Smith";
 const sidebarItems = [
     { name: "Dashboard", icon: <MdDashboard />, href: "/admin/dashboard" },
     { name: "Users", icon: <FaUsers />, href: "/admin/users" },
+    {name : "Roles and Permissions", icon: <FaUserShield />, href: "/admin/roles-and-permissions" },
 ];
 
 // Reusable NavButton component
@@ -120,15 +121,15 @@ export default function Sidebar() {
     const footer = (
         <div className={`p-4 space-y-2 text-sm ${SIDEBAR_BG}`}>
             <FooterButton
-                isActive={pathname === "/settings"}
+                isActive={pathname === "/admin/settings"}
                 icon={<IoIosSettings />}
                 label="Settings"
-                href="/settings"
+                href="/admin/settings"
             />
             <FooterButton
                 icon={<MdOutlineLogout />}
                 label="Log Out"
-                href="/"
+                href="/admin/login"
                 isLogout
             />
         </div>
