@@ -1,8 +1,19 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function AdminSuccess() {
+    const router = useRouter();
+
+    const handleLogin = () => {
+        // Clear session storage
+        if (typeof window !== "undefined") {
+            sessionStorage.removeItem("adminResetEmail");
+        }
+        // Navigate to admin login page
+        router.push("/admin/login");
+    };
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-6">
             <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 space-y-6">
@@ -19,16 +30,15 @@ export default function AdminSuccess() {
                 </div>
 
                 <div className="space-y-6">
-                    <Link href="/admin/login" className="block">
-                        <Button
-                            type="button"
-                            variant="primary"
-                            size="lg"
-                            className="w-full cursor-pointer"
-                        >
-                            Sign In
-                        </Button>
-                    </Link>
+                    <Button
+                        type="button"
+                        variant="primary"
+                        size="lg"
+                        className="w-full cursor-pointer"
+                        onClick={handleLogin}
+                    >
+                        Sign In
+                    </Button>
                 </div>
             </div>
         </div>

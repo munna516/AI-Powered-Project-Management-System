@@ -242,10 +242,10 @@ export default function CalendarMeetings() {
               Manage your schedule across Zoom, Meet, and Teams.
             </p>
           </div>
-          <Button variant="primary" className="w-full sm:w-auto">
+          {/* <Button variant="primary" className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             New Meeting
-          </Button>
+          </Button> */}
         </div>
 
         {/* AI Alert */}

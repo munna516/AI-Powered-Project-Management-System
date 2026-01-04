@@ -1,8 +1,16 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function Success() {
+  const router = useRouter();
+
+  const handleLogin = () => {
+
+    // Navigate to login page
+    router.push("/login");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-6">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 space-y-6">
@@ -19,16 +27,15 @@ export default function Success() {
         </div>
 
         <div className="space-y-6">
-          <Link href="/login" className="block">
-            <Button
-              type="button"
-              variant="primary"
-              size="lg"
-              className="w-full cursor-pointer"
-            >
-              Sign In
-            </Button>
-          </Link>
+          <Button
+            type="button"
+            variant="primary"
+            size="lg"
+            className="w-full cursor-pointer"
+            onClick={handleLogin}
+          >
+            Sign In
+          </Button>
         </div>
       </div>
     </div>

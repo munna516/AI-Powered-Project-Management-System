@@ -2,11 +2,28 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function ResetPassword() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const router = useRouter();
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+      if (newPassword === confirmPassword) {
+        // Navigate to success page
+        toast.success("Password updated successfully");
+        router.push("/forget-password/success");
+    }
+    else {
+      toast.error("New password and confirm password do not match");
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-6">
@@ -24,7 +41,7 @@ export default function ResetPassword() {
           </p>
         </div>
 
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="relative space-y-2">
             <label className="block text-sm font-medium text-secondary">
               New Password
@@ -32,6 +49,9 @@ export default function ResetPassword() {
             <Input
               type={showNewPassword ? "text" : "password"}
               placeholder="Enter your new password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
             />
             <button
               type="button"
@@ -53,6 +73,9 @@ export default function ResetPassword() {
             <Input
               type={showConfirmPassword ? "text" : "password"}
               placeholder="Confirm your new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
             />
             <button
               type="button"

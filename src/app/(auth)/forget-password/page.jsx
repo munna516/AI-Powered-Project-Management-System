@@ -1,8 +1,23 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 export default function ForgetPassword() {
+  const [email, setEmail] = useState("");
+  const router = useRouter();
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (email) {
+      toast.success("Email sent successfully");
+      // Navigate to OTP page
+      router.push("/forget-password/otp");
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-6">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 space-y-6">
@@ -18,12 +33,18 @@ export default function ForgetPassword() {
           </p>
         </div>
 
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-secondary">
               Email address
             </label>
-            <Input type="email" placeholder="you@example.com" className="" />
+            <Input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
           <Button
             type="submit"
