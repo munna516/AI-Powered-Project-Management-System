@@ -2,11 +2,28 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberPassword, setRememberPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const router = useRouter();
+
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Simple validation - accept any email and password
+    if (email && password) {
+      toast.success("Login successful");
+      // Redirect to admin dashboard
+      router.push("/admin/dashboard");
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-6">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 space-y-6">
@@ -22,12 +39,18 @@ export default function AdminLogin() {
           </p>
         </div>
 
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-secondary">
               Email
             </label>
-            <Input type="email" placeholder="you@example.com" className="" />
+            <Input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
           <div className="relative space-y-2">
             <label className="block text-sm font-medium text-secondary">
@@ -36,6 +59,9 @@ export default function AdminLogin() {
             <Input
               type={showPassword ? "text" : "password"}
               placeholder="*******"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
             />
             <p
               className="absolute right-3 top-11 -translate-y-1/2 bg-none cursor-pointer text-primary font-semibold"
