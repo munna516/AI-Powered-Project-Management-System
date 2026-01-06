@@ -1,8 +1,17 @@
 "use client";
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { FiCheck, FiX, FiEye } from "react-icons/fi";
+import { FiX, FiEye } from "react-icons/fi";
 import PageHeader from "@/components/PageHeader/PageHeader";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import toast from "react-hot-toast";
 
 const tabs = [
   { id: "email", label: "Email" },
@@ -19,18 +28,21 @@ const initialCommunications = [
     type: "email",
     summary: "Hey, This Is Pilot, Your Project Manager. I've Noticed A Few Issues With Your Project. Here Is The Project #Mobile App And Your Project ID: #8987724.",
     details: "I've Reviewed The Latest Updates And Identified A Few Areas That Need Attention To Keep The Project On Schedule. Some Tasks Have Missing Requirements, A Few Design Components Are Still Pending Approval, And There Are Delays In Content Delivery. I've Summarized The Issues Along With Recommended Actions So You Can Quickly Address Them. Please Go Through The List Below And Update The Status Where Needed.",
+    dateTime: new Date("2024-01-15T10:30:00"),
   },
   {
     id: 2,
     type: "email",
     summary: "Project Status Update: Q4 Milestones Review Required",
     details: "We need to review the Q4 milestones and ensure all deliverables are on track. The development team has completed 75% of the planned features, but there are some concerns about the timeline for the remaining 25%. Please schedule a meeting to discuss the priorities and potential adjustments to the project scope.",
+    dateTime: new Date("2024-01-16T14:20:00"),
   },
   {
     id: 3,
     type: "email",
     summary: "Urgent: Client Feedback on Design Mockups",
     details: "The client has provided feedback on the latest design mockups. They are generally satisfied but have requested changes to the color scheme and typography. The design team needs to address these concerns before the next review meeting scheduled for next week.",
+    dateTime: new Date("2024-01-17T09:15:00"),
   },
   // Meeting notes
   {
@@ -38,18 +50,21 @@ const initialCommunications = [
     type: "meeting-notes",
     summary: "Sprint Planning Meeting - January 15, 2024",
     details: "Discussed the upcoming sprint goals and priorities. Team agreed on focusing on user authentication features and dashboard improvements. Identified potential blockers related to API integration. Action items: Backend team to provide API documentation by end of week, Frontend team to start working on authentication UI components.",
+    dateTime: new Date("2024-01-15T11:00:00"),
   },
   {
     id: 5,
     type: "meeting-notes",
     summary: "Client Review Meeting - Project Status Update",
     details: "Presented current project status to the client. Highlighted completed features and upcoming milestones. Client expressed satisfaction with progress but requested additional features for the mobile app. Need to discuss timeline implications with the development team.",
+    dateTime: new Date("2024-01-16T15:45:00"),
   },
   {
     id: 6,
     type: "meeting-notes",
     summary: "Team Standup - Daily Progress Check",
     details: "Team members shared their progress on assigned tasks. Most tasks are on track, but there are some dependencies that need attention. Discussed potential solutions for the database performance issues identified during testing.",
+    dateTime: new Date("2024-01-17T10:00:00"),
   },
   // Recording
   {
@@ -57,18 +72,21 @@ const initialCommunications = [
     type: "recording",
     summary: "Client Interview Recording - User Requirements Discussion",
     details: "Recorded interview with the client to gather detailed user requirements. Key points discussed: User interface preferences, feature priorities, integration requirements with existing systems, and timeline expectations. Duration: 45 minutes. Recording quality: Good.",
+    dateTime: new Date("2024-01-14T13:30:00"),
   },
   {
     id: 8,
     type: "recording",
     summary: "Technical Architecture Review - System Design Discussion",
     details: "Recorded technical discussion about system architecture and design decisions. Covered topics: Database schema, API structure, security considerations, and scalability requirements. Duration: 1 hour 15 minutes. Participants: Tech lead, Senior developers, and System architect.",
+    dateTime: new Date("2024-01-15T16:00:00"),
   },
   {
     id: 9,
     type: "recording",
     summary: "Stakeholder Feedback Session - Product Demo",
     details: "Recorded product demonstration session with key stakeholders. Showed current features and gathered feedback. Stakeholders provided valuable insights on user experience and suggested improvements. Duration: 30 minutes.",
+    dateTime: new Date("2024-01-16T11:30:00"),
   },
   // Meetings transcript
   {
@@ -76,18 +94,21 @@ const initialCommunications = [
     type: "meetings-transcript",
     summary: "Project Kickoff Meeting Transcript - January 5, 2024",
     details: "Full transcript of the project kickoff meeting. Discussed project objectives, team introductions, timeline, and initial requirements. All team members were present. Key decisions: Project will use Agile methodology, weekly sprint reviews, and bi-weekly client updates.",
+    dateTime: new Date("2024-01-05T09:00:00"),
   },
   {
     id: 11,
     type: "meetings-transcript",
     summary: "Sprint Retrospective Transcript - Team Reflection Session",
     details: "Complete transcript of the sprint retrospective meeting. Team discussed what went well, what could be improved, and action items for the next sprint. Identified areas for process improvement and team collaboration enhancement.",
+    dateTime: new Date("2024-01-12T14:00:00"),
   },
   {
     id: 12,
     type: "meetings-transcript",
     summary: "Client Presentation Transcript - Feature Showcase",
     details: "Full transcript of the client presentation where we showcased new features. Client asked questions about implementation details, timeline, and future roadmap. All questions were addressed during the meeting.",
+    dateTime: new Date("2024-01-13T10:30:00"),
   },
   // Attachments
   {
@@ -95,18 +116,21 @@ const initialCommunications = [
     type: "attachments",
     summary: "Project Requirements Document - Version 2.1",
     details: "Updated project requirements document with latest changes and client feedback. Includes detailed feature specifications, user stories, acceptance criteria, and technical requirements. File size: 2.5 MB. Format: PDF.",
+    dateTime: new Date("2024-01-14T08:00:00"),
   },
   {
     id: 14,
     type: "attachments",
     summary: "Design Mockups - Mobile App UI/UX",
     details: "Complete set of design mockups for the mobile application. Includes wireframes, high-fidelity designs, and interactive prototypes. Covers all major screens and user flows. File size: 15.3 MB. Format: Figma files and PDF exports.",
+    dateTime: new Date("2024-01-15T12:00:00"),
   },
   {
     id: 15,
     type: "attachments",
     summary: "Technical Documentation - API Integration Guide",
     details: "Comprehensive technical documentation for API integration. Includes endpoint specifications, authentication methods, request/response formats, error handling, and code examples. File size: 1.8 MB. Format: PDF and Markdown files.",
+    dateTime: new Date("2024-01-16T09:30:00"),
   },
 ];
 
@@ -115,6 +139,9 @@ export default function AiDetection() {
   const [searchValue, setSearchValue] = useState("");
   const [communications, setCommunications] = useState(initialCommunications);
   const [expandedItems, setExpandedItems] = useState(new Set([]));
+  const [dateFilter, setDateFilter] = useState("today");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
 
   const handleRemove = (id) => {
     setCommunications((prev) => prev.filter((item) => item.id !== id));
@@ -135,6 +162,115 @@ export default function AiDetection() {
       }
       return newSet;
     });
+  };
+
+  const handleCategorySelect = (id, category) => {
+    const categoryMessages = {
+      Risk: "Detection added to Risk successfully",
+      Assumption: "Detection added to Assumption successfully",
+      Issues: "Detection added to Issues successfully",
+      Decision: "Detection added to Decision successfully",
+      Dependencies: "Detection added to Dependencies successfully",
+    };
+
+    toast.success(categoryMessages[category] || "Detection categorized successfully");
+
+    // Remove the detection after categorization
+    setCommunications((prev) => prev.filter((item) => item.id !== id));
+    setExpandedItems((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(id);
+      return newSet;
+    });
+  };
+
+  const formatDateTime = (dateTime) => {
+    if (!dateTime) return "";
+    const date = new Date(dateTime);
+    const dateStr = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const timeStr = date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return `${dateStr} ${timeStr}`;
+  };
+
+  // Calculate date ranges based on filter type
+  const getDateRange = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    switch (dateFilter) {
+      case "today": {
+        const start = new Date(today);
+        const end = new Date(today);
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+      }
+      case "7days": {
+        const start = new Date(today);
+        start.setDate(start.getDate() - 6); // Last 7 days including today
+        const end = new Date(today);
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+      }
+      case "month": {
+        const start = new Date(today.getFullYear(), today.getMonth(), 1);
+        const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+      }
+      case "custom": {
+        const start = customStartDate ? new Date(customStartDate) : null;
+        const end = customEndDate ? new Date(customEndDate) : null;
+        if (end) end.setHours(23, 59, 59, 999);
+        return { start, end };
+      }
+      default:
+        return { start: today, end: today };
+    }
+  }, [dateFilter, customStartDate, customEndDate]);
+
+  // Format date for display
+  const formatDateRange = () => {
+    const { start, end } = getDateRange;
+
+    const formatDate = (date) => {
+      if (!date) return "";
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    };
+
+    if (dateFilter === "today") {
+      return formatDate(start);
+    }
+    if (dateFilter === "7days") {
+      return `${formatDate(start)} - ${formatDate(end)}`;
+    }
+    if (dateFilter === "month") {
+      return start.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    }
+    if (dateFilter === "custom") {
+      if (!start || !end) return "Select date range";
+      return `${formatDate(start)} - ${formatDate(end)}`;
+    }
+    return `${formatDate(start)} - ${formatDate(end)}`;
+  };
+
+  const handleFilterChange = (value) => {
+    setDateFilter(value);
+    if (value !== "custom") {
+      setCustomStartDate("");
+      setCustomEndDate("");
+    }
   };
 
   const filteredCommunications = useMemo(() => {
@@ -158,20 +294,81 @@ export default function AiDetection() {
         onSearchChange={(e) => setSearchValue(e.target.value)}
       />
 
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-3 mt-10">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors cursor-pointer ${activeTab === tab.id
-              ? "bg-[#6051E2] text-white"
-              : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-              }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Filter Tabs and Date Filter */}
+      <div className="flex flex-col gap-3 mt-10">
+        {/* First Row - Tabs and Date Filter */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-wrap gap-3">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors cursor-pointer ${activeTab === tab.id
+                  ? "bg-[#6051E2] text-white"
+                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+            {/* Date Filter */}
+            <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[220px]">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">
+                Filter by Date
+              </label>
+              <Select value={dateFilter} onValueChange={handleFilterChange}>
+                <SelectTrigger className="h-9 sm:h-10 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="7days">Last 7 Days</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Custom Date Range Inputs */}
+            {dateFilter === "custom" ? (
+              <>
+                <div className="flex flex-col gap-1 min-w-[140px]">
+                  <label className="text-xs text-slate-600">Start Date</label>
+                  <Input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="h-9 sm:h-10 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 min-w-[140px]">
+                  <label className="text-xs text-slate-600">End Date</label>
+                  <Input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    min={customStartDate}
+                    className="h-9 sm:h-10 text-sm"
+                  />
+                </div>
+              </>
+            ) : (
+              /* Date Range Display for preset filters */
+              <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[180px] sm:min-w-[200px] h-9 sm:h-10">
+                <span className="text-xs sm:text-sm">{formatDateRange()}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Show selected custom range below */}
+        {dateFilter === "custom" && customStartDate && customEndDate && (
+          <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
+            <span>{formatDateRange()}</span>
+          </div>
+        )}
       </div>
 
       {/* Communications List */}
@@ -204,33 +401,49 @@ export default function AiDetection() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end sm:justify-start">
-                      {/* Approve Button */}
-                      <button
-                        className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-green-500 flex items-center justify-center text-white hover:bg-green-600 transition cursor-pointer"
-                        title="Approve"
-                        aria-label="Approve"
-                      >
-                        <FiCheck className="h-3 w-3 sm:h-4 sm:w-4" />
-                      </button>
-                      {/* Remove Button */}
-                      <button
-                        onClick={() => handleRemove(item.id)}
-                        className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition cursor-pointer"
-                        title="Remove"
-                        aria-label="Remove"
-                      >
-                        <FiX className="h-3 w-3 sm:h-4 sm:w-4" />
-                      </button>
-                      {/* View Details Button */}
-                      <button
-                        onClick={() => handleViewDetails(item.id)}
-                        className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-slate-400 flex items-center justify-center text-white hover:bg-slate-500 transition cursor-pointer"
-                        title="View details"
-                        aria-label="View details"
-                      >
-                        <FiEye className="h-3 w-3 sm:h-4 sm:w-4" />
-                      </button>
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0 w-full sm:w-auto">
+                      {/* Date and Time */}
+                      {item.dateTime && (
+                        <div className="text-xs text-slate-500 mb-1">
+                          {formatDateTime(item.dateTime)}
+                        </div>
+                      )}
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2">
+                        {/* Category Dropdown */}
+                        <Select
+                          onValueChange={(value) => handleCategorySelect(item.id, value)}
+                        >
+                          <SelectTrigger className="h-7 w-auto sm:h-8 px-2 sm:px-3 text-xs sm:text-sm min-w-[120px] sm:min-w-[140px]">
+                            <SelectValue placeholder="Add to..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Risk">Risk</SelectItem>
+                            <SelectItem value="Assumption">Assumption</SelectItem>
+                            <SelectItem value="Issues">Issues</SelectItem>
+                            <SelectItem value="Decision">Decision</SelectItem>
+                            <SelectItem value="Dependencies">Dependencies</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {/* Remove Button */}
+                        <button
+                          onClick={() => handleRemove(item.id)}
+                          className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition cursor-pointer"
+                          title="Remove"
+                          aria-label="Remove"
+                        >
+                          <FiX className="h-3 w-3 sm:h-4 sm:w-4" />
+                        </button>
+                        {/* View Details Button */}
+                        <button
+                          onClick={() => handleViewDetails(item.id)}
+                          className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-slate-400 flex items-center justify-center text-white hover:bg-slate-500 transition cursor-pointer"
+                          title="View details"
+                          aria-label="View details"
+                        >
+                          <FiEye className="h-3 w-3 sm:h-4 sm:w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>

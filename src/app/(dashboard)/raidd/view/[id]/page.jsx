@@ -77,6 +77,12 @@ export default function ViewRAIDD() {
                 Back to RAIDD
             </button>
 
+            <div className="space-y-2 mt-6 ">
+                <p className="text-base text-slate-600">Project Name : <span className="font-medium text-slate-900">Project Phoenix</span></p>
+                <p className="text-base text-slate-600">Project ID : <span className="font-medium text-slate-900">049559234</span></p>
+
+            </div>
+
             {/* Header */}
             <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900">AI summary RAIDD</h1>

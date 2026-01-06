@@ -2,6 +2,14 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import { FiFile, FiStar, FiPlus } from "react-icons/fi";
 import { useRouter } from "next/navigation";
@@ -86,6 +94,82 @@ export default function Projects() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("ongoing");
     const [searchValue, setSearchValue] = useState("");
+    const [dateFilter, setDateFilter] = useState("today");
+    const [customStartDate, setCustomStartDate] = useState("");
+    const [customEndDate, setCustomEndDate] = useState("");
+
+    // Calculate date ranges based on filter type
+    const getDateRange = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        switch (dateFilter) {
+            case "today": {
+                const start = new Date(today);
+                const end = new Date(today);
+                end.setHours(23, 59, 59, 999);
+                return { start, end };
+            }
+            case "7days": {
+                const start = new Date(today);
+                start.setDate(start.getDate() - 6); // Last 7 days including today
+                const end = new Date(today);
+                end.setHours(23, 59, 59, 999);
+                return { start, end };
+            }
+            case "month": {
+                const start = new Date(today.getFullYear(), today.getMonth(), 1);
+                const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                end.setHours(23, 59, 59, 999);
+                return { start, end };
+            }
+            case "custom": {
+                const start = customStartDate ? new Date(customStartDate) : null;
+                const end = customEndDate ? new Date(customEndDate) : null;
+                if (end) end.setHours(23, 59, 59, 999);
+                return { start, end };
+            }
+            default:
+                return { start: today, end: today };
+        }
+    }, [dateFilter, customStartDate, customEndDate]);
+
+    // Format date for display
+    const formatDateRange = () => {
+        const { start, end } = getDateRange;
+
+        const formatDate = (date) => {
+            if (!date) return "";
+            return date.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+            });
+        };
+
+        if (dateFilter === "today") {
+            return formatDate(start);
+        }
+        if (dateFilter === "7days") {
+            return `${formatDate(start)} - ${formatDate(end)}`;
+        }
+        if (dateFilter === "month") {
+            return start.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        }
+        if (dateFilter === "custom") {
+            if (!start || !end) return "Select date range";
+            return `${formatDate(start)} - ${formatDate(end)}`;
+        }
+        return `${formatDate(start)} - ${formatDate(end)}`;
+    };
+
+    const handleFilterChange = (value) => {
+        setDateFilter(value);
+        if (value !== "custom") {
+            setCustomStartDate("");
+            setCustomEndDate("");
+        }
+    };
 
     const filteredProjects = useMemo(() => {
         let projects = allProjects.filter((project) => project.status === activeTab);
@@ -98,8 +182,11 @@ export default function Projects() {
             );
         }
 
+        // Date filtering can be added here if projects have date fields
+        // For now, we'll just return the filtered projects
+
         return projects;
-    }, [activeTab, searchValue]);
+    }, [activeTab, searchValue, getDateRange]);
 
     const getStatusTagStyle = (status) => {
         switch (status) {
@@ -175,22 +262,81 @@ export default function Projects() {
                 buttonIcon={<FiPlus className="h-4 w-4" />}
             />
 
-            {/* Filter Tabs */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6 sm:mt-8">
-                <div className="flex flex-wrap gap-3">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`px-4 py-2 text-xl font-medium transition-colors cursor-pointer border-b-2 ${activeTab === tab.id
-                                ? "text-[#6051E2] border-[#6051E2]"
-                                : "text-slate-600 border-transparent hover:text-[#6051E2] hover:border-[#6051E2]/50"
-                                }`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
+            {/* Filter Tabs and Date Filter */}
+            <div className="flex flex-col gap-3 mt-6 sm:mt-8">
+                {/* First Row - Tabs and Date Filter */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex flex-wrap gap-3">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`px-4 py-2 text-xl font-medium transition-colors cursor-pointer border-b-2 ${activeTab === tab.id
+                                    ? "text-[#6051E2] border-[#6051E2]"
+                                    : "text-slate-600 border-transparent hover:text-[#6051E2] hover:border-[#6051E2]/50"
+                                    }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+                        {/* Date Filter */}
+                        <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[220px]">
+                            <label className="text-xs sm:text-sm font-medium text-slate-700">
+                                Filter by Date
+                            </label>
+                            <Select value={dateFilter} onValueChange={handleFilterChange}>
+                                <SelectTrigger className="h-9 sm:h-10 text-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="today">Today</SelectItem>
+                                    <SelectItem value="7days">Last 7 Days</SelectItem>
+                                    <SelectItem value="month">This Month</SelectItem>
+                                    <SelectItem value="custom">Custom Range</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Custom Date Range Inputs */}
+                        {dateFilter === "custom" ? (
+                            <>
+                                <div className="flex flex-col gap-1 min-w-[140px]">
+                                    <label className="text-xs text-slate-600">Start Date</label>
+                                    <Input
+                                        type="date"
+                                        value={customStartDate}
+                                        onChange={(e) => setCustomStartDate(e.target.value)}
+                                        className="h-9 sm:h-10 text-sm"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1 min-w-[140px]">
+                                    <label className="text-xs text-slate-600">End Date</label>
+                                    <Input
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={(e) => setCustomEndDate(e.target.value)}
+                                        min={customStartDate}
+                                        className="h-9 sm:h-10 text-sm"
+                                    />
+                                </div>
+                            </>
+                        ) : (
+                            /* Date Range Display for preset filters */
+                            <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[180px] sm:min-w-[200px] h-9 sm:h-10">
+                                <span className="text-xs sm:text-sm">{formatDateRange()}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
+
+                {/* Show selected custom range below */}
+                {dateFilter === "custom" && customStartDate && customEndDate && (
+                    <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
+                        <span>{formatDateRange()}</span>
+                    </div>
+                )}
             </div>
 
             {/* Project Cards */}
@@ -292,7 +438,7 @@ export default function Projects() {
                                                 </p>
                                             </div>
                                             <div className="flex flex-wrap gap-3 justify-end">
-                                               
+
                                                 <Button
                                                     className="flex items-center gap-2 bg-[#6051E2] text-white hover:bg-[#6051E2]/90 cursor-pointer"
                                                     onClick={() => router.push(`/projects/project-details/${project.id}`)}
