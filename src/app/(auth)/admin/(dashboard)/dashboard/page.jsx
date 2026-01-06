@@ -23,8 +23,7 @@ import {
     Tooltip,
     ResponsiveContainer,
 } from "recharts";
-import { ArrowUpRight } from "lucide-react";
-import Link from "next/link";
+
 
 const chartData = [
     { month: "Jan", value: 95000 },

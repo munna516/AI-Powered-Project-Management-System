@@ -9,6 +9,14 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import { useRouter } from "next/navigation";
 
@@ -99,20 +107,104 @@ export default function RAIDD() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("risk");
     const [searchValue, setSearchValue] = useState("");
+    const [dateFilter, setDateFilter] = useState("today");
+    const [customStartDate, setCustomStartDate] = useState("");
+    const [customEndDate, setCustomEndDate] = useState("");
+
+    // Calculate date ranges based on filter type
+    const getDateRange = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        switch (dateFilter) {
+            case "today": {
+                const start = new Date(today);
+                const end = new Date(today);
+                end.setHours(23, 59, 59, 999);
+                return { start, end };
+            }
+            case "7days": {
+                const start = new Date(today);
+                start.setDate(start.getDate() - 6); // Last 7 days including today
+                const end = new Date(today);
+                end.setHours(23, 59, 59, 999);
+                return { start, end };
+            }
+            case "month": {
+                const start = new Date(today.getFullYear(), today.getMonth(), 1);
+                const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                end.setHours(23, 59, 59, 999);
+                return { start, end };
+            }
+            case "custom": {
+                const start = customStartDate ? new Date(customStartDate) : null;
+                const end = customEndDate ? new Date(customEndDate) : null;
+                if (end) end.setHours(23, 59, 59, 999);
+                return { start, end };
+            }
+            default:
+                return { start: today, end: today };
+        }
+    }, [dateFilter, customStartDate, customEndDate]);
+
+    // Format date for display
+    const formatDateRange = () => {
+        const { start, end } = getDateRange;
+        
+        const formatDate = (date) => {
+            if (!date) return "";
+            return date.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+            });
+        };
+
+        if (dateFilter === "today") {
+            return formatDate(start);
+        }
+        if (dateFilter === "7days") {
+            return `${formatDate(start)} - ${formatDate(end)}`;
+        }
+        if (dateFilter === "month") {
+            return start.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        }
+        if (dateFilter === "custom") {
+            if (!start || !end) return "Select date range";
+            return `${formatDate(start)} - ${formatDate(end)}`;
+        }
+        return `${formatDate(start)} - ${formatDate(end)}`;
+    };
+
+    const handleFilterChange = (value) => {
+        setDateFilter(value);
+        if (value !== "custom") {
+            setCustomStartDate("");
+            setCustomEndDate("");
+        }
+    };
 
     const filteredData = useMemo(() => {
         const data = allData[activeTab] || [];
-        if (!searchValue.trim()) return data;
+        let filtered = data;
 
-        const searchLower = searchValue.toLowerCase();
-        return data.filter(
-            (item) =>
-                item.projectId.toLowerCase().includes(searchLower) ||
-                item.projectName.toLowerCase().includes(searchLower) ||
-                item.mail.toLowerCase().includes(searchLower) ||
-                item.date.toLowerCase().includes(searchLower)
-        );
-    }, [activeTab, searchValue]);
+        // Search filtering
+        if (searchValue.trim()) {
+            const searchLower = searchValue.toLowerCase();
+            filtered = filtered.filter(
+                (item) =>
+                    item.projectId.toLowerCase().includes(searchLower) ||
+                    item.projectName.toLowerCase().includes(searchLower) ||
+                    item.mail.toLowerCase().includes(searchLower) ||
+                    item.date.toLowerCase().includes(searchLower)
+            );
+        }
+
+        // Date filtering can be added here if needed
+        // For now, we'll just return the filtered data
+
+        return filtered;
+    }, [activeTab, searchValue, getDateRange]);
 
     return (
         <div className="space-y-4 sm:space-y-6">
@@ -124,20 +216,81 @@ export default function RAIDD() {
                 onSearchChange={(e) => setSearchValue(e.target.value)}
             />
 
-            {/* Filter Tabs */}
-            <div className="flex flex-wrap gap-3 mt-10">
-                {tabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors cursor-pointer ${activeTab === tab.id
-                            ? "bg-[#6051E2] text-white"
-                            : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-                            }`}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
+            {/* Filter Tabs and Date Filter */}
+            <div className="flex flex-col gap-3 mt-10">
+                {/* First Row - Tabs and Date Filter */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex flex-wrap gap-3">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors cursor-pointer ${activeTab === tab.id
+                                    ? "bg-[#6051E2] text-white"
+                                    : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+                                    }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+                        {/* Date Filter */}
+                        <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[220px]">
+                            <label className="text-xs sm:text-sm font-medium text-slate-700">
+                                Filter by Date
+                            </label>
+                            <Select value={dateFilter} onValueChange={handleFilterChange}>
+                                <SelectTrigger className="h-9 sm:h-10 text-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="today">Today</SelectItem>
+                                    <SelectItem value="7days">Last 7 Days</SelectItem>
+                                    <SelectItem value="month">This Month</SelectItem>
+                                    <SelectItem value="custom">Custom Range</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Custom Date Range Inputs */}
+                        {dateFilter === "custom" ? (
+                            <>
+                                <div className="flex flex-col gap-1 min-w-[140px]">
+                                    <label className="text-xs text-slate-600">Start Date</label>
+                                    <Input
+                                        type="date"
+                                        value={customStartDate}
+                                        onChange={(e) => setCustomStartDate(e.target.value)}
+                                        className="h-9 sm:h-10 text-sm"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1 min-w-[140px]">
+                                    <label className="text-xs text-slate-600">End Date</label>
+                                    <Input
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={(e) => setCustomEndDate(e.target.value)}
+                                        min={customStartDate}
+                                        className="h-9 sm:h-10 text-sm"
+                                    />
+                                </div>
+                            </>
+                        ) : (
+                            /* Date Range Display for preset filters */
+                            <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[180px] sm:min-w-[200px] h-9 sm:h-10">
+                                <span className="text-xs sm:text-sm">{formatDateRange()}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Show selected custom range below */}
+                {dateFilter === "custom" && customStartDate && customEndDate && (
+                    <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
+                        <span>{formatDateRange()}</span>
+                    </div>
+                )}
             </div>
 
             {/* Table Card */}
