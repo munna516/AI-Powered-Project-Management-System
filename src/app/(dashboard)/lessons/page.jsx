@@ -12,13 +12,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { FiSearch, FiArrowLeft, FiArrowRight, FiEdit2, FiX } from "react-icons/fi";
+import { FiSearch, FiArrowLeft, FiArrowRight, FiEdit2, FiX, FiDownload } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import toast from "react-hot-toast";
@@ -126,21 +127,49 @@ export default function Lessons() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editedData, setEditedData] = useState(null);
+    const [dateFilterState, setDateFilterState] = useState({
+        filter: "all",
+        startDate: null,
+        endDate: null,
+    });
 
     const filteredLessons = useMemo(() => {
-        if (!searchValue.trim()) return lessons;
+        let filtered = lessons;
 
-        const searchLower = searchValue.toLowerCase();
-        return lessons.filter(
-            (lesson) =>
-                lesson.projectId.toLowerCase().includes(searchLower) ||
-                lesson.projectName.toLowerCase().includes(searchLower) ||
-                lesson.owner.toLowerCase().includes(searchLower) ||
-                lesson.mail.toLowerCase().includes(searchLower) ||
-                lesson.date.toLowerCase().includes(searchLower) ||
-                lesson.logger.toLowerCase().includes(searchLower)
-        );
-    }, [searchValue, lessons]);
+        // Search filtering
+        if (searchValue.trim()) {
+            const searchLower = searchValue.toLowerCase();
+            filtered = filtered.filter(
+                (lesson) =>
+                    lesson.projectId.toLowerCase().includes(searchLower) ||
+                    lesson.projectName.toLowerCase().includes(searchLower) ||
+                    lesson.owner.toLowerCase().includes(searchLower) ||
+                    lesson.mail.toLowerCase().includes(searchLower) ||
+                    lesson.date.toLowerCase().includes(searchLower) ||
+                    lesson.logger.toLowerCase().includes(searchLower)
+            );
+        }
+
+        // Date filtering (based on date field)
+        if (dateFilterState.filter !== "all") {
+            const { start, end } = getDateRangeFromFilter(
+                dateFilterState.filter,
+                dateFilterState.startDate,
+                dateFilterState.endDate
+            );
+
+            if (start && end) {
+                filtered = filtered.filter((lesson) => {
+                    // Parse date (format: "20 Nov, 2025")
+                    const lessonDate = new Date(lesson.date);
+                    if (isNaN(lessonDate.getTime())) return true; // Skip invalid dates
+                    return lessonDate >= start && lessonDate <= end;
+                });
+            }
+        }
+
+        return filtered;
+    }, [searchValue, lessons, dateFilterState]);
 
     const handleViewLesson = (id) => {
         const lesson = lessons.find((l) => l.id === id);
@@ -192,15 +221,56 @@ export default function Lessons() {
         setEditedData(null);
     };
 
+    const handleExport = () => {
+        toast.success("Lessons learned data exported successfully!");
+    };
+
     return (
         <div className="space-y-4 sm:space-y-6">
-            <PageHeader
-                title="Lesson Learned"
-                description="AI powered insights for all your projects"
-                searchPlaceholder="search lesson learned"
-                searchValue={searchValue}
-                onSearchChange={(e) => setSearchValue(e.target.value)}
-            />
+            {/* Header */}
+            <div className="space-y-4">
+                <div>
+                    <h1 className="text-xl md:text-2xl font-bold text-slate-900">Lesson Learned</h1>
+                    <p className="text-sm text-slate-500 mt-3">AI powered insights for all your projects</p>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative mt-6">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-6 w-6 text-slate-400" />
+                    <Input
+                        type="text"
+                        placeholder="search lesson learned"
+                        value={searchValue}
+                        onChange={(e) => setSearchValue(e.target.value)}
+                        className="pl-10 py-7 bg-white border-[#6051E2] !text-md md:!text-lg placeholder:!text-md md:placeholder:!text-lg"
+                    />
+                </div>
+            </div>
+
+            {/* Date Filter and Export Button */}
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:justify-between">
+                {/* Date Filter - Left Side */}
+                <DateFilter
+                    onFilterChange={setDateFilterState}
+                    initialFilter="all"
+                />
+
+                {/* Export Button - Right Side */}
+                <Button
+                    onClick={handleExport}
+                    className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex items-center gap-2 w-full sm:w-auto"
+                >
+                    <FiDownload className="h-4 w-4" />
+                    Export
+                </Button>
+            </div>
+
+            {/* Show selected custom range */}
+            {dateFilterState.filter === "custom" && dateFilterState.startDate && dateFilterState.endDate && (
+                <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
+                    <span>{dateFilterState.startDate} - {dateFilterState.endDate}</span>
+                </div>
+            )}
 
             {/* Lessons Table */}
             <Card className="overflow-hidden mt-4 sm:mt-6">

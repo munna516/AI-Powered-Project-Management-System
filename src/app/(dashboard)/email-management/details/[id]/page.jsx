@@ -83,9 +83,7 @@ export default function EmailDetails() {
                 >
                     <FiArrowLeft className="h-4 w-4" /> Go Back
                 </button>
-                <Button onClick={() => router.push("/email-management/generate-email")} className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-3 text-sm sm:text-base font-semibold cursor-pointer">
-                    <FiMail className="h-4 w-4" /> Generate Email
-                </Button>
+               
             </div>
 
             {/* Email Document Section */}

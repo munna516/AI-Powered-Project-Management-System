@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     Table,
@@ -9,10 +9,12 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import DateFilter from "@/components/DateFilter/Datefilter";
 import PageHeader from "@/components/PageHeader/PageHeader";
-import { FiPlus } from "react-icons/fi";
+import { FiPlus, FiDownload } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 const vendorsData = [
     {
@@ -97,17 +99,39 @@ const getStatusStyle = (status) => {
 export default function Vendors() {
     const router = useRouter();
     const [searchValue, setSearchValue] = useState("");
+    const [dateFilterState, setDateFilterState] = useState({
+        filter: "all",
+        startDate: null,
+        endDate: null,
+    });
 
     const handleAddVendor = () => {
         router.push("/vendors/add-vendor");
     };
 
-    const filteredVendors = vendorsData.filter(
-        (vendor) =>
-            vendor.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-            vendor.designation.toLowerCase().includes(searchValue.toLowerCase()) ||
-            vendor.email.toLowerCase().includes(searchValue.toLowerCase())
-    );
+    const handleExport = () => {
+        toast.success("Vendors data exported successfully!");
+    };
+
+    const filteredVendors = useMemo(() => {
+        let filtered = vendorsData;
+
+        // Search filtering
+        if (searchValue.trim()) {
+            const searchLower = searchValue.toLowerCase();
+            filtered = filtered.filter(
+                (vendor) =>
+                    vendor.name.toLowerCase().includes(searchLower) ||
+                    vendor.designation.toLowerCase().includes(searchLower) ||
+                    vendor.email.toLowerCase().includes(searchLower)
+            );
+        }
+
+        // Date filtering can be added here if vendors have date fields
+        // For now, we'll just return the filtered data
+
+        return filtered;
+    }, [searchValue, dateFilterState]);
 
     return (
         <div className="w-full">
@@ -122,6 +146,31 @@ export default function Vendors() {
                     buttonIcon={<FiPlus className="h-4 w-4" />}
                     onButtonClick={handleAddVendor}
                 />
+
+                {/* Date Filter and Export Button */}
+                <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:justify-between">
+                    {/* Date Filter - Left Side */}
+                    <DateFilter
+                        onFilterChange={setDateFilterState}
+                        initialFilter="all"
+                    />
+
+                    {/* Export Button - Right Side */}
+                    <Button
+                        onClick={handleExport}
+                        className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex items-center gap-2 w-full sm:w-auto"
+                    >
+                        <FiDownload className="h-4 w-4" />
+                        Export
+                    </Button>
+                </div>
+
+                {/* Show selected custom range */}
+                {dateFilterState.filter === "custom" && dateFilterState.startDate && dateFilterState.endDate && (
+                    <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
+                        <span>{dateFilterState.startDate} - {dateFilterState.endDate}</span>
+                    </div>
+                )}
 
                 {/* Table Card */}
                 <Card className="overflow-hidden mt-6 sm:mt-10">

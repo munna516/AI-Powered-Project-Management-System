@@ -71,16 +71,32 @@ export default function ViewRAIDD() {
             {/* Back Button */}
             <button
                 onClick={() => router.push("/raidd")}
-                className="flex items-center gap-2 text-sm text-slate-600 hover:text-primary transition cursor-pointer"
+                className="flex items-center gap-2 text-sm text-primary hover:underline transition cursor-pointer"
             >
                 <FiArrowLeft className="h-4 w-4" />
-                Back to RAIDD
+                Go Back
             </button>
 
-            <div className="space-y-2 mt-6 ">
-                <p className="text-base text-slate-600">Project Name : <span className="font-medium text-slate-900">Project Phoenix</span></p>
-                <p className="text-base text-slate-600">Project ID : <span className="font-medium text-slate-900">049559234</span></p>
-
+            {/* Project Description */}
+            <div className="mt-6 space-y-4">
+                <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Project Description</h2>
+                <Card className="bg-[#EFEEFC] border-slate-200">
+                    <CardContent className="p-6 space-y-4">
+                        <div className="space-y-2">
+                            <p className="text-base text-slate-600">
+                                <span className="font-medium text-slate-700">Project ID:</span>{" "}
+                                <span className="font-medium text-slate-900">5897</span>
+                            </p>
+                            <p className="text-base text-slate-600">
+                                <span className="font-medium text-slate-700">Project Name:</span>{" "}
+                                <span className="font-bold text-slate-900">Basketball App</span>
+                            </p>
+                        </div>
+                        <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                            The Basketball App project focuses on delivering a modern mobile application with key content, navigation, and back-end integration. The project is currently in progress, with AI continuously analyzing project communications, documents, and meetings to provide real-time insights into risks, assumptions, dependencies, and decisions.
+                        </p>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Header */}
