@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
 import toast from "react-hot-toast";
 
 const tabs = [
@@ -139,9 +139,11 @@ export default function AiDetection() {
   const [searchValue, setSearchValue] = useState("");
   const [communications, setCommunications] = useState(initialCommunications);
   const [expandedItems, setExpandedItems] = useState(new Set([]));
-  const [dateFilter, setDateFilter] = useState("today");
-  const [customStartDate, setCustomStartDate] = useState("");
-  const [customEndDate, setCustomEndDate] = useState("");
+  const [dateFilterState, setDateFilterState] = useState({
+    filter: "today",
+    startDate: null,
+    endDate: null,
+  });
 
   const handleRemove = (id) => {
     setCommunications((prev) => prev.filter((item) => item.id !== id));
@@ -202,87 +204,38 @@ export default function AiDetection() {
 
   // Calculate date ranges based on filter type
   const getDateRange = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    switch (dateFilter) {
-      case "today": {
-        const start = new Date(today);
-        const end = new Date(today);
-        end.setHours(23, 59, 59, 999);
-        return { start, end };
-      }
-      case "7days": {
-        const start = new Date(today);
-        start.setDate(start.getDate() - 6); // Last 7 days including today
-        const end = new Date(today);
-        end.setHours(23, 59, 59, 999);
-        return { start, end };
-      }
-      case "month": {
-        const start = new Date(today.getFullYear(), today.getMonth(), 1);
-        const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        end.setHours(23, 59, 59, 999);
-        return { start, end };
-      }
-      case "custom": {
-        const start = customStartDate ? new Date(customStartDate) : null;
-        const end = customEndDate ? new Date(customEndDate) : null;
-        if (end) end.setHours(23, 59, 59, 999);
-        return { start, end };
-      }
-      default:
-        return { start: today, end: today };
-    }
-  }, [dateFilter, customStartDate, customEndDate]);
-
-  // Format date for display
-  const formatDateRange = () => {
-    const { start, end } = getDateRange;
-
-    const formatDate = (date) => {
-      if (!date) return "";
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    };
-
-    if (dateFilter === "today") {
-      return formatDate(start);
-    }
-    if (dateFilter === "7days") {
-      return `${formatDate(start)} - ${formatDate(end)}`;
-    }
-    if (dateFilter === "month") {
-      return start.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    }
-    if (dateFilter === "custom") {
-      if (!start || !end) return "Select date range";
-      return `${formatDate(start)} - ${formatDate(end)}`;
-    }
-    return `${formatDate(start)} - ${formatDate(end)}`;
-  };
-
-  const handleFilterChange = (value) => {
-    setDateFilter(value);
-    if (value !== "custom") {
-      setCustomStartDate("");
-      setCustomEndDate("");
-    }
-  };
+    return getDateRangeFromFilter(
+      dateFilterState.filter,
+      dateFilterState.startDate,
+      dateFilterState.endDate
+    );
+  }, [dateFilterState]);
 
   const filteredCommunications = useMemo(() => {
     const searchLower = searchValue.toLowerCase();
-    return communications.filter((item) => {
+    let filtered = communications.filter((item) => {
       const matchesTab = item.type === activeTab;
       const matchesSearch =
         item.summary.toLowerCase().includes(searchLower) ||
         item.details.toLowerCase().includes(searchLower);
       return matchesTab && matchesSearch;
     });
-  }, [communications, activeTab, searchValue]);
+
+    // Date filtering
+    if (dateFilterState.filter !== "all") {
+      const { start, end } = getDateRange;
+      if (start && end) {
+        filtered = filtered.filter((item) => {
+          if (!item.dateTime) return true;
+          const itemDate = new Date(item.dateTime);
+          if (isNaN(itemDate.getTime())) return true; // Skip invalid dates
+          return itemDate >= start && itemDate <= end;
+        });
+      }
+    }
+
+    return filtered;
+  }, [communications, activeTab, searchValue, dateFilterState, getDateRange]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -312,61 +265,17 @@ export default function AiDetection() {
               </button>
             ))}
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-            {/* Date Filter */}
-            <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[220px]">
-              <label className="text-xs sm:text-sm font-medium text-slate-700">
-                Filter by Date
-              </label>
-              <Select value={dateFilter} onValueChange={handleFilterChange}>
-                <SelectTrigger className="h-9 sm:h-10 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="7days">Last 7 Days</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="custom">Custom Range</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Custom Date Range Inputs */}
-            {dateFilter === "custom" ? (
-              <>
-                <div className="flex flex-col gap-1 min-w-[140px]">
-                  <label className="text-xs text-slate-600">Start Date</label>
-                  <Input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="h-9 sm:h-10 text-sm"
-                  />
-                </div>
-                <div className="flex flex-col gap-1 min-w-[140px]">
-                  <label className="text-xs text-slate-600">End Date</label>
-                  <Input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    min={customStartDate}
-                    className="h-9 sm:h-10 text-sm"
-                  />
-                </div>
-              </>
-            ) : (
-              /* Date Range Display for preset filters */
-              <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[180px] sm:min-w-[200px] h-9 sm:h-10">
-                <span className="text-xs sm:text-sm">{formatDateRange()}</span>
-              </div>
-            )}
-          </div>
+          {/* Date Filter */}
+          <DateFilter
+            onFilterChange={setDateFilterState}
+            initialFilter="today"
+          />
         </div>
 
         {/* Show selected custom range below */}
-        {dateFilter === "custom" && customStartDate && customEndDate && (
+        {dateFilterState.filter === "custom" && dateFilterState.startDate && dateFilterState.endDate && (
           <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
-            <span>{formatDateRange()}</span>
+            <span>{dateFilterState.startDate} - {dateFilterState.endDate}</span>
           </div>
         )}
       </div>

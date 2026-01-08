@@ -11,6 +11,9 @@ import {
 } from "@/components/ui/table";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
+import { FiDownload } from "react-icons/fi";
 
 // All projects data
 const allProjectsData = [
@@ -58,23 +61,81 @@ const getStatusStyle = (status) => {
 export default function AllProjectsList() {
     const router = useRouter();
     const [searchValue, setSearchValue] = useState("");
+    const [dateFilterState, setDateFilterState] = useState({
+        filter: "all",
+        startDate: null,
+        endDate: null,
+    });
 
     const filteredProjects = useMemo(() => {
-        if (!searchValue.trim()) return allProjectsData;
+        let filtered = allProjectsData;
 
-        const searchLower = searchValue.toLowerCase();
-        return allProjectsData.filter(
-            (project) =>
-                project.id.toLowerCase().includes(searchLower) ||
-                project.name.toLowerCase().includes(searchLower) ||
-                project.owner.toLowerCase().includes(searchLower) ||
-                project.status.toLowerCase().includes(searchLower) ||
-                project.deadline.toLowerCase().includes(searchLower)
-        );
-    }, [searchValue]);
+        // Filter by search
+        if (searchValue.trim()) {
+            const searchLower = searchValue.toLowerCase();
+            filtered = filtered.filter(
+                (project) =>
+                    project.id.toLowerCase().includes(searchLower) ||
+                    project.name.toLowerCase().includes(searchLower) ||
+                    project.owner.toLowerCase().includes(searchLower) ||
+                    project.status.toLowerCase().includes(searchLower) ||
+                    project.deadline.toLowerCase().includes(searchLower)
+            );
+        }
+
+        // Filter by date (based on deadline)
+        if (dateFilterState.filter !== "all") {
+            const { start, end } = getDateRangeFromFilter(
+                dateFilterState.filter,
+                dateFilterState.startDate,
+                dateFilterState.endDate
+            );
+
+            if (start && end) {
+                filtered = filtered.filter((project) => {
+                    // Parse deadline (format: "20 Nov, 2025")
+                    const deadlineDate = new Date(project.deadline);
+                    if (isNaN(deadlineDate.getTime())) return true; // Skip invalid dates
+                    return deadlineDate >= start && deadlineDate <= end;
+                });
+            }
+        }
+
+        return filtered;
+    }, [searchValue, dateFilterState]);
+
+    const handleExport = () => {
+        // Convert filtered projects to CSV
+        const headers = ["Project ID", "Project Name", "Owner", "Status", "Progress", "Deadline"];
+        const csvContent = [
+            headers.join(","),
+            ...filteredProjects.map(project =>
+                [
+                    project.id,
+                    `"${project.name}"`,
+                    `"${project.owner}"`,
+                    project.status,
+                    project.progress,
+                    `"${project.deadline}"`
+                ].join(",")
+            )
+        ].join("\n");
+
+        // Create blob and download
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `projects_export_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
         <div className="space-y-4 sm:space-y-6">
+            {/* Page Header with Search */}
             <PageHeader
                 title="All Projects List"
                 description="Complete overview of all your projects"
@@ -82,6 +143,31 @@ export default function AllProjectsList() {
                 searchValue={searchValue}
                 onSearchChange={(e) => setSearchValue(e.target.value)}
             />
+
+            {/* Date Filter and Export Button Row */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                {/* Date Filter - Left Side */}
+                <DateFilter
+                    onFilterChange={setDateFilterState}
+                    initialFilter="all"
+                />
+
+                {/* Export Button - Right Side */}
+                <Button
+                    onClick={handleExport}
+                    className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex items-center gap-2 w-full sm:w-auto"
+                >
+                    <FiDownload className="h-4 w-4" />
+                    Export
+                </Button>
+            </div>
+
+            {/* Show selected custom range */}
+            {dateFilterState.filter === "custom" && dateFilterState.startDate && dateFilterState.endDate && (
+                <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
+                    <span>{dateFilterState.startDate} - {dateFilterState.endDate}</span>
+                </div>
+            )}
 
             {/* Projects Table */}
             <Card className="overflow-hidden">

@@ -17,19 +17,19 @@ import {
     FiPaperclip,
     FiLink,
     FiTrash2,
-    FiFile,
+    FiArrowLeft,
 } from "react-icons/fi";
 import { HiOutlineSparkles } from "react-icons/hi2";
 import { BsEmojiSmile } from "react-icons/bs";
 import { FiFileText } from "react-icons/fi";
-
+import { useRouter } from "next/navigation";
 export default function GenerateEmail() {
     const [emailContent, setEmailContent] = useState("");
     const [prompt, setPrompt] = useState("");
     const [tone, setTone] = useState("Professional");
     const [length, setLength] = useState("Short");
     const [selectedContexts, setSelectedContexts] = useState([]);
-
+    const router = useRouter();
     const contextOptions = [
         { id: "project-data", label: "Project data" },
         { id: "meeting-notes", label: "Meeting notes" },
@@ -51,9 +51,18 @@ export default function GenerateEmail() {
     return (
         <div className="space-y-6 ">
             {/* Title */}
+            <div className="flex justify-between items-center gap-4">
+                <button
+                    onClick={() => router.back()}
+                    className="text-blue-600 cursor-pointer hover:underline flex items-center gap-2"
+                >
+                    <FiArrowLeft className="h-4 w-4" /> Go Back
+                </button>
+            </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
                 Compose your email...
             </h1>
+
 
             {/* Email Composition Area */}
             <Card className="bg-white">
