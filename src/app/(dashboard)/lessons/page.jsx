@@ -12,13 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
 import {
     Dialog,
     DialogContent,
@@ -133,30 +127,11 @@ export default function Lessons() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editedData, setEditedData] = useState(null);
-    const [dateFilter, setDateFilter] = useState("all");
-    const [customStartDate, setCustomStartDate] = useState("");
-    const [customEndDate, setCustomEndDate] = useState("");
-
-    const handleFilterChange = (value) => {
-        setDateFilter(value);
-        if (value !== "custom") {
-            setCustomStartDate("");
-            setCustomEndDate("");
-        }
-    };
-
-    const formatDateRange = () => {
-        if (dateFilter === "custom" && customStartDate && customEndDate) {
-            return `${customStartDate} - ${customEndDate}`;
-        } else if (dateFilter === "today") {
-            return "Today";
-        } else if (dateFilter === "7days") {
-            return "Last 7 Days";
-        } else if (dateFilter === "month") {
-            return "This Month";
-        }
-        return "All Time";
-    };
+    const [dateFilterState, setDateFilterState] = useState({
+        filter: "all",
+        startDate: null,
+        endDate: null,
+    });
 
     const filteredLessons = useMemo(() => {
         let filtered = lessons;
@@ -176,36 +151,25 @@ export default function Lessons() {
         }
 
         // Date filtering (based on date field)
-        if (dateFilter !== "all") {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+        if (dateFilterState.filter !== "all") {
+            const { start, end } = getDateRangeFromFilter(
+                dateFilterState.filter,
+                dateFilterState.startDate,
+                dateFilterState.endDate
+            );
 
-            filtered = filtered.filter((lesson) => {
-                // Parse date (format: "20 Nov, 2025")
-                const lessonDate = new Date(lesson.date);
-                if (isNaN(lessonDate.getTime())) return true; // Skip invalid dates
-
-                if (dateFilter === "today") {
-                    return lessonDate.toDateString() === today.toDateString();
-                } else if (dateFilter === "7days") {
-                    const sevenDaysAgo = new Date(today);
-                    sevenDaysAgo.setDate(today.getDate() - 7);
-                    return lessonDate >= sevenDaysAgo && lessonDate <= today;
-                } else if (dateFilter === "month") {
-                    return lessonDate.getMonth() === today.getMonth() &&
-                        lessonDate.getFullYear() === today.getFullYear();
-                } else if (dateFilter === "custom" && customStartDate && customEndDate) {
-                    const start = new Date(customStartDate);
-                    const end = new Date(customEndDate);
-                    end.setHours(23, 59, 59, 999);
+            if (start && end) {
+                filtered = filtered.filter((lesson) => {
+                    // Parse date (format: "20 Nov, 2025")
+                    const lessonDate = new Date(lesson.date);
+                    if (isNaN(lessonDate.getTime())) return true; // Skip invalid dates
                     return lessonDate >= start && lessonDate <= end;
-                }
-                return true;
-            });
+                });
+            }
         }
 
         return filtered;
-    }, [searchValue, lessons, dateFilter, customStartDate, customEndDate]);
+    }, [searchValue, lessons, dateFilterState]);
 
     const handleViewLesson = (id) => {
         const lesson = lessons.find((l) => l.id === id);
@@ -286,57 +250,10 @@ export default function Lessons() {
             {/* Date Filter and Export Button */}
             <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:justify-between">
                 {/* Date Filter - Left Side */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-                    <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[220px]">
-                        <label className="text-xs sm:text-sm font-medium text-slate-700">
-                            Filter by Date
-                        </label>
-                        <Select value={dateFilter} onValueChange={handleFilterChange}>
-                            <SelectTrigger className="h-9 sm:h-10 text-sm">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Time</SelectItem>
-                                <SelectItem value="today">Today</SelectItem>
-                                <SelectItem value="7days">Last 7 Days</SelectItem>
-                                <SelectItem value="month">This Month</SelectItem>
-                                <SelectItem value="custom">Custom Range</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    {/* Custom Date Range Inputs */}
-                    {dateFilter === "custom" && (
-                        <>
-                            <div className="flex flex-col gap-1 min-w-[140px]">
-                                <label className="text-xs text-slate-600">Start Date</label>
-                                <Input
-                                    type="date"
-                                    value={customStartDate}
-                                    onChange={(e) => setCustomStartDate(e.target.value)}
-                                    className="h-9 sm:h-10 text-sm"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1 min-w-[140px]">
-                                <label className="text-xs text-slate-600">End Date</label>
-                                <Input
-                                    type="date"
-                                    value={customEndDate}
-                                    onChange={(e) => setCustomEndDate(e.target.value)}
-                                    min={customStartDate}
-                                    className="h-9 sm:h-10 text-sm"
-                                />
-                            </div>
-                        </>
-                    )}
-
-                    {/* Date Range Display for preset filters */}
-                    {dateFilter !== "custom" && dateFilter !== "all" && (
-                        <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[180px] sm:min-w-[200px] h-9 sm:h-10">
-                            <span className="text-xs sm:text-sm">{formatDateRange()}</span>
-                        </div>
-                    )}
-                </div>
+                <DateFilter
+                    onFilterChange={setDateFilterState}
+                    initialFilter="all"
+                />
 
                 {/* Export Button - Right Side */}
                 <Button
@@ -349,9 +266,9 @@ export default function Lessons() {
             </div>
 
             {/* Show selected custom range */}
-            {dateFilter === "custom" && customStartDate && customEndDate && (
+            {dateFilterState.filter === "custom" && dateFilterState.startDate && dateFilterState.endDate && (
                 <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
-                    <span>{formatDateRange()}</span>
+                    <span>{dateFilterState.startDate} - {dateFilterState.endDate}</span>
                 </div>
             )}
 

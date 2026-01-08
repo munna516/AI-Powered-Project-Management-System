@@ -12,8 +12,7 @@ import {
 import PageHeader from "@/components/PageHeader/PageHeader";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { SelectTrigger, SelectValue, SelectContent, SelectItem, Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
 import { FiDownload } from "react-icons/fi";
 
 // All projects data
@@ -62,26 +61,11 @@ const getStatusStyle = (status) => {
 export default function AllProjectsList() {
     const router = useRouter();
     const [searchValue, setSearchValue] = useState("");
-    const [dateFilter, setDateFilter] = useState("all");
-    const [customStartDate, setCustomStartDate] = useState("");
-    const [customEndDate, setCustomEndDate] = useState("");
-
-    const handleFilterChange = (value) => {
-        setDateFilter(value);
-    };
-
-    const formatDateRange = () => {
-        if (dateFilter === "custom" && customStartDate && customEndDate) {
-            return `${customStartDate} - ${customEndDate}`;
-        } else if (dateFilter === "today") {
-            return "Today";
-        } else if (dateFilter === "7days") {
-            return "Last 7 Days";
-        } else if (dateFilter === "month") {
-            return "This Month";
-        }
-        return "All Time";
-    };
+    const [dateFilterState, setDateFilterState] = useState({
+        filter: "all",
+        startDate: null,
+        endDate: null,
+    });
 
     const filteredProjects = useMemo(() => {
         let filtered = allProjectsData;
@@ -100,34 +84,25 @@ export default function AllProjectsList() {
         }
 
         // Filter by date (based on deadline)
-        if (dateFilter !== "all") {
-            const today = new Date();
-            const todayStr = today.toISOString().split('T')[0];
+        if (dateFilterState.filter !== "all") {
+            const { start, end } = getDateRangeFromFilter(
+                dateFilterState.filter,
+                dateFilterState.startDate,
+                dateFilterState.endDate
+            );
 
-            filtered = filtered.filter((project) => {
-                // Parse deadline (format: "20 Nov, 2025")
-                const deadlineDate = new Date(project.deadline);
-
-                if (dateFilter === "today") {
-                    return deadlineDate.toISOString().split('T')[0] === todayStr;
-                } else if (dateFilter === "7days") {
-                    const sevenDaysAgo = new Date(today);
-                    sevenDaysAgo.setDate(today.getDate() - 7);
-                    return deadlineDate >= sevenDaysAgo && deadlineDate <= today;
-                } else if (dateFilter === "month") {
-                    return deadlineDate.getMonth() === today.getMonth() &&
-                        deadlineDate.getFullYear() === today.getFullYear();
-                } else if (dateFilter === "custom" && customStartDate && customEndDate) {
-                    const start = new Date(customStartDate);
-                    const end = new Date(customEndDate);
+            if (start && end) {
+                filtered = filtered.filter((project) => {
+                    // Parse deadline (format: "20 Nov, 2025")
+                    const deadlineDate = new Date(project.deadline);
+                    if (isNaN(deadlineDate.getTime())) return true; // Skip invalid dates
                     return deadlineDate >= start && deadlineDate <= end;
-                }
-                return true;
-            });
+                });
+            }
         }
 
         return filtered;
-    }, [searchValue, dateFilter, customStartDate, customEndDate]);
+    }, [searchValue, dateFilterState]);
 
     const handleExport = () => {
         // Convert filtered projects to CSV
@@ -172,67 +147,10 @@ export default function AllProjectsList() {
             {/* Date Filter and Export Button Row */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                 {/* Date Filter - Left Side */}
-                <div className="flex flex-col gap-3 w-full sm:w-auto">
-                    {/* Date Filter Row */}
-                    <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-                        <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[180px]">
-                            <label className="text-xs sm:text-sm font-medium text-slate-700">
-                                Filter by Date
-                            </label>
-                            <Select value={dateFilter} onValueChange={handleFilterChange}>
-                                <SelectTrigger className="h-9 sm:h-10 text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Time</SelectItem>
-                                    <SelectItem value="today">Today</SelectItem>
-                                    <SelectItem value="7days">Last 7 Days</SelectItem>
-                                    <SelectItem value="month">This Month</SelectItem>
-                                    <SelectItem value="custom">Custom Range</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Custom Date Range Inputs */}
-                        {dateFilter === "custom" && (
-                            <>
-                                <div className="flex flex-col gap-1 min-w-[140px]">
-                                    <label className="text-xs text-slate-600">Start Date</label>
-                                    <Input
-                                        type="date"
-                                        value={customStartDate}
-                                        onChange={(e) => setCustomStartDate(e.target.value)}
-                                        className="h-9 sm:h-10 text-sm"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1 min-w-[140px]">
-                                    <label className="text-xs text-slate-600">End Date</label>
-                                    <Input
-                                        type="date"
-                                        value={customEndDate}
-                                        onChange={(e) => setCustomEndDate(e.target.value)}
-                                        min={customStartDate}
-                                        className="h-9 sm:h-10 text-sm"
-                                    />
-                                </div>
-                            </>
-                        )}
-
-                        {/* Date Range Display for preset filters */}
-                        {dateFilter !== "custom" && dateFilter !== "all" && (
-                            <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[140px] h-9 sm:h-10">
-                                <span className="text-xs sm:text-sm">{formatDateRange()}</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Show selected custom range */}
-                    {dateFilter === "custom" && customStartDate && customEndDate && (
-                        <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
-                            <span>{formatDateRange()}</span>
-                        </div>
-                    )}
-                </div>
+                <DateFilter
+                    onFilterChange={setDateFilterState}
+                    initialFilter="all"
+                />
 
                 {/* Export Button - Right Side */}
                 <Button
@@ -243,6 +161,13 @@ export default function AllProjectsList() {
                     Export
                 </Button>
             </div>
+
+            {/* Show selected custom range */}
+            {dateFilterState.filter === "custom" && dateFilterState.startDate && dateFilterState.endDate && (
+                <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
+                    <span>{dateFilterState.startDate} - {dateFilterState.endDate}</span>
+                </div>
+            )}
 
             {/* Projects Table */}
             <Card className="overflow-hidden">

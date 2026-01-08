@@ -9,15 +9,8 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import { useRouter } from "next/navigation";
 import { FiDownload } from "react-icons/fi";
@@ -110,82 +103,20 @@ export default function RAIDD() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("risk");
     const [searchValue, setSearchValue] = useState("");
-    const [dateFilter, setDateFilter] = useState("today");
-    const [customStartDate, setCustomStartDate] = useState("");
-    const [customEndDate, setCustomEndDate] = useState("");
+    const [dateFilterState, setDateFilterState] = useState({
+        filter: "today",
+        startDate: null,
+        endDate: null,
+    });
 
     // Calculate date ranges based on filter type
     const getDateRange = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        switch (dateFilter) {
-            case "today": {
-                const start = new Date(today);
-                const end = new Date(today);
-                end.setHours(23, 59, 59, 999);
-                return { start, end };
-            }
-            case "7days": {
-                const start = new Date(today);
-                start.setDate(start.getDate() - 6); // Last 7 days including today
-                const end = new Date(today);
-                end.setHours(23, 59, 59, 999);
-                return { start, end };
-            }
-            case "month": {
-                const start = new Date(today.getFullYear(), today.getMonth(), 1);
-                const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-                end.setHours(23, 59, 59, 999);
-                return { start, end };
-            }
-            case "custom": {
-                const start = customStartDate ? new Date(customStartDate) : null;
-                const end = customEndDate ? new Date(customEndDate) : null;
-                if (end) end.setHours(23, 59, 59, 999);
-                return { start, end };
-            }
-            default:
-                return { start: today, end: today };
-        }
-    }, [dateFilter, customStartDate, customEndDate]);
-
-    // Format date for display
-    const formatDateRange = () => {
-        const { start, end } = getDateRange;
-
-        const formatDate = (date) => {
-            if (!date) return "";
-            return date.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-            });
-        };
-
-        if (dateFilter === "today") {
-            return formatDate(start);
-        }
-        if (dateFilter === "7days") {
-            return `${formatDate(start)} - ${formatDate(end)}`;
-        }
-        if (dateFilter === "month") {
-            return start.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-        }
-        if (dateFilter === "custom") {
-            if (!start || !end) return "Select date range";
-            return `${formatDate(start)} - ${formatDate(end)}`;
-        }
-        return `${formatDate(start)} - ${formatDate(end)}`;
-    };
-
-    const handleFilterChange = (value) => {
-        setDateFilter(value);
-        if (value !== "custom") {
-            setCustomStartDate("");
-            setCustomEndDate("");
-        }
-    };
+        return getDateRangeFromFilter(
+            dateFilterState.filter,
+            dateFilterState.startDate,
+            dateFilterState.endDate
+        );
+    }, [dateFilterState]);
 
     const handleExport = () => {
         toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} data exported successfully!`);
@@ -207,11 +138,20 @@ export default function RAIDD() {
             );
         }
 
-        // Date filtering can be added here if needed
-        // For now, we'll just return the filtered data
+        // Date filtering
+        if (dateFilterState.filter !== "all") {
+            const { start, end } = getDateRange;
+            if (start && end) {
+                filtered = filtered.filter((item) => {
+                    const itemDate = new Date(item.date);
+                    if (isNaN(itemDate.getTime())) return true; // Skip invalid dates
+                    return itemDate >= start && itemDate <= end;
+                });
+            }
+        }
 
         return filtered;
-    }, [activeTab, searchValue, getDateRange]);
+    }, [activeTab, searchValue, dateFilterState, getDateRange]);
 
     return (
         <div className="space-y-4 sm:space-y-6">
@@ -224,7 +164,7 @@ export default function RAIDD() {
             />
 
             {/* Filter Tabs, Date Filter, and Export Button - All in One Line */}
-            <div className="flex flex-col lg:flex-row lg:items-end gap-4 mt-10">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mt-10">
                 {/* Tabs - Left Side */}
                 <div className="flex flex-wrap gap-3 lg:flex-nowrap">
                     {tabs.map((tab) => (
@@ -242,54 +182,12 @@ export default function RAIDD() {
                 </div>
 
                 {/* Date Filter - Middle */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:items-end lg:flex-1 lg:justify-center">
-                    <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[220px]">
-                        <label className="text-xs sm:text-sm font-medium text-slate-700">
-                            Filter by Date
-                        </label>
-                        <Select value={dateFilter} onValueChange={handleFilterChange}>
-                            <SelectTrigger className="h-9 sm:h-10 text-sm">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="today">Today</SelectItem>
-                                <SelectItem value="7days">Last 7 Days</SelectItem>
-                                <SelectItem value="month">This Month</SelectItem>
-                                <SelectItem value="custom">Custom Range</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
 
-                    {/* Custom Date Range Inputs */}
-                    {dateFilter === "custom" ? (
-                        <>
-                            <div className="flex flex-col gap-1 min-w-[140px]">
-                                <label className="text-xs text-slate-600">Start Date</label>
-                                <Input
-                                    type="date"
-                                    value={customStartDate}
-                                    onChange={(e) => setCustomStartDate(e.target.value)}
-                                    className="h-9 sm:h-10 text-sm"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1 min-w-[140px]">
-                                <label className="text-xs text-slate-600">End Date</label>
-                                <Input
-                                    type="date"
-                                    value={customEndDate}
-                                    onChange={(e) => setCustomEndDate(e.target.value)}
-                                    min={customStartDate}
-                                    className="h-9 sm:h-10 text-sm"
-                                />
-                            </div>
-                        </>
-                    ) : (
-                        /* Date Range Display for preset filters */
-                        <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[180px] sm:min-w-[200px] h-9 sm:h-10">
-                            <span className="text-xs sm:text-sm">{formatDateRange()}</span>
-                        </div>
-                    )}
-                </div>
+                <DateFilter
+                    onFilterChange={setDateFilterState}
+                    initialFilter="all"
+                />
+
 
                 {/* Export Button - Right Side */}
                 <Button
@@ -302,9 +200,9 @@ export default function RAIDD() {
             </div>
 
             {/* Show selected custom range below */}
-            {dateFilter === "custom" && customStartDate && customEndDate && (
+            {dateFilterState.filter === "custom" && dateFilterState.startDate && dateFilterState.endDate && (
                 <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit mt-2">
-                    <span>{formatDateRange()}</span>
+                    <span>{dateFilterState.startDate} - {dateFilterState.endDate}</span>
                 </div>
             )}
 
