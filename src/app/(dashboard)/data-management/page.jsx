@@ -12,6 +12,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { FiSearch, FiCheck, FiAlertCircle, FiZap, FiMail, FiArrowUp, FiArrowDown } from "react-icons/fi";
 import { useRouter } from "next/navigation";
+import { SelectTrigger, SelectValue, SelectContent, SelectItem, Select } from "@/components/ui/select";
+
 
 // Dummy data for Data Management
 const dataManagementData = [
@@ -28,6 +30,27 @@ export default function DataManagement() {
   const [searchValue, setSearchValue] = useState("");
   const [selectedSource, setSelectedSource] = useState("all");
   const router = useRouter();
+  const [dateFilter, setDateFilter] = useState("today");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+
+  const handleFilterChange = (value) => {
+    setDateFilter(value);
+  };
+
+  const formatDateRange = () => {
+    if (dateFilter === "custom" && customStartDate && customEndDate) {
+      return `${customStartDate} - ${customEndDate}`;
+    } else if (dateFilter === "today") {
+      return "Today";
+    } else if (dateFilter === "7days") {
+      return "Last 7 Days";
+    } else if (dateFilter === "month") {
+      return "This Month";
+    }
+    return "";
+  };
+
   const filteredData = useMemo(() => {
     let filtered = dataManagementData;
 
@@ -159,25 +182,94 @@ export default function DataManagement() {
 
       </div>
 
-      {/* Source Filter Tabs */}
-      <div className="flex flex-wrap gap-3 mt-4 sm:mt-6">
-        {sourceTabs.map((tab) => {
-          const isActive = selectedSource === tab.id;
 
-          return (
-            <button
-              key={tab.id}
-              onClick={() => handleSourceChange(tab.id)}
-              className={`px-4 py-2 text-sm sm:text-base font-medium rounded-md transition-colors cursor-pointer flex items-center gap-2 ${isActive
-                ? "bg-[#6051E2] text-white"
-                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-                }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      <div className="flex justify-between items-center gap-4">
+
+        {/* Source Filter Tabs */}
+        <div className="flex flex-wrap gap-3 mt-4 sm:mt-6">
+          {sourceTabs.map((tab) => {
+            const isActive = selectedSource === tab.id;
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleSourceChange(tab.id)}
+                className={`px-4 py-2 text-sm sm:text-base font-medium rounded-md transition-colors cursor-pointer flex items-center gap-2 ${isActive
+                  ? "bg-[#6051E2] text-white"
+                  : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+                  }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* here I want to show the global date filter */}
+        <div className="flex flex-col gap-3">
+          {/* Filter Row - All on same line for custom range */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+            {/* Date Filter */}
+            <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[220px]">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">
+                Filter by Date
+              </label>
+              <Select value={dateFilter} onValueChange={handleFilterChange}>
+                <SelectTrigger
+                  className="h-9 sm:h-10 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="7days">Last 7 Days</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Custom Date Range Inputs - Same line as Filter */}
+            {dateFilter === "custom" && (
+              <>
+                <div className="flex flex-col gap-1 min-w-[140px]">
+                  <label className="text-xs text-slate-600">Start Date</label>
+                  <Input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="h-9 sm:h-10 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 min-w-[140px]">
+                  <label className="text-xs text-slate-600">End Date</label>
+                  <Input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    min={customStartDate}
+                    className="h-9 sm:h-10 text-sm"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Date Range Display for preset filters */}
+            {dateFilter !== "custom" && (
+              <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[180px] sm:min-w-[200px] h-9 sm:h-10">
+                <span className="text-xs sm:text-sm">{formatDateRange()}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Show selected custom range below the inputs */}
+          {dateFilter === "custom" && customStartDate && customEndDate && (
+            <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
+              <span>{formatDateRange()}</span>
+            </div>
+          )}
+        </div>
       </div>
+
 
       {/* Data Table */}
       <Card className="overflow-hidden mt-4 sm:mt-6">

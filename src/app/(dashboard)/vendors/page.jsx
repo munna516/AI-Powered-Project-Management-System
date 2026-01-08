@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     Table,
@@ -9,10 +9,19 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/PageHeader/PageHeader";
-import { FiPlus } from "react-icons/fi";
+import { FiPlus, FiDownload } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 const vendorsData = [
     {
@@ -97,17 +106,58 @@ const getStatusStyle = (status) => {
 export default function Vendors() {
     const router = useRouter();
     const [searchValue, setSearchValue] = useState("");
+    const [dateFilter, setDateFilter] = useState("all");
+    const [customStartDate, setCustomStartDate] = useState("");
+    const [customEndDate, setCustomEndDate] = useState("");
 
     const handleAddVendor = () => {
         router.push("/vendors/add-vendor");
     };
 
-    const filteredVendors = vendorsData.filter(
-        (vendor) =>
-            vendor.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-            vendor.designation.toLowerCase().includes(searchValue.toLowerCase()) ||
-            vendor.email.toLowerCase().includes(searchValue.toLowerCase())
-    );
+    const handleFilterChange = (value) => {
+        setDateFilter(value);
+        if (value !== "custom") {
+            setCustomStartDate("");
+            setCustomEndDate("");
+        }
+    };
+
+    const formatDateRange = () => {
+        if (dateFilter === "custom" && customStartDate && customEndDate) {
+            return `${customStartDate} - ${customEndDate}`;
+        } else if (dateFilter === "today") {
+            return "Today";
+        } else if (dateFilter === "7days") {
+            return "Last 7 Days";
+        } else if (dateFilter === "month") {
+            return "This Month";
+        }
+        return "All Time";
+    };
+
+    const handleExport = () => {
+        toast.success("Vendors data exported successfully!");
+    };
+
+    const filteredVendors = useMemo(() => {
+        let filtered = vendorsData;
+
+        // Search filtering
+        if (searchValue.trim()) {
+            const searchLower = searchValue.toLowerCase();
+            filtered = filtered.filter(
+                (vendor) =>
+                    vendor.name.toLowerCase().includes(searchLower) ||
+                    vendor.designation.toLowerCase().includes(searchLower) ||
+                    vendor.email.toLowerCase().includes(searchLower)
+            );
+        }
+
+        // Date filtering can be added here if vendors have date fields
+        // For now, we'll just return the filtered data
+
+        return filtered;
+    }, [searchValue, dateFilter, customStartDate, customEndDate]);
 
     return (
         <div className="w-full">
@@ -122,6 +172,78 @@ export default function Vendors() {
                     buttonIcon={<FiPlus className="h-4 w-4" />}
                     onButtonClick={handleAddVendor}
                 />
+
+                {/* Date Filter and Export Button */}
+                <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:justify-between">
+                    {/* Date Filter - Left Side */}
+                    <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+                        <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[220px]">
+                            <label className="text-xs sm:text-sm font-medium text-slate-700">
+                                Filter by Date
+                            </label>
+                            <Select value={dateFilter} onValueChange={handleFilterChange}>
+                                <SelectTrigger className="h-9 sm:h-10 text-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Time</SelectItem>
+                                    <SelectItem value="today">Today</SelectItem>
+                                    <SelectItem value="7days">Last 7 Days</SelectItem>
+                                    <SelectItem value="month">This Month</SelectItem>
+                                    <SelectItem value="custom">Custom Range</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Custom Date Range Inputs */}
+                        {dateFilter === "custom" && (
+                            <>
+                                <div className="flex flex-col gap-1 min-w-[140px]">
+                                    <label className="text-xs text-slate-600">Start Date</label>
+                                    <Input
+                                        type="date"
+                                        value={customStartDate}
+                                        onChange={(e) => setCustomStartDate(e.target.value)}
+                                        className="h-9 sm:h-10 text-sm"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1 min-w-[140px]">
+                                    <label className="text-xs text-slate-600">End Date</label>
+                                    <Input
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={(e) => setCustomEndDate(e.target.value)}
+                                        min={customStartDate}
+                                        className="h-9 sm:h-10 text-sm"
+                                    />
+                                </div>
+                            </>
+                        )}
+
+                        {/* Date Range Display for preset filters */}
+                        {dateFilter !== "custom" && dateFilter !== "all" && (
+                            <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[180px] sm:min-w-[200px] h-9 sm:h-10">
+                                <span className="text-xs sm:text-sm">{formatDateRange()}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Export Button - Right Side */}
+                    <Button
+                        onClick={handleExport}
+                        className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex items-center gap-2 w-full sm:w-auto"
+                    >
+                        <FiDownload className="h-4 w-4" />
+                        Export
+                    </Button>
+                </div>
+
+                {/* Show selected custom range */}
+                {dateFilter === "custom" && customStartDate && customEndDate && (
+                    <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
+                        <span>{formatDateRange()}</span>
+                    </div>
+                )}
 
                 {/* Table Card */}
                 <Card className="overflow-hidden mt-6 sm:mt-10">

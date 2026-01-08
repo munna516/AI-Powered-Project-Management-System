@@ -17,8 +17,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import { useRouter } from "next/navigation";
+import { FiDownload } from "react-icons/fi";
+import toast from "react-hot-toast";
 
 const tabs = [
     { id: "risk", label: "Risk" },
@@ -150,7 +153,7 @@ export default function RAIDD() {
     // Format date for display
     const formatDateRange = () => {
         const { start, end } = getDateRange;
-        
+
         const formatDate = (date) => {
             if (!date) return "";
             return date.toLocaleDateString("en-US", {
@@ -182,6 +185,10 @@ export default function RAIDD() {
             setCustomStartDate("");
             setCustomEndDate("");
         }
+    };
+
+    const handleExport = () => {
+        toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} data exported successfully!`);
     };
 
     const filteredData = useMemo(() => {
@@ -216,82 +223,90 @@ export default function RAIDD() {
                 onSearchChange={(e) => setSearchValue(e.target.value)}
             />
 
-            {/* Filter Tabs and Date Filter */}
-            <div className="flex flex-col gap-3 mt-10">
-                {/* First Row - Tabs and Date Filter */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex flex-wrap gap-3">
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors cursor-pointer ${activeTab === tab.id
-                                    ? "bg-[#6051E2] text-white"
-                                    : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-                                    }`}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-                        {/* Date Filter */}
-                        <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[220px]">
-                            <label className="text-xs sm:text-sm font-medium text-slate-700">
-                                Filter by Date
-                            </label>
-                            <Select value={dateFilter} onValueChange={handleFilterChange}>
-                                <SelectTrigger className="h-9 sm:h-10 text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="today">Today</SelectItem>
-                                    <SelectItem value="7days">Last 7 Days</SelectItem>
-                                    <SelectItem value="month">This Month</SelectItem>
-                                    <SelectItem value="custom">Custom Range</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Custom Date Range Inputs */}
-                        {dateFilter === "custom" ? (
-                            <>
-                                <div className="flex flex-col gap-1 min-w-[140px]">
-                                    <label className="text-xs text-slate-600">Start Date</label>
-                                    <Input
-                                        type="date"
-                                        value={customStartDate}
-                                        onChange={(e) => setCustomStartDate(e.target.value)}
-                                        className="h-9 sm:h-10 text-sm"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1 min-w-[140px]">
-                                    <label className="text-xs text-slate-600">End Date</label>
-                                    <Input
-                                        type="date"
-                                        value={customEndDate}
-                                        onChange={(e) => setCustomEndDate(e.target.value)}
-                                        min={customStartDate}
-                                        className="h-9 sm:h-10 text-sm"
-                                    />
-                                </div>
-                            </>
-                        ) : (
-                            /* Date Range Display for preset filters */
-                            <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[180px] sm:min-w-[200px] h-9 sm:h-10">
-                                <span className="text-xs sm:text-sm">{formatDateRange()}</span>
-                            </div>
-                        )}
-                    </div>
+            {/* Filter Tabs, Date Filter, and Export Button - All in One Line */}
+            <div className="flex flex-col lg:flex-row lg:items-end gap-4 mt-10">
+                {/* Tabs - Left Side */}
+                <div className="flex flex-wrap gap-3 lg:flex-nowrap">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${activeTab === tab.id
+                                ? "bg-[#6051E2] text-white"
+                                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+                                }`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
 
-                {/* Show selected custom range below */}
-                {dateFilter === "custom" && customStartDate && customEndDate && (
-                    <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
-                        <span>{formatDateRange()}</span>
+                {/* Date Filter - Middle */}
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-end lg:flex-1 lg:justify-center">
+                    <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[220px]">
+                        <label className="text-xs sm:text-sm font-medium text-slate-700">
+                            Filter by Date
+                        </label>
+                        <Select value={dateFilter} onValueChange={handleFilterChange}>
+                            <SelectTrigger className="h-9 sm:h-10 text-sm">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="today">Today</SelectItem>
+                                <SelectItem value="7days">Last 7 Days</SelectItem>
+                                <SelectItem value="month">This Month</SelectItem>
+                                <SelectItem value="custom">Custom Range</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
-                )}
+
+                    {/* Custom Date Range Inputs */}
+                    {dateFilter === "custom" ? (
+                        <>
+                            <div className="flex flex-col gap-1 min-w-[140px]">
+                                <label className="text-xs text-slate-600">Start Date</label>
+                                <Input
+                                    type="date"
+                                    value={customStartDate}
+                                    onChange={(e) => setCustomStartDate(e.target.value)}
+                                    className="h-9 sm:h-10 text-sm"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1 min-w-[140px]">
+                                <label className="text-xs text-slate-600">End Date</label>
+                                <Input
+                                    type="date"
+                                    value={customEndDate}
+                                    onChange={(e) => setCustomEndDate(e.target.value)}
+                                    min={customStartDate}
+                                    className="h-9 sm:h-10 text-sm"
+                                />
+                            </div>
+                        </>
+                    ) : (
+                        /* Date Range Display for preset filters */
+                        <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[180px] sm:min-w-[200px] h-9 sm:h-10">
+                            <span className="text-xs sm:text-sm">{formatDateRange()}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Export Button - Right Side */}
+                <Button
+                    onClick={handleExport}
+                    className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex items-center gap-2 w-full lg:w-auto"
+                >
+                    <FiDownload className="h-4 w-4" />
+                    Export
+                </Button>
             </div>
+
+            {/* Show selected custom range below */}
+            {dateFilter === "custom" && customStartDate && customEndDate && (
+                <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit mt-2">
+                    <span>{formatDateRange()}</span>
+                </div>
+            )}
 
             {/* Table Card */}
             <Card className="overflow-hidden mt-4 sm:mt-6">

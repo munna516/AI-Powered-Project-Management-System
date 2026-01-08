@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FiSearch, FiPlus, FiEdit2, FiTrash2, ChevronDown } from "react-icons/fi";
+import { FiSearch, FiPlus, FiEdit2, FiTrash2, ChevronDown, FiDownload } from "react-icons/fi";
 import { XIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/PageHeader/PageHeader";
@@ -360,6 +360,15 @@ export default function EmployeeManagement() {
     );
   }, [memberSearchValue]);
 
+  // Export handlers - just show toast
+  const handleExportEmployees = () => {
+    toast.success("Employee data exported successfully!");
+  };
+
+  const handleExportTeams = () => {
+    toast.success("Team data exported successfully!");
+  };
+
   return (
     <div className="space-y-6">
       {/* Tabs */}
@@ -396,6 +405,17 @@ export default function EmployeeManagement() {
             onButtonClick={() => setIsDialogOpen(true)}
             buttonIcon={<FiPlus className="h-4 w-4" />}
           />
+
+          {/* Export Button */}
+          <div className="flex justify-end">
+            <Button
+              onClick={handleExportEmployees}
+              className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex items-center gap-2"
+            >
+              <FiDownload className="h-4 w-4" />
+              Export
+            </Button>
+          </div>
 
           {/* Employee Table */}
           <Card className="overflow-hidden">
@@ -499,6 +519,17 @@ export default function EmployeeManagement() {
             onButtonClick={() => setIsTeamDialogOpen(true)}
             buttonIcon={<FiPlus className="h-4 w-4" />}
           />
+
+          {/* Export Button */}
+          <div className="flex justify-end">
+            <Button
+              onClick={handleExportTeams}
+              className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex items-center gap-2"
+            >
+              <FiDownload className="h-4 w-4" />
+              Export
+            </Button>
+          </div>
 
           {/* Team Table */}
           <Card className="overflow-hidden">

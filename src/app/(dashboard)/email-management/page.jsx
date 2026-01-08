@@ -9,6 +9,9 @@ import { CiSquareCheck } from "react-icons/ci";
 import { PiShootingStar } from "react-icons/pi";
 import { LuMessageSquareMore } from "react-icons/lu";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { SelectTrigger, SelectValue, SelectContent, SelectItem, Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 // Dummy email data
 const emailData = [
@@ -116,19 +119,71 @@ const EmailIcon = ({ icon, iconColor, iconLetter }) => {
     return null;
 };
 
+// Source filter tabs
+const sourceTabs = [
+    { id: "all", label: "All" },
+    { id: "promotions", label: "Promotions" },
+    { id: "linkedin", label: "LinkedIn" },
+    { id: "social", label: "Social" },
+    { id: "jobs", label: "Jobs" },
+];
+
 export default function EmailManagement() {
     const [searchValue, setSearchValue] = useState("");
+    const [dateFilter, setDateFilter] = useState("today");
+    const [customStartDate, setCustomStartDate] = useState("");
+    const [customEndDate, setCustomEndDate] = useState("");
+    const [selectedSource, setSelectedSource] = useState("all");
+
+    const handleFilterChange = (value) => {
+        setDateFilter(value);
+    };
+
+    const handleSourceChange = (sourceId) => {
+        setSelectedSource(sourceId);
+    };
+
+    const formatDateRange = () => {
+        if (dateFilter === "custom" && customStartDate && customEndDate) {
+            return `${customStartDate} - ${customEndDate}`;
+        } else if (dateFilter === "today") {
+            return "Today";
+        } else if (dateFilter === "7days") {
+            return "Last 7 Days";
+        } else if (dateFilter === "month") {
+            return "This Month";
+        }
+        return "";
+    };
+
     const [emails, setEmails] = useState(emailData);
     const router = useRouter();
     const filteredEmails = useMemo(() => {
-        if (!searchValue.trim()) return emails;
-        const searchLower = searchValue.toLowerCase();
-        return emails.filter(
-            (email) =>
-                email.title.toLowerCase().includes(searchLower) ||
-                email.description.toLowerCase().includes(searchLower)
-        );
-    }, [searchValue, emails]);
+        let filtered = emails;
+
+        // Filter by source
+        if (selectedSource !== "all") {
+            filtered = filtered.filter((email) => {
+                if (selectedSource === "promotions" && email.icon === "diamond") return true;
+                if (selectedSource === "linkedin" && email.icon === "linkedin") return true;
+                if (selectedSource === "social" && email.icon === "social") return true;
+                if (selectedSource === "jobs" && (email.icon === "letter" || email.title.toLowerCase().includes("job"))) return true;
+                return false;
+            });
+        }
+
+        // Filter by search value
+        if (searchValue.trim()) {
+            const searchLower = searchValue.toLowerCase();
+            filtered = filtered.filter(
+                (email) =>
+                    email.title.toLowerCase().includes(searchLower) ||
+                    email.description.toLowerCase().includes(searchLower)
+            );
+        }
+
+        return filtered;
+    }, [searchValue, emails, selectedSource]);
 
     const toggleStar = (id) => {
         setEmails((prev) =>
@@ -141,9 +196,14 @@ export default function EmailManagement() {
     return (
         <div className="space-y-4 sm:space-y-6">
             {/* Header */}
-           
-            <div>
+
+            <div className="flex justify-between items-center gap-4">
+
                 <h1 className="text-xl md:text-2xl font-bold text-slate-900">Email Management</h1>
+
+                <Button onClick={() => router.push("/email-management/generate-email")} className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-3 text-sm sm:text-base font-semibold cursor-pointer">
+                    <FiMail className="h-4 w-4" /> Draft Email
+                </Button>
             </div>
 
             {/* Summary Cards */}
@@ -217,7 +277,92 @@ export default function EmailManagement() {
                 searchValue={searchValue}
                 onSearchChange={(e) => setSearchValue(e.target.value)}
             />
+            <div className="flex justify-between items-center gap-4">
 
+                {/* Source Filter Tabs */}
+                <div className="flex flex-wrap gap-3 mt-4 sm:mt-6">
+                    {sourceTabs.map((tab) => {
+                        const isActive = selectedSource === tab.id;
+
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => handleSourceChange(tab.id)}
+                                className={`px-4 py-2 text-sm sm:text-base font-medium rounded-md transition-colors cursor-pointer flex items-center gap-2 ${isActive
+                                    ? "bg-[#6051E2] text-white"
+                                    : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+                                    }`}
+                            >
+                                {tab.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* here I want to show the global date filter */}
+                <div className="flex flex-col gap-3">
+                    {/* Filter Row - All on same line for custom range */}
+                    <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+                        {/* Date Filter */}
+                        <div className="flex flex-col gap-2 min-w-[200px] sm:min-w-[220px]">
+                            <label className="text-xs sm:text-sm font-medium text-slate-700">
+                                Filter by Date
+                            </label>
+                            <Select value={dateFilter} onValueChange={handleFilterChange}>
+                                <SelectTrigger
+                                    className="h-9 sm:h-10 text-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="today">Today</SelectItem>
+                                    <SelectItem value="7days">Last 7 Days</SelectItem>
+                                    <SelectItem value="month">This Month</SelectItem>
+                                    <SelectItem value="custom">Custom Range</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Custom Date Range Inputs - Same line as Filter */}
+                        {dateFilter === "custom" && (
+                            <>
+                                <div className="flex flex-col gap-1 min-w-[140px]">
+                                    <label className="text-xs text-slate-600">Start Date</label>
+                                    <Input
+                                        type="date"
+                                        value={customStartDate}
+                                        onChange={(e) => setCustomStartDate(e.target.value)}
+                                        className="h-9 sm:h-10 text-sm"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1 min-w-[140px]">
+                                    <label className="text-xs text-slate-600">End Date</label>
+                                    <Input
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={(e) => setCustomEndDate(e.target.value)}
+                                        min={customStartDate}
+                                        className="h-9 sm:h-10 text-sm"
+                                    />
+                                </div>
+                            </>
+                        )}
+
+                        {/* Date Range Display for preset filters */}
+                        {dateFilter !== "custom" && (
+                            <div className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-w-[180px] sm:min-w-[200px] h-9 sm:h-10">
+                                <span className="text-xs sm:text-sm">{formatDateRange()}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Show selected custom range below the inputs */}
+                    {dateFilter === "custom" && customStartDate && customEndDate && (
+                        <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
+                            <span>{formatDateRange()}</span>
+                        </div>
+                    )}
+                </div>
+            </div>
             {/* Email List */}
             <Card className="overflow-hidden">
                 <CardContent className="p-0">

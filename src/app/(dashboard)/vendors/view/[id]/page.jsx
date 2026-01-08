@@ -1,7 +1,6 @@
 "use client";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { FiArrowLeft, FiMail, FiPhone, FiDownload, FiCheckCircle, FiClock, FiAlertCircle } from "react-icons/fi";
 import { HiOutlineSparkles } from "react-icons/hi2";
@@ -57,6 +56,14 @@ const vendorData = {
             "Postpone feature to next release"
         ]
     },
+    aiIssues: {
+        summary: "AI extracted issues from meeting transcripts and approval emails.",
+        details: [
+            "Delay API response time",
+            "Mobile navigation complexity",
+            "Dependency on final approval"
+        ]
+    },
     vendorProfile: {
         name: "Jane Doe",
         role: "e.g. lead developer",
@@ -96,7 +103,15 @@ const vendorData = {
     communicationLogs: [
         { type: "email", title: "Email sent regarding Q3 performance review.", date: "August 15, 2023 - 10:30 AM" },
         { type: "call", title: "Scheduled call to discuss Project Phoenix milestones.", date: "August 10, 2023 - 3:00 PM" }
-    ]
+    ],
+    lessonLearned: {
+        summary: "Key insights and lessons learned from vendor collaboration and project execution.",
+        details: [
+            "Early communication prevents delays",
+            "Regular status updates improve transparency",
+            "Clear documentation reduces misunderstandings"
+        ]
+    }
 };
 
 const getStatusStyle = (status) => {
@@ -151,9 +166,9 @@ export default function ViewVendor() {
             </div>
 
             {/* Status Row and Project Summary */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Status Cards */}
-                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="lg:col-span-3 md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {/* SLA Status */}
                     <Card className="p-4">
                         <CardContent className="p-0">
@@ -182,18 +197,6 @@ export default function ViewVendor() {
                     </Card>
                 </div>
 
-                {/* Project AI Summary */}
-                <Card className="p-4 border-l-4 border-l-primary">
-                    <CardContent className="p-0">
-                        <div className="flex items-center gap-2 mb-3">
-                            <HiOutlineSparkles className="h-4 w-4 text-primary" />
-                            <p className="text-sm font-semibold text-primary font-medium">Project AI Summary</p>
-                        </div>
-                        <p className="text-xs text-slate-600 leading-relaxed line-clamp-4">
-                            {vendorData.projectSummary}
-                        </p>
-                    </CardContent>
-                </Card>
             </div>
 
             {/* AI Summary Section */}
@@ -240,7 +243,7 @@ export default function ViewVendor() {
                                     </div>
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-slate-700 mb-2">Assumptions</p>
+                                    <p className="text-sm font-medium text-slate-700 mb-2">Assumptions Details</p>
                                     <ul className="space-y-1">
                                         {vendorData.aiAssumptions.details.map((item, idx) => (
                                             <li key={idx} className="text-xs text-slate-600 flex items-center gap-2">
@@ -252,7 +255,29 @@ export default function ViewVendor() {
                                 </div>
                             </CardContent>
                         </Card>
-
+                        <Card className="p-4 bg-[#EFEEFC] ">
+                            <CardContent className="p-0 space-y-3">
+                                <h3 className="font-semibold text-slate-900">AI Issues</h3>
+                                <div className="flex items-start gap-2 p-3  rounded-lg">
+                                    <HiOutlineSparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-700 mb-1">AI SUMMARY</p>
+                                        <p className="text-xs text-slate-600 leading-relaxed">{vendorData.aiIssues.summary}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-slate-700 mb-2">Issues Details</p>
+                                    <ul className="space-y-1">
+                                        {vendorData.aiIssues.details.map((item, idx) => (
+                                            <li key={idx} className="text-xs text-slate-600 flex items-center gap-2">
+                                                <span className="h-1 w-1 bg-slate-400 rounded-full"></span>
+                                                {item}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </CardContent>
+                        </Card>
                         {/* AI Dependencies */}
                         <Card className="p-4 bg-[#EFEEFC]">
                             <CardContent className="p-0 space-y-3">
@@ -265,7 +290,7 @@ export default function ViewVendor() {
                                     </div>
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-slate-700 mb-2">Dependencies</p>
+                                    <p className="text-sm font-medium text-slate-700 mb-2">Dependencies Details</p>
                                     <ul className="space-y-1">
                                         {vendorData.aiDependencies.details.map((item, idx) => (
                                             <li key={idx} className="text-xs text-slate-600 flex items-center gap-2">
@@ -279,7 +304,7 @@ export default function ViewVendor() {
                         </Card>
 
                         {/* AI Decisions */}
-                        <Card className="p-4 bg-[#EFEEFC]">
+                        <Card className="p-4 bg-[#EFEEFC] md:col-span-2">
                             <CardContent className="p-0 space-y-3">
                                 <h3 className="font-semibold text-slate-900">AI Decisions</h3>
                                 <div className="flex items-start gap-2 p-3  rounded-lg">
@@ -290,7 +315,7 @@ export default function ViewVendor() {
                                     </div>
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-slate-700 mb-2">Decisions</p>
+                                    <p className="text-sm font-medium text-slate-700 mb-2">Decisions Details</p>
                                     <ul className="space-y-1">
                                         {vendorData.aiDecisions.details.map((item, idx) => (
                                             <li key={idx} className="text-xs text-slate-600 flex items-center gap-2">
@@ -302,10 +327,23 @@ export default function ViewVendor() {
                                 </div>
                             </CardContent>
                         </Card>
+
                     </div>
 
                     {/* Right Column - Profile Cards */}
                     <div className="space-y-4">
+                        {/* Project AI Summary */}
+                        <Card className="p-4 border-l-4 border-l-primary">
+                            <CardContent className="p-0">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <HiOutlineSparkles className="h-4 w-4 text-primary" />
+                                    <p className="text-sm font-semibold text-primary font-medium">Project AI Summary</p>
+                                </div>
+                                <p className="text-xs text-slate-600 leading-relaxed line-clamp-4">
+                                    {vendorData.projectSummary}
+                                </p>
+                            </CardContent>
+                        </Card>
                         {/* Vendor Profile */}
                         <Card className="p-4">
                             <CardContent className="p-0 space-y-4">
@@ -372,6 +410,32 @@ export default function ViewVendor() {
                     </div>
                 </div>
             </div>
+
+            {/* Lesson Learned */}
+            <Card className="p-4">
+                <CardContent className="p-0 space-y-4">
+                    <h3 className="font-semibold text-slate-900">Lesson Learned</h3>
+                    <p className="text-xs text-slate-600 leading-relaxed"> {vendorData.lessonLearned.summary}</p>
+                    <div>
+                        <p className="text-sm font-medium text-slate-700 mb-2">Lesson Learned Details</p>
+                        <ul className="space-y-1">
+
+                            <li className="text-xs text-slate-600 flex items-center gap-2">
+                                <span className="h-1 w-1 bg-slate-400 rounded-full"></span>
+                                Early communication prevents delays
+                            </li>
+                            <li className="text-xs text-slate-600 flex items-center gap-2">
+                                <span className="h-1 w-1 bg-slate-400 rounded-full"></span>
+                                Regular status updates improve transparency
+                            </li>
+                            <li className="text-xs text-slate-600 flex items-center gap-2">
+                                <span className="h-1 w-1 bg-slate-400 rounded-full"></span>
+                                Clear documentation reduces misunderstandings
+                            </li>
+                        </ul>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Performance History and SLA Documents */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
