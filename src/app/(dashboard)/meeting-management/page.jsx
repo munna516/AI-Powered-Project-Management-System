@@ -15,18 +15,18 @@ import { useRouter } from "next/navigation";
 import { SelectTrigger, SelectValue, SelectContent, SelectItem, Select } from "@/components/ui/select";
 
 
-// Dummy data for Data Management
+// Dummy data for Meeting Management
 const dataManagementData = [
-  { id: 1, projectName: "SmartSys", dateTime: "Dec 12, 2025 at 2:00 pm", source: "MS Team", link: "https://meet.google.com/", details: "view" },
-  { id: 2, projectName: "TechNova", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Transcripts", link: "https://meet.google.com/", details: "view" },
+  { id: 1, projectName: "SmartSys", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Zoom", link: "https://meet.google.com/", details: "view" },
+  { id: 2, projectName: "TechNova", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Google meet", link: "https://meet.google.com/", details: "view" },
   { id: 3, projectName: "NextGen Solutions", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Google meet", link: "https://meet.google.com/", details: "view" },
-  { id: 4, projectName: "CloudAxis", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Scrum Master", link: "https://meet.google.com/", details: "view" },
-  { id: 5, projectName: "NeuralNet", dateTime: "Dec 12, 2025 at 2:00 pm", source: "MS Team", link: "https://meet.google.com/", details: "view" },
-  { id: 6, projectName: "Business Tech Portal", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Transcripts", link: "https://meet.google.com/", details: "view" },
+  { id: 4, projectName: "CloudAxis", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Zoom", link: "https://meet.google.com/", details: "view" },
+  { id: 5, projectName: "NeuralNet", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Zoom", link: "https://meet.google.com/", details: "view" },
+  { id: 6, projectName: "Business Tech Portal", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Zoom", link: "https://meet.google.com/", details: "view" },
   { id: 7, projectName: "EduTech Hub", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Google meet", link: "https://meet.google.com/", details: "view" },
 ];
 
-export default function DataManagement() {
+export default function MeetingManagement() {
   const [searchValue, setSearchValue] = useState("");
   const [selectedSource, setSelectedSource] = useState("all");
   const router = useRouter();
@@ -58,13 +58,11 @@ export default function DataManagement() {
     if (selectedSource !== "all") {
       filtered = filtered.filter((item) => {
         const sourceLower = item.source.toLowerCase();
-        if (selectedSource === "ms-team") {
-          return sourceLower.includes("ms team");
+        if (selectedSource === "zoom") {
+          return sourceLower.includes("zoom");
         } else if (selectedSource === "google-meet") {
           return sourceLower.includes("google meet");
-        } else if (selectedSource === "transcripts") {
-          return sourceLower === "transcripts";
-        }
+        } 
         return false;
       });
     }
@@ -89,21 +87,20 @@ export default function DataManagement() {
   };
 
   const handleViewDetails = (id) => {
-    router.push(`/data-management/meeting-summary?id=${id}`);
+    router.push(`/meeting-management/meeting-summary?id=${id}`);
   };
 
   const sourceTabs = [
     { id: "all", label: "All sources" },
-    { id: "ms-team", label: "MS Team" },
+    { id: "zoom", label: "Zoom" },
     { id: "google-meet", label: "Google meet" },
-    { id: "transcripts", label: "Transcripts" },
   ];
 
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-slate-900">Data Management</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-slate-900">Meeting Management</h1>
       </div>
 
       {/* Summary Cards */}

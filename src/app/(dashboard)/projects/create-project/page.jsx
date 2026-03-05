@@ -63,7 +63,6 @@ const FileList = ({ files, onRemove }) => {
 export default function CreateProject() {
     const router = useRouter();
     const documentInputRef = useRef(null);
-    const slaInputRef = useRef(null);
     const startDateRef = useRef(null);
     const endDateRef = useRef(null);
 
@@ -79,9 +78,9 @@ export default function CreateProject() {
 
     const [meetingLinks, setMeetingLinks] = useState([""]);
     const [documents, setDocuments] = useState([]);
-    const [slaFiles, setSlaFiles] = useState([]);
+    const [slaFiles, setSlaFiles] = useState(["", "", "", "", "", "", "", "", "", ""]);
     const [isDraggingDocuments, setIsDraggingDocuments] = useState(false);
-    const [isDraggingSla, setIsDraggingSla] = useState(false);
+  
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -118,9 +117,6 @@ export default function CreateProject() {
         setDocuments((prev) => prev.filter((_, i) => i !== index));
     };
 
-    const removeSlaFile = (index) => {
-        setSlaFiles((prev) => prev.filter((_, i) => i !== index));
-    };
 
     const handleDragOver = useCallback((e, type) => {
         e.preventDefault();
@@ -470,43 +466,7 @@ export default function CreateProject() {
                             <FileList files={documents} onRemove={removeDocument} />
                         </div>
 
-                        {/* Upload SLA Section */}
-                        <div className="space-y-4">
-                            <h2 className="text-lg font-semibold text-slate-900">
-                                Upload service level agreements (SLA)
-                            </h2>
-                            <div
-                                className={`border-2 border-dashed rounded-lg p-6 sm:p-8 text-center transition-colors ${isDraggingSla
-                                    ? "border-primary bg-primary/5"
-                                    : "border-slate-300 bg-slate-50"
-                                    }`}
-                                onDragOver={(e) => handleDragOver(e, "sla")}
-                                onDragLeave={() => handleDragLeave("sla")}
-                                onDrop={(e) => handleDrop(e, "sla")}
-                            >
-                                <Upload className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-                                <p className="text-sm text-slate-600 mb-2">
-                                    Max 100 MB files are allowed.
-                                </p>
-                                <input
-                                    ref={slaInputRef}
-                                    type="file"
-                                    multiple
-                                    onChange={handleSlaUpload}
-                                    className="hidden"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="primary"
-                                    onClick={() => slaInputRef.current?.click()}
-                                    className="flex items-center gap-2 mx-auto"
-                                >
-                                    <Upload className="h-4 w-4" />
-                                    Upload File
-                                </Button>
-                            </div>
-                            <FileList files={slaFiles} onRemove={removeSlaFile} />
-                        </div>
+                        
                     </CardContent>
                 </Card>
 
@@ -516,7 +476,7 @@ export default function CreateProject() {
                         type="button"
                         variant="outline"
                         onClick={() => router.back()}
-                        className="w-full sm:w-auto cursor-pointer hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                        className="w-full sm:w-auto cursor-pointer bg-red-400 text-white transition-colors border-red-400 hover:bg-red-500"
                     >
                         Cancel
                     </Button>

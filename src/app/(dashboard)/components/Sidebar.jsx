@@ -35,9 +35,9 @@ const sidebarItems = [
   { name: "Vendors", icon: <HiOutlineShoppingBag />, href: "/vendors" },
   { name: "Email Management", icon: <MdEmail />, href: "/email-management" },
   { name: "Data Source", icon: <FaDatabase />, href: "/data-source" },
-  { name: "Data Management", icon: <BsDatabaseFillGear />, href: "/data-management" },
+  { name: "Meeting Management", icon: <BsDatabaseFillGear />, href: "/meeting-management" },
   { name: "Calendar & Meetings", icon: <FaCalendarAlt />, href: "/calendar-meetings" },
-  { name: "AI Reminder", icon: <HiMiniBellAlert />, href: "/ai-reminder" },
+  // { name: "AI Reminder", icon: <HiMiniBellAlert />, href: "/ai-reminder" },
   { name: "Project Chatbot", icon: <IoChatboxEllipsesOutline />, href: "/project-chatbot" },
 ];
 

@@ -11,9 +11,30 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Circle, FileText, Users, TrendingUp, Link2 } from "lucide-react";
+import { CheckCircle2, Circle, FileText, Users, TrendingUp, Link2, Trash2, CalendarIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FiArrowLeft } from "react-icons/fi";
+import { FiArrowLeft, FiMoreVertical, FiPlus } from "react-icons/fi";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import toast from "react-hot-toast";
 
 // Dummy data - in real app, fetch based on id
 const projectData = {
@@ -79,6 +100,7 @@ const taskListData = [
         startDate: "28 Nov, 2025",
         endDate: "30 Nov, 2025",
         priority: "High",
+        status: "complete",
     },
     {
         id: 2,
@@ -86,6 +108,7 @@ const taskListData = [
         startDate: "28 Nov, 2025",
         endDate: "30 Nov, 2025",
         priority: "Medium",
+        status: "Pending",
     },
     {
         id: 3,
@@ -93,6 +116,7 @@ const taskListData = [
         startDate: "28 Nov, 2025",
         endDate: "30 Nov, 2025",
         priority: "High",
+        status: "Ongoing",
     },
     {
         id: 4,
@@ -100,6 +124,7 @@ const taskListData = [
         startDate: "29 Nov, 2025",
         endDate: "30 Nov, 2025",
         priority: "Medium",
+        status: "Ongoing",
     },
     {
         id: 5,
@@ -107,6 +132,7 @@ const taskListData = [
         startDate: "29 Nov, 2025",
         endDate: "30 Nov, 2025",
         priority: "High",
+        status: "Ongoing",
     },
     {
         id: 6,
@@ -114,6 +140,7 @@ const taskListData = [
         startDate: "29 Nov, 2025",
         endDate: "30 Nov, 2025",
         priority: "Medium",
+        status: "complete",
     },
     {
         id: 7,
@@ -121,6 +148,7 @@ const taskListData = [
         startDate: "29 Nov, 2025",
         endDate: "30 Nov, 2025",
         priority: "Low",
+        status: "complete",
     },
 ];
 
@@ -222,10 +250,14 @@ const documentListData = [
 ];
 
 const tabs = [
-    { id: "task", label: "Task list" },
-    { id: "meeting", label: "Meeting List" },
-    { id: "document", label: "Document List" },
+    { id: "task", label: "Task list", buttonLabel: "Add Task" },
+    { id: "meeting", label: "Meeting List", buttonLabel: "Upload Meeting" },
+    { id: "document", label: "Document List", buttonLabel: "Upload Document" },
 ];
+
+const priorityOptions = ["High", "Medium", "Low"];
+const statusOptions = ["High", "Medium", "Low"];
+const platformOptions = ["Google Meet", "Zoom", "Microsoft Teams", "Other"];
 
 const getPriorityColor = (priority) => {
     switch (priority.toLowerCase()) {
@@ -242,10 +274,12 @@ const getPriorityColor = (priority) => {
 
 const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
-        case "on track":
+        case "complete":
             return "bg-green-100 text-green-800 border-green-200";
         case "pending":
             return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        case "ongoing":
+            return "bg-blue-100 text-blue-800 border-blue-200";
         default:
             return "bg-slate-100 text-slate-800 border-slate-200";
     }
@@ -254,16 +288,100 @@ const getStatusColor = (status) => {
 export default function ProjectDetails() {
     const params = useParams();
     const [activeTab, setActiveTab] = useState("task");
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deleteReason, setDeleteReason] = useState("");
+    const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
+    const [uploadMeetingModalOpen, setUploadMeetingModalOpen] = useState(false);
+    const [uploadDocumentModalOpen, setUploadDocumentModalOpen] = useState(false);
+    const [taskForm, setTaskForm] = useState({ taskName: "", startDate: "", endDate: "", priority: "", status: "" });
+    const [meetingForm, setMeetingForm] = useState({ date: "", link: "", platform: "", summary: "" });
+    const [documentForm, setDocumentForm] = useState({ date: "", link: "", summary: "" });
     const router = useRouter();
     // In real app, fetch project data based on params.id
     const project = projectData;
 
+    const handleCancelProjectClick = () => {
+        setDeleteModalOpen(true);
+    };
+
+    const handleDeleteProject = () => {
+        // In real app, call API to delete/cancel project
+        setDeleteModalOpen(false);
+        setDeleteReason("");
+        router.push("/projects");
+    };
+
+    const handleCloseDeleteModal = () => {
+        setDeleteModalOpen(false);
+        setDeleteReason("");
+    };
+
+    const getAddButtonConfig = () => {
+        const tab = tabs.find((t) => t.id === activeTab);
+        return tab?.buttonLabel || "Add Task";
+    };
+
+    const handleAddButtonClick = () => {
+        if (activeTab === "task") setCreateTaskModalOpen(true);
+        else if (activeTab === "meeting") setUploadMeetingModalOpen(true);
+        else if (activeTab === "document") setUploadDocumentModalOpen(true);
+    };
+
+    const resetTaskForm = () => setTaskForm({ taskName: "", startDate: "", endDate: "", priority: "", status: "" });
+    const resetMeetingForm = () => setMeetingForm({ date: "", link: "", platform: "", summary: "" });
+    const resetDocumentForm = () => setDocumentForm({ date: "", link: "", summary: "" });
+
+    const handleCreateTask = () => {
+        // In real app, call API to create task
+        setCreateTaskModalOpen(false);
+        resetTaskForm();
+        toast.success("Task created successfully!");
+    };
+
+    const handleUploadMeeting = () => {
+        // In real app, call API to upload meeting
+        setUploadMeetingModalOpen(false);
+        resetMeetingForm();
+        toast.success("Meeting uploaded successfully!");
+    };
+
+    const handleUploadDocument = () => {
+        // In real app, call API to upload document
+        setUploadDocumentModalOpen(false);
+        resetDocumentForm();
+        toast.success("Document uploaded successfully!");
+    };
+
+    const inputBaseClass = "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6051E2] focus:border-transparent";
+    const labelClass = "text-sm font-medium text-slate-900 block mb-1.5";
+
     return (
         <div className="">
             {/* Header */}
-            <div className="flex items-center gap-2 mb-2">
-
-                <button onClick={() => router.back()} className="text-blue-600 cursor-pointer hover:underline flex items-center gap-2"> <FiArrowLeft className="h-4 w-4" /> Go Back</button>
+            <div className="flex items-center justify-between gap-2 mb-2">
+                <button onClick={() => router.back()} className="text-blue-600 cursor-pointer hover:underline flex items-center gap-2 shrink-0">
+                    <FiArrowLeft className="h-4 w-4" /> Go Back
+                </button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            className="p-2 rounded-lg  transition-colors cursor-pointer border border-red-200 hover:border-red-300 hover:bg-red-400 hover:text-white shrink-0 touch-manipulation"
+                            aria-label="More options"
+                        >
+                            <FiMoreVertical className="h-5 w-5 " />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem
+                            variant="destructive"
+                            className="cursor-pointer text-red-600 hover:text-red-600 hover:bg-red-50 border-slate-200 outline-none"
+                            onClick={handleCancelProjectClick}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Cancel Project
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
             <div className="mb-6">
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
@@ -273,6 +391,278 @@ export default function ProjectDetails() {
                     Overview of your projects and team performance
                 </p>
             </div>
+
+            {/* Delete Project Confirmation Modal */}
+            <Dialog
+                open={deleteModalOpen}
+                onOpenChange={(open) => {
+                    setDeleteModalOpen(open);
+                    if (!open) setDeleteReason("");
+                }}
+            >
+                <DialogContent className="sm:max-w-xl max-w-[calc(100vw-2rem)]">
+                    <DialogHeader>
+                        <DialogTitle className="text-left">Cancle Project?</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="flex gap-3 p-4 rounded-lg bg-red-50 border border-red-200">
+                            <div className="shrink-0 w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
+                                <span className="text-red-600 font-bold text-sm">!</span>
+                            </div>
+                            <p className="text-sm text-red-700">
+                                This action cannot be undone. All project data, including files and history, will be permanently removed.
+                            </p>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-900 block">
+                                Please let us know why you are canceling this project.
+                            </label>
+                            <textarea
+                                value={deleteReason}
+                                onChange={(e) => setDeleteReason(e.target.value)}
+                                placeholder="Tell us more about your decision..."
+                                className="w-full min-h-[100px] px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6051E2] focus:border-transparent resize-y"
+                                rows={7}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-5">
+                        <Button
+                            variant="outline"
+                            onClick={handleCloseDeleteModal}
+                            className="w-full sm:w-auto cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-800 "
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleDeleteProject}
+                            className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white cursor-pointer flex items-center gap-2"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Cancel Project
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Create Task Modal */}
+            <Dialog
+                open={createTaskModalOpen}
+                onOpenChange={(open) => {
+                    setCreateTaskModalOpen(open);
+                    if (!open) resetTaskForm();
+                }}
+            >
+                <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-left">Create Task</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <label className={labelClass}>Task Name</label>
+                            <input
+                                type="text"
+                                value={taskForm.taskName}
+                                onChange={(e) => setTaskForm((p) => ({ ...p, taskName: e.target.value }))}
+                                placeholder="e.g. User research"
+                                className={inputBaseClass}
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className={labelClass}>Start Date</label>
+                                <div className="relative">
+                                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <input
+                                        type="date"
+                                        value={taskForm.startDate}
+                                        onChange={(e) => setTaskForm((p) => ({ ...p, startDate: e.target.value }))}
+                                        className={`${inputBaseClass} pl-9`}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className={labelClass}>End Date</label>
+                                <div className="relative">
+                                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <input
+                                        type="date"
+                                        value={taskForm.endDate}
+                                        onChange={(e) => setTaskForm((p) => ({ ...p, endDate: e.target.value }))}
+                                        className={`${inputBaseClass} pl-9`}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className={labelClass}>Priority Level</label>
+                                <Select value={taskForm.priority} onValueChange={(v) => setTaskForm((p) => ({ ...p, priority: v }))}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Priority" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {priorityOptions.map((opt) => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <label className={labelClass}>Current Status</label>
+                                <Select value={taskForm.status} onValueChange={(v) => setTaskForm((p) => ({ ...p, status: v }))}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {statusOptions.map((opt) => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                        <Button variant="outline" onClick={() => setCreateTaskModalOpen(false)} className="w-full sm:w-auto cursor-pointer">
+                            Cancel
+                        </Button>
+                        <Button onClick={handleCreateTask} className="w-full sm:w-auto bg-[#6051E2] hover:bg-[#6051E2]/90 text-white cursor-pointer flex items-center gap-2">
+                            <FiPlus className="h-4 w-4" />
+                            Create Task
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Upload Meeting Modal */}
+            <Dialog
+                open={uploadMeetingModalOpen}
+                onOpenChange={(open) => {
+                    setUploadMeetingModalOpen(open);
+                    if (!open) resetMeetingForm();
+                }}
+            >
+                <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-left">Upload Meeting</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <label className={labelClass}>Set Date</label>
+                            <div className="relative">
+                                <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <input
+                                    type="date"
+                                    value={meetingForm.date}
+                                    onChange={(e) => setMeetingForm((p) => ({ ...p, date: e.target.value }))}
+                                    className={`${inputBaseClass} pl-9`}
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className={labelClass}>Upload recording link</label>
+                            <input
+                                type="url"
+                                value={meetingForm.link}
+                                onChange={(e) => setMeetingForm((p) => ({ ...p, link: e.target.value }))}
+                                placeholder="e.g. Paste the link"
+                                className={inputBaseClass}
+                            />
+                        </div>
+                        <div>
+                            <label className={labelClass}>Platform</label>
+                            <Select value={meetingForm.platform} onValueChange={(v) => setMeetingForm((p) => ({ ...p, platform: v }))}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select Platform" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {platformOptions.map((opt) => (
+                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <label className={labelClass}>Write Meeting Summary</label>
+                            <textarea
+                                value={meetingForm.summary}
+                                onChange={(e) => setMeetingForm((p) => ({ ...p, summary: e.target.value }))}
+                                placeholder="Write meeting summary..."
+                                className={`${inputBaseClass} min-h-[100px] resize-y`}
+                                rows={4}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                        <Button variant="outline" onClick={() => setUploadMeetingModalOpen(false)} className="w-full sm:w-auto cursor-pointer">
+                            Cancel
+                        </Button>
+                        <Button onClick={handleUploadMeeting} className="w-full sm:w-auto bg-[#6051E2] hover:bg-[#6051E2]/90 text-white cursor-pointer flex items-center gap-2">
+                            <FiPlus className="h-4 w-4" />
+                            Upload Meeting
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Upload Document Modal */}
+            <Dialog
+                open={uploadDocumentModalOpen}
+                onOpenChange={(open) => {
+                    setUploadDocumentModalOpen(open);
+                    if (!open) resetDocumentForm();
+                }}
+            >
+                <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-left">Upload Document</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <label className={labelClass}>Set Date</label>
+                            <div className="relative">
+                                <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <input
+                                    type="date"
+                                    value={documentForm.date}
+                                    onChange={(e) => setDocumentForm((p) => ({ ...p, date: e.target.value }))}
+                                    className={`${inputBaseClass} pl-9`}
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className={labelClass}>Upload Document link</label>
+                            <input
+                                type="url"
+                                value={documentForm.link}
+                                onChange={(e) => setDocumentForm((p) => ({ ...p, link: e.target.value }))}
+                                placeholder="e.g. Paste the link"
+                                className={inputBaseClass}
+                            />
+                        </div>
+                        <div>
+                            <label className={labelClass}>Write Document Summary</label>
+                            <textarea
+                                value={documentForm.summary}
+                                onChange={(e) => setDocumentForm((p) => ({ ...p, summary: e.target.value }))}
+                                placeholder="Write document summary..."
+                                className={`${inputBaseClass} min-h-[100px] resize-y`}
+                                rows={4}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                        <Button variant="outline" onClick={() => setUploadDocumentModalOpen(false)} className="w-full sm:w-auto cursor-pointer">
+                            Cancel
+                        </Button>
+                        <Button onClick={handleUploadDocument} className="w-full sm:w-auto bg-[#6051E2] hover:bg-[#6051E2]/90 text-white cursor-pointer flex items-center gap-2">
+                            <FiPlus className="h-4 w-4" />
+                            Upload Document
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content */}
@@ -332,19 +722,28 @@ export default function ProjectDetails() {
 
                     {/* Tabs */}
                     <div className="space-y-4">
-                        <div className="flex gap-32 border-b border-slate-200">
-                            {tabs.map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`pb-3 px-1 text-sm sm:text-base font-medium transition-colors cursor-pointer border-b-2 ${activeTab === tab.id
-                                        ? "text-[#6051E2] border-[#6051E2]"
-                                        : "text-slate-600 border-transparent hover:text-[#6051E2] hover:border-[#6051E2]/50"
-                                        }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200">
+                            <div className="flex gap-4 sm:gap-8 overflow-x-auto mt-7">
+                                {tabs.map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`pb-3 px-1 text-sm sm:text-base font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap ${activeTab === tab.id
+                                            ? "text-[#6051E2] border-[#6051E2]"
+                                            : "text-slate-600 border-transparent hover:text-[#6051E2] hover:border-[#6051E2]/50"
+                                            }`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <Button
+                                onClick={handleAddButtonClick}
+                                className="bg-[#6051E2] hover:bg-[#6051E2]/90 text-white cursor-pointer flex items-center justify-center gap-2 shrink-0 w-full sm:w-auto"
+                            >
+                                <FiPlus className="h-4 w-4" />
+                                {getAddButtonConfig()}
+                            </Button>
                         </div>
 
                         {/* Tab Content */}
@@ -368,6 +767,8 @@ export default function ProjectDetails() {
                                                     <TableHead className="py-3 px-4 text-white font-semibold text-right">
                                                         Priority
                                                     </TableHead>
+
+                                                    <TableHead className="py-3 px-4 text-white font-semibold text-right">Status</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -392,6 +793,15 @@ export default function ProjectDetails() {
                                                                 )}`}
                                                             >
                                                                 {task.priority}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell className="py-3 px-4 text-right">
+                                                            <span
+                                                                className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                                                                    task.status
+                                                                )}`}
+                                                            >
+                                                                {task.status}
                                                             </span>
                                                         </TableCell>
                                                     </TableRow>
