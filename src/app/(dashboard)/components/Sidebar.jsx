@@ -1,6 +1,7 @@
 "use client";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -9,14 +10,28 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { MdDashboard, MdEmail, MdBlock, MdOutlineLogout } from "react-icons/md";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { MdDashboard, MdEmail, MdBlock, MdOutlineLogout, MdDragIndicator } from "react-icons/md";
 import { FaRegFolderOpen, FaDatabase, FaUsers, FaCalendarAlt } from "react-icons/fa";
 import { FiBook, FiBell } from "react-icons/fi";
 import { HiOutlineShoppingBag, HiOutlineMenu } from "react-icons/hi";
 import { IoChatboxEllipsesOutline, IoCheckboxOutline } from "react-icons/io5";
 import { IoIosSettings } from "react-icons/io";
 import { BsDatabaseFillGear } from "react-icons/bs";
-import { HiMiniBellAlert } from "react-icons/hi2";
 import Image from "next/image";
 
 // Constants
@@ -24,8 +39,9 @@ const SIDEBAR_BG = "bg-[#201B51]";
 const ACTIVE_BG = "bg-[#6051E2]";
 const USER_AVATAR = "https://cdn.pixabay.com/photo/2024/09/23/10/39/man-9068618_640.jpg";
 const USER_NAME = "Robert Smith";
+const SIDEBAR_ORDER_KEY = "sidebar-nav-order";
 
-const sidebarItems = [
+const defaultSidebarItems = [
   { name: "Dashboard", icon: <MdDashboard />, href: "/dashboard" },
   { name: "Projects", icon: <FaRegFolderOpen />, href: "/projects" },
   { name: "Employee Management", icon: <FaUsers />, href: "/employee-management" },
@@ -37,37 +53,90 @@ const sidebarItems = [
   { name: "Data Source", icon: <FaDatabase />, href: "/data-source" },
   { name: "Meeting Management", icon: <BsDatabaseFillGear />, href: "/meeting-management" },
   { name: "Calendar & Meetings", icon: <FaCalendarAlt />, href: "/calendar-meetings" },
-  // { name: "AI Reminder", icon: <HiMiniBellAlert />, href: "/ai-reminder" },
   { name: "Project Chatbot", icon: <IoChatboxEllipsesOutline />, href: "/project-chatbot" },
 ];
 
-// Reusable NavButton component
-const NavButton = ({
-  isActive,
-  icon,
-  label,
-  isMobile = false,
-  className = "",
-  iconClassName = "",
-  labelClassName = ""
-}) => {
-  const baseClasses = "relative w-full flex items-center gap-4 rounded-md px-3 py-2 font-medium cursor-pointer transition-all duration-300 text-white";
+function getStoredOrder() {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(SIDEBAR_ORDER_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveOrder(hrefs) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SIDEBAR_ORDER_KEY, JSON.stringify(hrefs));
+  } catch {}
+}
+
+// Sortable nav item with drag handle - uses div + router.push to avoid Link click-after-drag reload
+const SortableNavItem = ({ item, isActive, isMobile, preventClickRef }) => {
+  const router = useRouter();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.href });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const baseClasses = "relative w-full flex items-center gap-2 rounded-md px-3 py-2 font-medium transition-all duration-300 text-white cursor-pointer";
   const activeClasses = isActive ? ACTIVE_BG : "hover:bg-white/10";
   const iconSize = isMobile ? "text-md" : "text-md md:text-lg lg:text-xl";
   const labelSize = isMobile ? "text-md" : "text-sm md:text-base lg:text-lg";
 
-  return (
-    <button className={`${baseClasses} ${activeClasses} ${className}`}>
+  const content = (
+    <>
+      <div
+        {...attributes}
+        {...listeners}
+        className="flex items-center justify-center w-6 h-6 shrink-0 rounded cursor-grab active:cursor-grabbing text-white/70 hover:text-white hover:bg-white/10 touch-none"
+        aria-label="Drag to reorder"
+      >
+        <MdDragIndicator className="w-5 h-5" />
+      </div>
+      <span className={`w-5 h-5 text-white ${iconSize}`}>{item.icon}</span>
+      <span className={`text-white ${labelSize} flex-1 text-left`}>{item.name}</span>
+    </>
+  );
+
+  const buttonClasses = `${baseClasses} ${activeClasses} ${isDragging ? "opacity-50" : ""}`;
+
+  const handleClick = (e) => {
+    if (preventClickRef?.current) return;
+    e.preventDefault();
+    router.push(item.href);
+  };
+
+  const InnerButton = () => (
+    <button type="button" className={buttonClasses} onClick={handleClick}>
       {isActive && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-md" />
+        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-md bg-white" />
       )}
-      <span className={`w-5 h-5 text-white ${iconSize} ${iconClassName}`}>
-        {icon}
-      </span>
-      <span className={`text-white ${labelSize} ${labelClassName}`}>
-        {label}
-      </span>
+      {content}
     </button>
+  );
+
+  return (
+    <div ref={setNodeRef} style={style} className="w-full">
+      {isMobile ? (
+        <SheetClose asChild>
+          <InnerButton />
+        </SheetClose>
+      ) : (
+        <InnerButton />
+      )}
+    </div>
   );
 };
 
@@ -90,7 +159,7 @@ const FooterButton = ({ isActive, icon, label, href, isLogout = false }) => {
     <Link href={href}>
       <button className={`${baseClasses} text-white ${isActive ? ACTIVE_BG : "hover:bg-white/10"}`}>
         {isActive && (
-          <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-md" />
+          <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-md bg-white" />
         )}
         <span className="w-5 h-5 text-white">{icon}</span>
         {label}
@@ -101,33 +170,82 @@ const FooterButton = ({ isActive, icon, label, href, isLogout = false }) => {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [orderedItems, setOrderedItems] = useState(defaultSidebarItems);
+  const justDidDragRef = useRef(false);
+
+  useEffect(() => {
+    const stored = getStoredOrder();
+    if (stored && Array.isArray(stored)) {
+      const hrefToItem = Object.fromEntries(defaultSidebarItems.map((i) => [i.href, i]));
+      const ordered = stored
+        .map((href) => hrefToItem[href])
+        .filter(Boolean);
+      const newHrefs = defaultSidebarItems.map((i) => i.href);
+      const added = newHrefs.filter((h) => !stored.includes(h));
+      if (ordered.length > 0) {
+        setOrderedItems([...ordered, ...added.map((h) => hrefToItem[h]).filter(Boolean)]);
+      }
+    }
+  }, []);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 10 },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    justDidDragRef.current = true;
+    const preventClick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    document.addEventListener("click", preventClick, { capture: true });
+    setTimeout(() => {
+      justDidDragRef.current = false;
+      document.removeEventListener("click", preventClick, { capture: true });
+    }, 350);
+
+    if (!over || active.id === over.id) return;
+
+    setOrderedItems((items) => {
+      const ids = items.map((i) => i.href);
+      const oldIndex = ids.indexOf(active.id);
+      const newIndex = ids.indexOf(over.id);
+      if (oldIndex === -1 || newIndex === -1) return items;
+      const next = arrayMove(items, oldIndex, newIndex);
+      saveOrder(next.map((i) => i.href));
+      return next;
+    });
+  };
 
   const renderNav = (isMobile = false) => (
     <nav className="flex-1 overflow-y-auto p-3 md:p-4 space-y-1">
-      {sidebarItems.map((item) => {
-        const isActive = pathname.includes(item.href);
-        return (
-          <Link href={item.href} key={item.name}>
-            {isMobile ? (
-              <SheetClose asChild>
-                <NavButton
-                  isActive={isActive}
-                  icon={item.icon}
-                  label={item.name}
-                  isMobile={isMobile}
-                />
-              </SheetClose>
-            ) : (
-              <NavButton
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={orderedItems.map((i) => i.href)}
+          strategy={verticalListSortingStrategy}
+        >
+          {orderedItems.map((item) => {
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            return (
+              <SortableNavItem
+                key={item.href}
+                item={item}
                 isActive={isActive}
-                icon={item.icon}
-                label={item.name}
                 isMobile={isMobile}
+                preventClickRef={justDidDragRef}
               />
-            )}
-          </Link>
-        );
-      })}
+            );
+          })}
+        </SortableContext>
+      </DndContext>
     </nav>
   );
 
