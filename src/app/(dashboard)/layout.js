@@ -1,5 +1,5 @@
 import Sidebar from "./components/Sidebar";
-import TopNavbar from "./components/TopNavbar";
+import TopNavbar from "@/components/TopNavbar/TopNavbar";
 import TokenGuard from "@/lib/api/TokenGuard";
 
 export default function DashboardLayout({ children }) {
