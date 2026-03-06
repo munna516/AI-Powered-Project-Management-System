@@ -33,15 +33,16 @@ import { IoChatboxEllipsesOutline, IoCheckboxOutline } from "react-icons/io5";
 import { IoIosSettings } from "react-icons/io";
 import { BsDatabaseFillGear } from "react-icons/bs";
 import Image from "next/image";
-import { logoutAndRedirect } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { logoutAndRedirect, apiGet } from "@/lib/api";
 import toast from "react-hot-toast";
 
 // Constants
 const SIDEBAR_BG = "bg-[#201B51]";
 const ACTIVE_BG = "bg-[#6051E2]";
-const USER_AVATAR = "https://cdn.pixabay.com/photo/2024/09/23/10/39/man-9068618_640.jpg";
-const USER_NAME = "Robert Smith";
 const SIDEBAR_ORDER_KEY = "sidebar-nav-order";
+const PROFILE_QUERY_KEY = ["userProfile"];
+const PROFILE_GET_ENDPOINT = "/api/user/profile/me";
 
 const defaultSidebarItems = [
   { name: "Dashboard", icon: <MdDashboard />, href: "/dashboard" },
@@ -176,6 +177,15 @@ export default function Sidebar() {
   const [orderedItems, setOrderedItems] = useState(defaultSidebarItems);
   const justDidDragRef = useRef(false);
 
+  const { data: profileData } = useQuery({
+    queryKey: PROFILE_QUERY_KEY,
+    queryFn: () => apiGet(PROFILE_GET_ENDPOINT),
+  });
+  const profile = profileData?.data;
+  const userName = profile ? `${profile.firstName || ""} ${profile.lastName || ""}`.trim() : "Admin";
+  const avatarUrl = profile?.avatarUrl;
+  const avatarInitial = (profile?.firstName || "?").charAt(0).toUpperCase();
+
   const handleLogout = () => {
     toast.success("Logging out...");
     logoutAndRedirect("/login", 2000);
@@ -289,16 +299,22 @@ export default function Sidebar() {
           <FiBell className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-3">
-          <div className="relative h-9 w-9 rounded-full overflow-hidden">
-            <Image
-              src={USER_AVATAR}
-              alt={USER_NAME}
-              fill
-              sizes="36px"
-              className="object-cover"
-            />
+          <div className="relative h-9 w-9 rounded-full overflow-hidden flex-shrink-0">
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt={userName}
+                fill
+                sizes="36px"
+                className="object-cover"
+              />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center bg-primary text-white text-sm font-semibold">
+                {avatarInitial}
+              </div>
+            )}
           </div>
-          <p className="text-sm font-medium text-slate-800">{USER_NAME}</p>
+          
         </div>
       </div>
     </div>
