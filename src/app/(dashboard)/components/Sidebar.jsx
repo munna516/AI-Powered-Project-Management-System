@@ -33,6 +33,8 @@ import { IoChatboxEllipsesOutline, IoCheckboxOutline } from "react-icons/io5";
 import { IoIosSettings } from "react-icons/io";
 import { BsDatabaseFillGear } from "react-icons/bs";
 import Image from "next/image";
+import { logoutAndRedirect } from "@/lib/api";
+import toast from "react-hot-toast";
 
 // Constants
 const SIDEBAR_BG = "bg-[#201B51]";
@@ -141,17 +143,18 @@ const SortableNavItem = ({ item, isActive, isMobile, preventClickRef }) => {
 };
 
 // Footer button component
-const FooterButton = ({ isActive, icon, label, href, isLogout = false }) => {
+const FooterButton = ({ isActive, icon, label, href, isLogout = false, onLogout }) => {
   const baseClasses = "relative w-full text-left rounded-md px-3 py-2 flex items-center gap-2 text-md md:text-lg lg:text-xl cursor-pointer font-bold transition-all duration-300";
 
   if (isLogout) {
     return (
-      <Link href={href}>
-        <button className={`${baseClasses} text-red-500 hover:bg-red-500/10`}>
-          <span className="w-5 h-5 text-red-500">{icon}</span>
-          {label}
-        </button>
-      </Link>
+      <button
+        onClick={onLogout}
+        className={`${baseClasses} text-red-500 hover:bg-red-500/10`}
+      >
+        <span className="w-5 h-5 text-red-500">{icon}</span>
+        {label}
+      </button>
     );
   }
 
@@ -172,6 +175,11 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [orderedItems, setOrderedItems] = useState(defaultSidebarItems);
   const justDidDragRef = useRef(false);
+
+  const handleLogout = () => {
+    toast.success("Logging out...");
+    logoutAndRedirect("/login", 2000);
+  };
 
   useEffect(() => {
     const stored = getStoredOrder();
@@ -260,8 +268,8 @@ export default function Sidebar() {
       <FooterButton
         icon={<MdOutlineLogout />}
         label="Log Out"
-        href="/"
         isLogout
+        onLogout={handleLogout}
       />
     </div>
   );

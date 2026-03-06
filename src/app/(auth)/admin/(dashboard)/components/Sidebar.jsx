@@ -15,6 +15,8 @@ import { HiOutlineMenu } from "react-icons/hi";
 import { IoIosSettings } from "react-icons/io";
 import { FiBell } from "react-icons/fi";
 import Image from "next/image";
+import { logoutAndRedirect } from "@/lib/api";
+import toast from "react-hot-toast";
 
 // Constants
 const SIDEBAR_BG = "bg-[#201B51]";
@@ -59,17 +61,18 @@ const NavButton = ({
 };
 
 // Footer button component
-const FooterButton = ({ isActive, icon, label, href, isLogout = false }) => {
+const FooterButton = ({ isActive, icon, label, href, isLogout = false, onLogout }) => {
     const baseClasses = "relative w-full text-left rounded-md px-3 py-2 flex items-center gap-2 text-md md:text-lg lg:text-xl cursor-pointer font-bold transition-all duration-300";
 
     if (isLogout) {
         return (
-            <Link href={href}>
-                <button className={`${baseClasses} text-red-500 hover:bg-red-500/10`}>
-                    <span className="w-5 h-5 text-red-500">{icon}</span>
-                    {label}
-                </button>
-            </Link>
+            <button
+                onClick={onLogout}
+                className={`${baseClasses} text-red-500 hover:bg-red-500/10`}
+            >
+                <span className="w-5 h-5 text-red-500">{icon}</span>
+                {label}
+            </button>
         );
     }
 
@@ -88,6 +91,11 @@ const FooterButton = ({ isActive, icon, label, href, isLogout = false }) => {
 
 export default function Sidebar() {
     const pathname = usePathname();
+
+    const handleLogout = () => {
+        toast.success("Logging out...");
+        logoutAndRedirect("/login", 2000);
+    };
 
     const renderNav = (isMobile = false) => (
         <nav className="flex-1 overflow-y-auto p-3 md:p-4 space-y-1">
@@ -129,8 +137,8 @@ export default function Sidebar() {
             <FooterButton
                 icon={<MdOutlineLogout />}
                 label="Log Out"
-                href="/admin/login"
                 isLogout
+                onLogout={handleLogout}
             />
         </div>
     );
