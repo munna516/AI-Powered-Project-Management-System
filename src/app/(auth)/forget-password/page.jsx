@@ -4,17 +4,32 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { apiPost } from "@/lib/api";
 
 export default function ForgetPassword() {
   const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (email) {
-      toast.success("Email sent successfully");
-      // Navigate to OTP page
-      router.push("/forget-password/otp");
+    if (!email) return;
+
+    setIsLoading(true);
+    try {
+      const response = await apiPost(
+        "/api/auth/forgot-password",
+        { email },
+        { skipAuth: true }
+      );
+
+      const message = response?.message || "OTP sent successfully. Please check your email.";
+      toast.success(message);
+      router.push(`/forget-password/otp?email=${encodeURIComponent(email)}`);
+    } catch (error) {
+      toast.error(error?.message || "Failed to send OTP. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -29,7 +44,7 @@ export default function ForgetPassword() {
             Forget Password?
           </p>
           <p className="text-sm text-secondary mb-7">
-            Please enter your email to get verification code
+            Please enter your email to receive a 6-digit verification code
           </p>
         </div>
 
@@ -51,8 +66,9 @@ export default function ForgetPassword() {
             variant="primary"
             size="lg"
             className="w-full cursor-pointer mt-3"
+            disabled={isLoading}
           >
-            Continue
+            {isLoading ? "Sending..." : "Continue"}
           </Button>
         </form>
       </div>

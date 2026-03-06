@@ -15,6 +15,7 @@
  */
 
 export const TOKEN_KEY = "auth_token";
+export const RESET_TOKEN_KEY = "reset_token";
 const LOGIN_PATH = "/login";
 const COOKIE_MAX_AGE_DAYS = 7;
 
@@ -115,18 +116,20 @@ function getHeaders(customHeaders = {}, options = {}) {
   return headers;
 }
 
-async function handleResponse(response) {
-  if (response.status === 401) {
-    handleUnauthorized();
-    throw new Error("Unauthorized");
-  }
-
+async function handleResponse(response, options = {}) {
+  const { skip401Redirect = false } = options;
   const contentType = response.headers.get("content-type");
   const isJson = contentType?.includes("application/json");
 
   if (!response.ok) {
     const errorData = isJson ? await response.json().catch(() => ({})) : { message: await response.text() };
-    const error = new Error(errorData?.message || errorData?.error || `Request failed: ${response.status}`);
+    const errorMessage = errorData?.message || errorData?.error || `Request failed: ${response.status}`;
+
+    if (response.status === 401 && !skip401Redirect) {
+      handleUnauthorized();
+    }
+
+    const error = new Error(errorMessage);
     error.status = response.status;
     error.data = errorData;
     throw error;
@@ -169,7 +172,7 @@ export async function apiGet(endpoint, options = {}) {
  * @param {object} options - { headers?: object }
  */
 export async function apiPost(endpoint, data, options = {}) {
-  const { headers: customHeaders = {}, skipAuth = false } = options;
+  const { headers: customHeaders = {}, skipAuth = false, skip401Redirect = false } = options;
   const isFormData = data instanceof FormData;
 
   const response = await fetch(buildUrl(endpoint), {
@@ -179,7 +182,7 @@ export async function apiPost(endpoint, data, options = {}) {
     credentials: useCredentials() ? "include" : "same-origin",
   });
 
-  return handleResponse(response);
+  return handleResponse(response, { skip401Redirect });
 }
 
 /**

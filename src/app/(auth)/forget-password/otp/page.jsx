@@ -1,18 +1,19 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
+import { apiPost, RESET_TOKEN_KEY } from "@/lib/api";
 
-export default function OTP() {
-  const [otp, setOtp] = useState(["", "", "", "", ""]);
-  const [email, setEmail] = useState("");
+function OTPContent() {
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [isLoading, setIsLoading] = useState(false);
   const inputRefs = useRef([]);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const email = searchParams.get("email") || "";
 
   useEffect(() => {
-    
-    // Auto-focus first input on mount
     inputRefs.current[0]?.focus();
   }, []);
 
@@ -28,7 +29,7 @@ export default function OTP() {
     setOtp(newOtp);
 
     // Auto-focus next input
-    if (value && index < 4) {
+    if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -42,22 +43,55 @@ export default function OTP() {
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").slice(0, 5);
+    const pastedData = e.clipboardData.getData("text").slice(0, 6);
     if (/^\d+$/.test(pastedData)) {
       const newOtp = [...otp];
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 6; i++) {
         newOtp[i] = pastedData[i] || "";
       }
       setOtp(newOtp);
-      // Focus the last filled input or the last input
-      const lastIndex = Math.min(pastedData.length - 1, 4);
+      const lastIndex = Math.min(pastedData.length - 1, 5);
       inputRefs.current[lastIndex]?.focus();
+    }
+  };
+
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    const otpValue = otp.join("");
+    if (otpValue.length !== 6) {
+      toast.error("Please enter the 6 digit code");
+      return;
+    }
+    if (!email) {
+      toast.error("Email is required. Please go back and try again.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await apiPost(
+        "/api/auth/verify-forgot-password-otp",
+        { email, otp: otpValue },
+        { skipAuth: true, skip401Redirect: true }
+      );
+
+      const resetToken = response?.data?.resetToken;
+      if (resetToken) {
+        sessionStorage.setItem(RESET_TOKEN_KEY, resetToken);
+      }
+
+      toast.success(response?.message || "OTP verified successfully");
+      router.push("/forget-password/reset");
+    } catch (error) {
+      toast.error(error?.message || "Invalid OTP or OTP is expired.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-6">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 space-y-6">
+      <div className="w-full max-w-lg bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 space-y-6">
         <div className="space-y-1 text-center">
           <h1 className="text-[40px] font-semibold text-primary mb-4">
             Project Pilot
@@ -66,22 +100,13 @@ export default function OTP() {
             Check your Email
           </p>
           <p className="text-sm text-secondary mb-7 px-2 sm:px-0">
-            We sent a code to your email address {email || "@"}. Please check your email for
-            the 5 digit code.
+            {email
+              ? `We sent a code to ${email}. Please check your email for the 6 digit code.`
+              : "We sent a code to your email address. Please check your email for the 6 digit code."}
           </p>
         </div>
 
-        <form
-          className="space-y-6"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const otpValue = otp.join("");
-            if (otpValue.length === 5) {
-              // Navigate to reset password page
-              router.push("/forget-password/reset");
-            }
-          }}
-        >
+        <form className="space-y-6" onSubmit={handleVerify}>
           <div className="flex justify-center gap-2 sm:gap-3">
             {otp.map((digit, index) => (
               <input
@@ -104,9 +129,9 @@ export default function OTP() {
             variant="primary"
             size="lg"
             className="w-full cursor-pointer mt-3"
-            onClick={() => toast.success("OTP verified successfully")}
+            disabled={isLoading}
           >
-            Verify
+            {isLoading ? "Verifying..." : "Verify"}
           </Button>
 
           <div className="text-center text-sm text-secondary">
@@ -118,5 +143,17 @@ export default function OTP() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function OTPPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-secondary">Loading...</div>
+      </div>
+    }>
+      <OTPContent />
+    </Suspense>
   );
 }
