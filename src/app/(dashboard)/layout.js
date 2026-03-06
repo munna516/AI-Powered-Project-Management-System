@@ -1,9 +1,11 @@
 import Sidebar from "./components/Sidebar";
 import TopNavbar from "./components/TopNavbar";
+import TokenGuard from "@/lib/api/TokenGuard";
 
 export default function DashboardLayout({ children }) {
     return (
         <div className="min-h-screen md:h-screen flex flex-col  md:flex-row bg-slate-100/50 text-slate-900 md:overflow-hidden">
+            <TokenGuard />
             <Sidebar bgColor="bg-[#201B51]" />
 
             <div className="flex-1 flex flex-col min-h-0">

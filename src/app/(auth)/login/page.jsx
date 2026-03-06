@@ -3,23 +3,49 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { EyeIcon, EyeOffIcon, Lock } from "lucide-react";
+import { EyeIcon, EyeOffIcon } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiPost, setToken } from "@/lib/api";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberPassword, setRememberPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simple validation - accept any email and password
-    if (email && password) {
-      // Redirect to dashboard
+    if (!email || !password) return;
+
+    setIsLoading(true);
+    try {
+      const response = await apiPost(
+        "/api/auth/login",
+        { email, password },
+        { skipAuth: true }
+      );
+
+      const { data } = response;
+      if (!data?.accessToken || !data?.user) {
+        toast.error("Invalid response from server");
+        return;
+      }
+
+      setToken(data.accessToken);
       toast.success("Login successful");
-      router.push("/dashboard");
+
+      const role = data.user?.role?.toUpperCase();
+      if (role === "ADMIN") {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (error) {
+      toast.error(error?.message || "Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -95,8 +121,9 @@ export default function Login() {
             variant="primary"
             size="lg"
             className="w-full cursor-pointer mt-3"
+            disabled={isLoading}
           >
-            Sign in
+            {isLoading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
       </div>
