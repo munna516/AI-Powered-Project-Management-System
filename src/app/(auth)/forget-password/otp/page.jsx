@@ -1,11 +1,11 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { apiPost, RESET_TOKEN_KEY } from "@/lib/api";
 
-export default function OTP() {
+function OTPContent() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
   const inputRefs = useRef([]);
@@ -143,5 +143,17 @@ export default function OTP() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function OTPPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-secondary">Loading...</div>
+      </div>
+    }>
+      <OTPContent />
+    </Suspense>
   );
 }
