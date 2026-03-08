@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import toast from "react-hot-toast";
-import { apiPost, setToken } from "@/lib/api";
+import { apiPost, setToken, setUser } from "@/lib/api";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -34,6 +34,7 @@ export default function Login() {
       }
 
       setToken(data.accessToken);
+      setUser(data.user);
       toast.success("Login successful");
 
       const role = data.user?.role?.toUpperCase();
