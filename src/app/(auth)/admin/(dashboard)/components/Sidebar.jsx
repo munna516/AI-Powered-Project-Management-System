@@ -27,7 +27,7 @@ const PROFILE_GET_ENDPOINT = "/api/user/profile/me";
 
 const sidebarItems = [
     { name: "Dashboard", icon: <MdDashboard />, href: "/admin/dashboard" },
-    { name: "Users", icon: <FaUsers />, href: "/admin/users" },
+    { name: "Project Manager", icon: <FaUsers />, href: "/admin/project-managers" },
     {name : "Roles and Permissions", icon: <FaUserShield />, href: "/admin/roles-and-permissions" },
 ];
 

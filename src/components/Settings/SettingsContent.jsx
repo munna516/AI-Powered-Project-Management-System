@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import { MdOutlineEmail } from "react-icons/md";
@@ -216,21 +215,11 @@ export default function SettingsContent() {
           <div className="flex items-center gap-4">
             <div className="relative h-16 w-16 rounded-full overflow-hidden group flex-shrink-0">
               {hasAvatar ? (
-                profileImage ? (
-                  <img
-                    src={profileImageSrc}
-                    alt="Profile"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <Image
-                    src={profileImageSrc}
-                    alt={`${formData.firstName} ${formData.lastName}`}
-                    fill
-                    sizes="64px"
-                    className="object-cover"
-                  />
-                )
+                <img
+                  src={profileImageSrc}
+                  alt={`${formData.firstName} ${formData.lastName}`.trim() || "Profile"}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div className="h-full w-full flex items-center justify-center bg-primary text-white text-2xl font-semibold">
                   {avatarInitial}

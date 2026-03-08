@@ -9,79 +9,16 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import DateFilter from "@/components/DateFilter/Datefilter";
+import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
 import PageHeader from "@/components/PageHeader/PageHeader";
-import { FiPlus, FiDownload } from "react-icons/fi";
+import { FiPlus, FiDownload, FiEdit2, FiTrash2 } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-
-const vendorsData = [
-    {
-        id: 1,
-        name: "Dipti",
-        designation: "Project Manager",
-        email: "dipti@gmail.com",
-        status: "Submitted",
-        totalProjects: "02",
-    },
-    {
-        id: 2,
-        name: "Rifat",
-        designation: "Product Manager",
-        email: "rifat@gmail.com",
-        status: "Submitted",
-        totalProjects: "09",
-    },
-    {
-        id: 3,
-        name: "Anik",
-        designation: "Business Analyst",
-        email: "anik@gmail.com",
-        status: "Submitted",
-        totalProjects: "18",
-    },
-    {
-        id: 4,
-        name: "Jenny",
-        designation: "Product Strategist",
-        email: "jenny@gmail.com",
-        status: "Submitted",
-        totalProjects: "07",
-    },
-    {
-        id: 5,
-        name: "Guy Hawkins",
-        designation: "Program Coordinator",
-        email: "guy@gmail.com",
-        status: "Submitted",
-        totalProjects: "06",
-    },
-    {
-        id: 6,
-        name: "Robert Fox",
-        designation: "Product Strategist",
-        email: "robert@gmail.com",
-        status: "Submitted",
-        totalProjects: "09",
-    },
-    {
-        id: 7,
-        name: "Jacob Jones",
-        designation: "Scrum Master",
-        email: "jacob@gmail.com",
-        status: "Submitted",
-        totalProjects: "11",
-    },
-    {
-        id: 8,
-        name: "Patricia Williams",
-        designation: "Graphic Designer",
-        email: "patricia@gmail.com",
-        status: "Submitted",
-        totalProjects: "10",
-    },
-];
+import Loading from "@/components/Loading/Loading";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Swal from "sweetalert2";
+import { apiDelete, apiGet } from "@/lib/api";
 
 const getStatusStyle = (status) => {
     switch (status) {
@@ -98,6 +35,7 @@ const getStatusStyle = (status) => {
 
 export default function Vendors() {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [searchValue, setSearchValue] = useState("");
     const [dateFilterState, setDateFilterState] = useState({
         filter: "all",
@@ -105,8 +43,91 @@ export default function Vendors() {
         endDate: null,
     });
 
+    const { data: vendors, isLoading: isVendorsLoading } = useQuery({
+        queryKey: ["vendors"],
+        queryFn: () => apiGet("/api/project-manager/vendor-management/all"),
+    });
+
+    const vendorList = useMemo(() => {
+        const rawVendors = Array.isArray(vendors?.data)
+            ? vendors.data
+            : Array.isArray(vendors?.data?.data)
+                ? vendors.data.data
+                : [];
+
+        return rawVendors.map((vendor) => ({
+            id: vendor.id,
+            name: vendor.name || "-",
+            designation: vendor.designation || "-",
+            email: vendor.email || "-",
+            status: Array.isArray(vendor.slas) && vendor.slas.length > 0 ? "Submitted" : "Pending",
+            totalProjects: vendor.numberOfProjects || "0",
+            createdAt: vendor.createdAt || vendor.updatedAt || null,
+            projectId: vendor.projectId || (Array.isArray(vendor.projectIds) ? vendor.projectIds[0] : vendor.projectIds) || "",
+            projectName:
+                vendor.projectName ||
+                vendor.category ||
+                vendor.project?.name ||
+                vendor.project?.title ||
+                (Array.isArray(vendor.projects) ? vendor.projects[0]?.name || vendor.projects[0]?.title : ""),
+        }));
+    }, [vendors]);
+
+    const deleteVendorMutation = useMutation({
+        mutationFn: async (vendorId) =>
+            apiDelete(`/api/project-manager/vendor-management/${vendorId}`),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["vendors"] });
+            await Swal.fire({
+                title: "Deleted!",
+                text: "Vendor deleted successfully.",
+                icon: "success",
+                confirmButtonColor: "#6051E2",
+            });
+        },
+        onError: async (error) => {
+            await Swal.fire({
+                title: "Failed",
+                text: error?.message || "Failed to delete vendor.",
+                icon: "error",
+                confirmButtonColor: "#6051E2",
+            });
+        },
+    });
+
     const handleAddVendor = () => {
         router.push("/vendors/add-vendor");
+    };
+
+    const handleEditVendor = (vendor) => {
+        const params = new URLSearchParams({
+            vendorId: String(vendor.id),
+        });
+
+        if (vendor.projectId) {
+            params.set("projectId", String(vendor.projectId));
+        }
+        if (vendor.projectName) {
+            params.set("projectName", vendor.projectName);
+        }
+
+        router.push(`/vendors/add-vendor?${params.toString()}`);
+    };
+
+    const handleDeleteVendor = async (vendorId) => {
+        const result = await Swal.fire({
+            title: "Delete vendor?",
+            text: "This action cannot be undone.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#dc2626",
+            cancelButtonColor: "#6051E2",
+            confirmButtonText: "Yes, delete it",
+            cancelButtonText: "Cancel",
+        });
+
+        if (!result.isConfirmed) return;
+        deleteVendorMutation.mutate(vendorId);
     };
 
     const handleExport = () => {
@@ -114,7 +135,12 @@ export default function Vendors() {
     };
 
     const filteredVendors = useMemo(() => {
-        let filtered = vendorsData;
+        let filtered = vendorList;
+        const { start, end } = getDateRangeFromFilter(
+            dateFilterState.filter,
+            dateFilterState.startDate,
+            dateFilterState.endDate
+        );
 
         // Search filtering
         if (searchValue.trim()) {
@@ -127,12 +153,24 @@ export default function Vendors() {
             );
         }
 
-        // Date filtering can be added here if vendors have date fields
-        // For now, we'll just return the filtered data
+        // Date filtering
+        if (start || end) {
+            filtered = filtered.filter((vendor) => {
+                if (!vendor.createdAt) return false;
+                const vendorDate = new Date(vendor.createdAt);
+                if (Number.isNaN(vendorDate.getTime())) return false;
+                if (start && vendorDate < start) return false;
+                if (end && vendorDate > end) return false;
+                return true;
+            });
+        }
 
         return filtered;
-    }, [searchValue, dateFilterState]);
+    }, [searchValue, dateFilterState, vendorList]);
 
+    if (isVendorsLoading) {
+        return <Loading />;
+    }
     return (
         <div className="w-full">
             <div className="space-y-4 sm:space-y-6">
@@ -156,13 +194,13 @@ export default function Vendors() {
                     />
 
                     {/* Export Button - Right Side */}
-                    <Button
+                    {/* <Button
                         onClick={handleExport}
                         className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex items-center gap-2 w-full sm:w-auto"
                     >
                         <FiDownload className="h-4 w-4" />
                         Export
-                    </Button>
+                    </Button> */}
                 </div>
 
                 {/* Show selected custom range */}
@@ -197,6 +235,9 @@ export default function Vendors() {
                                         </TableHead>
                                         <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
                                             Details view
+                                        </TableHead>
+                                        <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
+                                            Action
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -235,6 +276,24 @@ export default function Vendors() {
                                                     view
                                                 </button>
                                             </TableCell>
+                                            <TableCell className="py-3 px-4 lg:py-4 lg:px-6">
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        className="text-primary hover:text-primary/80 transition cursor-pointer"
+                                                        onClick={() => handleEditVendor(vendor)}
+                                                    >
+                                                        <FiEdit2 className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="text-red-500 hover:text-red-600 transition cursor-pointer"
+                                                        onClick={() => handleDeleteVendor(vendor.id)}
+                                                    >
+                                                        <FiTrash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -260,6 +319,9 @@ export default function Vendors() {
                                         </TableHead>
                                         <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
                                             View
+                                        </TableHead>
+                                        <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
+                                            Action
                                         </TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -297,6 +359,24 @@ export default function Vendors() {
                                                 >
                                                     view
                                                 </button>
+                                            </TableCell>
+                                            <TableCell className="py-3 px-4">
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        className="text-primary hover:text-primary/80 transition cursor-pointer"
+                                                        onClick={() => handleEditVendor(vendor)}
+                                                    >
+                                                        <FiEdit2 className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="text-red-500 hover:text-red-600 transition cursor-pointer"
+                                                        onClick={() => handleDeleteVendor(vendor.id)}
+                                                    >
+                                                        <FiTrash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -348,6 +428,28 @@ export default function Vendors() {
                                     >
                                         View Details
                                     </Button>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            type="button"
+                                            className="flex-1 rounded-md border border-primary px-4 py-2 text-primary hover:bg-primary/5 transition cursor-pointer"
+                                            onClick={() => handleEditVendor(vendor)}
+                                        >
+                                            <span className="flex items-center justify-center gap-2">
+                                                <FiEdit2 className="h-4 w-4" />
+                                                Edit
+                                            </span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="flex-1 rounded-md border border-red-200 px-4 py-2 text-red-500 hover:bg-red-50 transition cursor-pointer"
+                                            onClick={() => handleDeleteVendor(vendor.id)}
+                                        >
+                                            <span className="flex items-center justify-center gap-2">
+                                                <FiTrash2 className="h-4 w-4" />
+                                                Delete
+                                            </span>
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>

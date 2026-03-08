@@ -16,6 +16,7 @@
 
 export const TOKEN_KEY = "auth_token";
 export const RESET_TOKEN_KEY = "reset_token";
+export const USER_KEY = "auth_user";
 const LOGIN_PATH = "/login";
 const COOKIE_MAX_AGE_DAYS = 7;
 
@@ -63,6 +64,8 @@ export function clearToken() {
       localStorage.removeItem(key);
       deleteCookie(key);
     });
+    localStorage.removeItem(RESET_TOKEN_KEY);
+    clearUser();
   } catch {}
 }
 
@@ -79,6 +82,30 @@ export function setToken(token) {
 
 export function getStoredToken() {
   return getToken();
+}
+
+export function setUser(user) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch {}
+}
+
+export function getStoredUser() {
+  if (typeof window === "undefined") return null;
+  try {
+    const storedUser = localStorage.getItem(USER_KEY);
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearUser() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(USER_KEY);
+  } catch {}
 }
 
 function useCredentials() {
