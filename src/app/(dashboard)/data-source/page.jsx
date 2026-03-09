@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
@@ -8,18 +8,16 @@ import { PiMicrosoftOutlookLogo } from "react-icons/pi";
 import { BiLogoMicrosoftTeams } from "react-icons/bi";
 import { GoMail } from "react-icons/go";
 import { SiGooglecalendar } from "react-icons/si";
-import { apiGet } from "@/lib/api";
+import { apiDelete, apiGet } from "@/lib/api";
 // Tool Connection Data
 const tools = [
     {
         id: 1,
         name: "Microsoft Outlook",
         icon: (
-           <PiMicrosoftOutlookLogo className="w-10 h-10 text-blue-500" />
+            <PiMicrosoftOutlookLogo className="w-10 h-10 text-blue-500" />
         ),
-        connected: true,
-        email: "user@example.com",
-        status: "Connection successful, last tested: 2 minutes ago",
+        connected: false
     },
     {
         id: 2,
@@ -48,47 +46,164 @@ const tools = [
 
 ];
 
+const OUTLOOK_TOOL_ID = 1;
 const GMAIL_TOOL_ID = 4;
-const GMAIL_CONNECTION_KEY = "gmail_connected";
+const CONNECTABLE_TOOLS = {
+    [OUTLOOK_TOOL_ID]: {
+        connectEndpoint: "/api/project-manager/outlook/connect",
+        disconnectEndpoint: "/api/project-manager/outlook/disconnect",
+        statusEndpoint: "/api/email-account-connection/status",
+        statusParams: {
+            category: "social",
+        },
+        popupName: "outlook-connect",
+        successMessage: "Outlook connected successfully",
+        disconnectMessage: "Outlook disconnected successfully",
+        getConnectionInfo: (response) => {
+            const accounts = Array.isArray(response?.data) ? response.data : [];
+            const outlookAccount = accounts.find(
+                (account) => String(account?.source || "").toUpperCase() === "OUTLOOK"
+            );
+
+            return {
+                isConnected: Boolean(outlookAccount?.isConnected),
+                email: outlookAccount?.email || "",
+            };
+        },
+    },
+    [GMAIL_TOOL_ID]: {
+        connectEndpoint: "/api/email-account-connection/connect",
+        disconnectEndpoint: "/api/email-account-connection/disconnect",
+        statusEndpoint: "/api/email-account-connection/status",
+        statusParams: {
+            category: "social",
+        },
+        popupName: "gmail-connect",
+        successMessage: "Gmail connected successfully",
+        disconnectMessage: "Gmail disconnected successfully",
+        getConnectionInfo: (response) => {
+            const accounts = Array.isArray(response?.data) ? response.data : [];
+            const gmailAccount = accounts.find(
+                (account) => String(account?.source || "").toUpperCase() === "GMAIL"
+            );
+
+            return {
+                isConnected: Boolean(gmailAccount?.isConnected),
+                email: gmailAccount?.email || "",
+            };
+        },
+    },
+};
+
+function getAuthUrl(response) {
+    return response?.url || response?.data?.url || null;
+}
 
 export default function DataSource() {
-
-    const [connectedTools, setConnectedTools] = useState(
-        tools.map((tool) => tool.connected)
+    const initialConnectionState = useMemo(
+        () =>
+            Object.fromEntries(
+                tools.map((tool) => [tool.id, tool.connected])
+            ),
+        []
     );
-    const [isConnectingGmail, setIsConnectingGmail] = useState(false);
+    const [connectedTools, setConnectedTools] = useState(initialConnectionState);
+    const [toolConnectionInfo, setToolConnectionInfo] = useState({});
+    const [loadingToolId, setLoadingToolId] = useState(null);
+    const [isCheckingStatus, setIsCheckingStatus] = useState(true);
 
     useEffect(() => {
-        if (typeof window === "undefined") return;
-        const isGmailConnected = localStorage.getItem(GMAIL_CONNECTION_KEY) === "true";
-        if (!isGmailConnected) return;
+        loadConnectionStatuses();
 
-        setConnectedTools((prev) =>
-            prev.map((connected, index) =>
-                tools[index]?.id === GMAIL_TOOL_ID ? true : connected
-            )
-        );
+        const handleWindowFocus = () => {
+            loadConnectionStatuses(false);
+        };
+
+        window.addEventListener("focus", handleWindowFocus);
+        return () => window.removeEventListener("focus", handleWindowFocus);
     }, []);
+
+    const updateToolConnection = (toolId, isConnected) => {
+        setConnectedTools((prev) => ({
+            ...prev,
+            [toolId]: isConnected,
+        }));
+    };
+
+    const loadConnectionStatuses = async (showLoader = true) => {
+        if (showLoader) {
+            setIsCheckingStatus(true);
+        }
+
+        try {
+            const statusEntries = await Promise.all(
+                Object.entries(CONNECTABLE_TOOLS).map(async ([toolId, config]) => {
+                    try {
+                        const response = await apiGet(config.statusEndpoint, {
+                            params: config.statusParams,
+                        });
+                        return [Number(toolId), config.getConnectionInfo(response)];
+                    } catch {
+                        return [Number(toolId), { isConnected: false, email: "" }];
+                    }
+                })
+            );
+
+            const statusMap = Object.fromEntries(statusEntries);
+
+            setConnectedTools((prev) => ({
+                ...prev,
+                ...Object.fromEntries(
+                    Object.entries(statusMap).map(([toolId, info]) => [
+                        Number(toolId),
+                        info.isConnected,
+                    ])
+                ),
+            }));
+            setToolConnectionInfo((prev) => ({
+                ...prev,
+                ...statusMap,
+            }));
+
+            return statusMap;
+        } finally {
+            if (showLoader) {
+                setIsCheckingStatus(false);
+            }
+        }
+    };
 
     const handleConnect = async (index) => {
         const tool = tools[index];
+        const config = CONNECTABLE_TOOLS[tool.id];
 
-        if (tool.id === GMAIL_TOOL_ID) {
-            setIsConnectingGmail(true);
+        if (config) {
+            setLoadingToolId(tool.id);
             try {
-                const response = await apiGet("/api/email-account-connection/connect");
-                console.log("response", response);
-                const authUrl = response?.url || response?.data?.url;
+                const response = await apiGet(config.connectEndpoint);
+                const isConnected = Boolean(response?.isConnected ?? response?.data?.isConnected);
+                const authUrl = getAuthUrl(response);
+
+                if (isConnected) {
+                    updateToolConnection(tool.id, true);
+                    setToolConnectionInfo((prev) => ({
+                        ...prev,
+                        [tool.id]: config.getConnectionInfo(response),
+                    }));
+                    toast.success(config.successMessage);
+                    setLoadingToolId(null);
+                    return;
+                }
 
                 if (!authUrl) {
-                    setIsConnectingGmail(false);
-                    toast.error("Failed to get Gmail connection URL");
+                    toast.error(`Failed to get ${tool.name} connection URL`);
+                    setLoadingToolId(null);
                     return;
                 }
 
                 const popup = window.open(
                     authUrl,
-                    "gmail-connect",
+                    config.popupName,
                     "width=600,height=700,noopener,noreferrer"
                 );
 
@@ -97,55 +212,59 @@ export default function DataSource() {
                     return;
                 }
 
-                const popupTimer = window.setInterval(() => {
+                const popupTimer = window.setInterval(async () => {
                     if (!popup.closed) return;
 
                     window.clearInterval(popupTimer);
-                    localStorage.setItem(GMAIL_CONNECTION_KEY, "true");
-                    setConnectedTools((prev) => {
-                        const newState = [...prev];
-                        newState[index] = true;
-                        return newState;
-                    });
-                    toast.success("Gmail connected successfully");
-                    setIsConnectingGmail(false);
+                    const statusMap = await loadConnectionStatuses(false);
+                    if (statusMap?.[tool.id]?.isConnected) {
+                        toast.success(config.successMessage);
+                    } else {
+                        toast.error(`${tool.name} is not connected yet`);
+                    }
+                    setLoadingToolId(null);
                 }, 1000);
 
                 return;
             } catch (error) {
-                setIsConnectingGmail(false);
-                toast.error(error?.message || "Failed to connect Gmail");
+                toast.error(error?.message || `Failed to connect ${tool.name}`);
+                setLoadingToolId(null);
             }
             return;
         }
 
-        if (connectedTools[index]) {
-            setConnectedTools((prev) => {
-                const newState = [...prev];
-                newState[index] = false;
-                return newState;
-            });
+        if (connectedTools[tool.id]) {
+            updateToolConnection(tool.id, false);
             toast.success(`${tool.name} disconnected successfully`);
         } else {
-            setConnectedTools((prev) => {
-                const newState = [...prev];
-                newState[index] = true;
-                return newState;
-            });
+            updateToolConnection(tool.id, true);
             toast.success(`${tool.name} connected successfully`);
         }
     };
 
-    const handleDisconnect = (index) => {
+    const handleDisconnect = async (index) => {
         const tool = tools[index];
-        if (tool.id === GMAIL_TOOL_ID && typeof window !== "undefined") {
-            localStorage.removeItem(GMAIL_CONNECTION_KEY);
+        const config = CONNECTABLE_TOOLS[tool.id];
+
+        if (config) {
+            setLoadingToolId(tool.id);
+            try {
+                await apiDelete(config.disconnectEndpoint);
+                updateToolConnection(tool.id, false);
+                setToolConnectionInfo((prev) => ({
+                    ...prev,
+                    [tool.id]: { isConnected: false, email: "" },
+                }));
+                toast.success(config.disconnectMessage);
+            } catch (error) {
+                toast.error(error?.message || `Failed to disconnect ${tool.name}`);
+            } finally {
+                setLoadingToolId(null);
+            }
+            return;
         }
-        setConnectedTools((prev) => {
-            const newState = [...prev];
-            newState[index] = false;
-            return newState;
-        });
+
+        updateToolConnection(tool.id, false);
         toast.success(`${tool.name} disconnected successfully`);
     };
 
@@ -169,7 +288,14 @@ export default function DataSource() {
                     Connect your tools
                 </h2>
                 <div className="space-y-4">
-                    {tools.map((tool, index) => (
+                    {tools.map((tool, index) => {
+                        const isSupportedTool = Boolean(CONNECTABLE_TOOLS[tool.id]);
+                        const isActionDisabled =
+                            !isSupportedTool ||
+                            loadingToolId === tool.id ||
+                            isCheckingStatus;
+
+                        return (
                         <Card
                             key={tool.id}
                             className="bg-white hover:shadow-md transition-shadow"
@@ -182,7 +308,7 @@ export default function DataSource() {
                                             <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-1">
                                                 {tool.name}
                                             </h3>
-                                            {connectedTools[index] ? (
+                                            {connectedTools[tool.id] ? (
                                                 <div className="space-y-1">
                                                     {tool.name === "Azure AD" || tool.name === "OKTA" ? (
                                                         <div className="flex items-center gap-2">
@@ -199,9 +325,11 @@ export default function DataSource() {
                                                                     Connected
                                                                 </span>
                                                             </div>
-                                                            <p className="text-xs text-green-700">
-                                                                {tool.status}
-                                                            </p>
+                                                            {toolConnectionInfo[tool.id]?.email ? (
+                                                                <p className="text-xs text-green-700">
+                                                                    {toolConnectionInfo[tool.id].email}
+                                                                </p>
+                                                            ) : null}
                                                         </>
                                                     )}
                                                 </div>
@@ -210,40 +338,56 @@ export default function DataSource() {
                                                     Not Connected
                                                 </p>
                                             )}
+                                            {!isSupportedTool ? (
+                                                <p className="text-xs text-slate-400 mt-1">
+                                                    Coming soon
+                                                </p>
+                                            ) : null}
                                         </div>
                                     </div>
                                     <div className="flex-shrink-0">
-                                        {connectedTools[index] ? (
+                                        {connectedTools[tool.id] ? (
                                             tool.name === "Azure AD" || tool.name === "OKTA" ? (
                                                 <Button
                                                     onClick={() => handleDisconnect(index)}
+                                                    disabled={isActionDisabled}
                                                     className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 cursor-pointer w-full sm:w-auto"
                                                 >
-                                                    Disconnect
+                                                    {loadingToolId === tool.id ? "Disconnecting..." : "Disconnect"}
                                                 </Button>
                                             ) : (
                                                 <Button
                                                     onClick={() => handleDisconnect(index)}
                                                     variant="outline"
+                                                    disabled={isActionDisabled}
                                                     className="bg-red-500 text-white  px-6 py-2 cursor-pointer w-full sm:w-auto"
                                                 >
-                                                    Disconnect
+                                                    {loadingToolId === tool.id ? "Disconnecting..." : "Disconnect"}
                                                 </Button>
                                             )
                                         ) : (
                                             <Button
                                                 onClick={() => handleConnect(index)}
-                                                disabled={tool.id === GMAIL_TOOL_ID && isConnectingGmail}
-                                                className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-2 cursor-pointer flex-shrink-0 w-full sm:w-auto"
+                                                disabled={isActionDisabled}
+                                                className={`px-6 py-2 flex-shrink-0 w-full sm:w-auto ${
+                                                    isSupportedTool
+                                                        ? "bg-[#6051E2] hover:bg-[#4a3db8] text-white cursor-pointer"
+                                                        : "bg-slate-200 text-slate-400 cursor-not-allowed hover:bg-slate-200"
+                                                }`}
                                             >
-                                                {tool.id === GMAIL_TOOL_ID && isConnectingGmail ? "Connecting..." : "Connect"}
+                                                {!isSupportedTool
+                                                    ? "Connect"
+                                                    : loadingToolId === tool.id
+                                                    ? "Connecting..."
+                                                    : "Connect"}
                                             </Button>
                                         )}
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 
