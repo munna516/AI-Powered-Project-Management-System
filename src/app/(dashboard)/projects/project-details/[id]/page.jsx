@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     Table,
@@ -35,219 +36,33 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import toast from "react-hot-toast";
+import Loading from "@/components/Loading/Loading";
+import { apiGet } from "@/lib/api";
 
-// Dummy data - in real app, fetch based on id
 const projectData = {
-    id: "2020-25",
-    title: "Website redesign",
-    status: "In progress",
-    owner: "Shilpa",
-    deadline: "25-12-25",
-    progress: 60,
-    summary: "This project involves a comprehensive redesign of our company website to improve user experience and modernize the interface. We are processing the design milestones and making significant progress towards completion.",
-    lastMeetingSummary: "In the last meeting, we discussed the current progress of the website redesign project. The team reviewed the design mockups and provided feedback on the user interface elements. We also discussed the timeline and upcoming milestones.",
-    team: [
-        { name: "Zarfa", role: "Project manager" },
-        { name: "Se Ra", role: "Project manager" },
-        { name: "Se Ra", role: "Project manager" },
-    ],
+    id: "Not available",
+    title: "Not available",
+    status: "Not available",
+    owner: "Not available",
+    deadline: "Not available",
+    progress: null,
+    summary: "Not available",
+    lastMeetingSummary: "Not available",
+    team: [],
     health: {
-        overallStatus: "on track",
-        budget: "pending",
-        teamSentiment: "on track",
+        overallStatus: "Not available",
+        budget: "Not available",
+        teamSentiment: "Not available",
     },
-    documents: [
-        { name: "project brief.docx" },
-        { name: "project brief.docx" },
-        { name: "final_design.pdf" },
-    ],
-    milestones: [
-        {
-            id: 1,
-            phase: "Phase 01",
-            date: "Oct 11, 2025, 10:00 AM",
-            description: "We have Received Your Order And It's Been Processed!",
-            status: "complete",
-        },
-        {
-            id: 2,
-            phase: "Phase 02",
-            date: "Oct 11, 2025, 10:00 AM",
-            description: "We have Approved Your Order And It's Been Processed!",
-            status: "complete",
-        },
-        {
-            id: 3,
-            phase: "Phase 03",
-            date: "Oct 11, 2025, 10:00 AM",
-            description: "Your Order Has Been Confirmed And Approved!",
-            status: "complete",
-        },
-        {
-            id: 4,
-            phase: "Phase 04",
-            date: "Oct 11, 2025, 10:00 AM",
-            description: "Your Order Has Been Assigned To A Rider",
-            status: "upcoming",
-        },
-    ],
+    documents: [],
+    milestones: [],
+    tasks: [],
+    meetings: [],
 };
 
-const taskListData = [
-    {
-        id: 1,
-        taskName: "User research",
-        startDate: "28 Nov, 2025",
-        endDate: "30 Nov, 2025",
-        priority: "High",
-        status: "complete",
-    },
-    {
-        id: 2,
-        taskName: "Define user personas",
-        startDate: "28 Nov, 2025",
-        endDate: "30 Nov, 2025",
-        priority: "Medium",
-        status: "Pending",
-    },
-    {
-        id: 3,
-        taskName: "Create sitemap",
-        startDate: "28 Nov, 2025",
-        endDate: "30 Nov, 2025",
-        priority: "High",
-        status: "Ongoing",
-    },
-    {
-        id: 4,
-        taskName: "Low-fidelity",
-        startDate: "29 Nov, 2025",
-        endDate: "30 Nov, 2025",
-        priority: "Medium",
-        status: "Ongoing",
-    },
-    {
-        id: 5,
-        taskName: "Prototype",
-        startDate: "29 Nov, 2025",
-        endDate: "30 Nov, 2025",
-        priority: "High",
-        status: "Ongoing",
-    },
-    {
-        id: 6,
-        taskName: "Conduct usability",
-        startDate: "29 Nov, 2025",
-        endDate: "30 Nov, 2025",
-        priority: "Medium",
-        status: "complete",
-    },
-    {
-        id: 7,
-        taskName: "Final UI polishing",
-        startDate: "29 Nov, 2025",
-        endDate: "30 Nov, 2025",
-        priority: "Low",
-        status: "complete",
-    },
-];
-
-const meetingListData = [
-    {
-        id: 1,
-        date: "28 Nov. 2025",
-        link: "https://meet.google.com/tmp-...",
-        platform: "Google Meet",
-        summary: "view",
-    },
-    {
-        id: 2,
-        date: "28 Nov. 2025",
-        link: "https://meet.google.com/tmp-...",
-        platform: "Google Meet",
-        summary: "view",
-    },
-    {
-        id: 3,
-        date: "28 Nov. 2025",
-        link: "https://meet.google.com/tmp-...",
-        platform: "Google Meet",
-        summary: "view",
-    },
-    {
-        id: 4,
-        date: "28 Nov. 2025",
-        link: "https://meet.google.com/tmp-...",
-        platform: "Zoom",
-        summary: "view",
-    },
-    {
-        id: 5,
-        date: "28 Nov. 2025",
-        link: "https://meet.google.com/tmp-...",
-        platform: "Zoom",
-        summary: "view",
-    },
-    {
-        id: 6,
-        date: "28 Nov. 2025",
-        link: "https://meet.google.com/tmp-...",
-        platform: "Google Meet",
-        summary: "view",
-    },
-    {
-        id: 7,
-        date: "28 Nov. 2025",
-        link: "https://meet.google.com/tmp-...",
-        platform: "Google Meet",
-        summary: "view",
-    },
-];
-
-const documentListData = [
-    {
-        id: 1,
-        date: "29 Nov, 2023",
-        url: "https://docs.google.com/v",
-        summary: "view",
-    },
-    {
-        id: 2,
-        date: "29 Nov, 2023",
-        url: "https://docs.google.com/v",
-        summary: "view",
-    },
-    {
-        id: 3,
-        date: "29 Nov, 2023",
-        url: "https://docs.google.com/v",
-        summary: "view",
-    },
-    {
-        id: 4,
-        date: "29 Nov, 2023",
-        url: "https://docs.google.com/v",
-        summary: "view",
-    },
-    {
-        id: 5,
-        date: "29 Nov, 2023",
-        url: "https://docs.google.com/v",
-        summary: "view",
-    },
-    {
-        id: 6,
-        date: "29 Nov, 2023",
-        url: "https://docs.google.com/v",
-        summary: "view",
-    },
-    {
-        id: 7,
-        date: "29 Nov, 2023",
-        url: "https://docs.google.com/v",
-        summary: "view",
-    },
-];
+const taskListData = [];
+const meetingListData = [];
+const documentListData = [];
 
 const tabs = [
     { id: "task", label: "Task list", buttonLabel: "Add Task" },
@@ -285,8 +100,76 @@ const getStatusColor = (status) => {
     }
 };
 
+const formatValue = (value) => value || "Not available";
+
+const formatDate = (value) => {
+    if (!value) return "Not available";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Not available";
+    return date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    });
+};
+
+const formatDateTime = (value) => {
+    if (!value) return "Not available";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Not available";
+    return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+};
+
+const toTitleCase = (value) => {
+    if (!value) return "Not available";
+    return String(value)
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const getProjectHealth = (health) => {
+    if (Array.isArray(health)) {
+        const healthMap = health.reduce((acc, item) => {
+            const key = item?.name || item?.type || item?.label;
+            const value = item?.status || item?.value;
+            if (key && value) {
+                acc[key] = value;
+            }
+            return acc;
+        }, {});
+
+        return {
+            overallStatus: healthMap.overallStatus || healthMap.status || "Not available",
+            budget: healthMap.budget || "Not available",
+            teamSentiment: healthMap.teamSentiment || healthMap.sentiment || "Not available",
+        };
+    }
+
+    if (health && typeof health === "object") {
+        return {
+            overallStatus: health.overallStatus || health.status || "Not available",
+            budget: health.budget || "Not available",
+            teamSentiment: health.teamSentiment || health.sentiment || "Not available",
+        };
+    }
+
+    return {
+        overallStatus: "Not available",
+        budget: "Not available",
+        teamSentiment: "Not available",
+    };
+};
+
 export default function ProjectDetails() {
     const params = useParams();
+    const projectId = Array.isArray(params?.id) ? params.id[0] : params?.id;
     const [activeTab, setActiveTab] = useState("task");
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deleteReason, setDeleteReason] = useState("");
@@ -297,8 +180,112 @@ export default function ProjectDetails() {
     const [meetingForm, setMeetingForm] = useState({ date: "", link: "", platform: "", summary: "" });
     const [documentForm, setDocumentForm] = useState({ date: "", link: "", summary: "" });
     const router = useRouter();
-    // In real app, fetch project data based on params.id
-    const project = projectData;
+    const {
+        data: projectResponse,
+        isLoading,
+        isError,
+        error,
+    } = useQuery({
+        queryKey: ["project-details-page", projectId],
+        enabled: Boolean(projectId),
+        queryFn: () => apiGet(`/api/project-manager/project-management/${projectId}`),
+    });
+
+    const project = useMemo(() => {
+        const rawProject =
+            projectResponse?.data?.data ||
+            projectResponse?.data ||
+            null;
+
+        if (!rawProject) {
+            return projectData;
+        }
+
+        const teamMembers = Array.isArray(rawProject?.assignTeam?.employees)
+            ? rawProject.assignTeam.employees.map((member, index) => ({
+                name:
+                    [member?.firstName, member?.lastName].filter(Boolean).join(" ").trim() ||
+                    member?.name ||
+                    `Member ${index + 1}`,
+                role: toTitleCase(member?.designation || member?.role || "Team member"),
+            }))
+            : rawProject?.assignTeam?.name
+                ? [{ name: rawProject.assignTeam.name, role: "Assigned team" }]
+                : [];
+
+        const meetings = Array.isArray(rawProject?.meetings)
+            ? rawProject.meetings.map((meeting, index) => ({
+                id: meeting?.id || index,
+                date: formatDate(meeting?.meetingDate || meeting?.createdAt),
+                link: formatValue(meeting?.meetingUrl),
+                platform: formatValue(meeting?.platform),
+                summary: meeting?.aiMeetingSummary || meeting?.projectSummary || meeting?.lastMeetingSummary ? "view" : "Not available",
+            }))
+            : meetingListData;
+
+        const documents = Array.isArray(rawProject?.documents)
+            ? rawProject.documents.map((doc, index) => ({
+                id: doc?.id || index,
+                name: doc?.fileName || doc?.title || "Not available",
+                date: formatDate(doc?.setDate || doc?.createdAt),
+                url: formatValue(doc?.fileUrl || doc?.filePath),
+                summary: doc?.aiDocumentSummary ? "view" : "Not available",
+            }))
+            : documentListData;
+
+        const tasks = Array.isArray(rawProject?.tasks)
+            ? rawProject.tasks.map((task, index) => ({
+                id: task?.id || index,
+                taskName: task?.name || task?.taskName || "Not available",
+                startDate: formatDate(task?.startDate),
+                endDate: formatDate(task?.endDate),
+                priority: toTitleCase(task?.priority),
+                status: toTitleCase(task?.status),
+            }))
+            : taskListData;
+
+        const milestones = Array.isArray(rawProject?.milestones)
+            ? rawProject.milestones.map((milestone, index) => ({
+                id: milestone?.id || index,
+                phase: milestone?.phase || milestone?.name || `Phase ${index + 1}`,
+                date: formatDateTime(milestone?.date || milestone?.deadline || milestone?.createdAt),
+                description: milestone?.description || "Not available",
+                status:
+                    String(milestone?.status || "").toLowerCase() === "completed" ||
+                        String(milestone?.status || "").toLowerCase() === "complete"
+                        ? "complete"
+                        : "upcoming",
+            }))
+            : [];
+
+        const managerName =
+            [rawProject?.manager?.firstName, rawProject?.manager?.lastName]
+                .filter(Boolean)
+                .join(" ")
+                .trim() || "Not available";
+
+        return {
+            id: rawProject?.id || "Not available",
+            title: rawProject?.name || "Not available",
+            status: toTitleCase(rawProject?.status),
+            owner: managerName,
+            deadline: formatDate(rawProject?.endDate),
+            progress: null,
+            summary: rawProject?.description || "Not available",
+            lastMeetingSummary:
+                rawProject?.weeklyMeetingSummary ||
+                rawProject?.meetings?.[0]?.aiMeetingSummary ||
+                rawProject?.meetings?.[0]?.projectSummary ||
+                rawProject?.meetings?.[0]?.lastMeetingSummary ||
+                "Not available",
+            team: teamMembers,
+            health: getProjectHealth(rawProject?.health),
+            documents,
+            milestones,
+            tasks,
+            meetings,
+        };
+    }, [projectResponse]);
 
     const handleCancelProjectClick = () => {
         setDeleteModalOpen(true);
@@ -354,6 +341,22 @@ export default function ProjectDetails() {
 
     const inputBaseClass = "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6051E2] focus:border-transparent";
     const labelClass = "text-sm font-medium text-slate-900 block mb-1.5";
+
+    if (isLoading) {
+        return <Loading />;
+    }
+
+    if (isError) {
+        return (
+            <Card>
+                <CardContent className="p-6 text-center">
+                    <p className="text-sm text-slate-600">
+                        {error?.message || "Not available"}
+                    </p>
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <div className="">
@@ -706,15 +709,19 @@ export default function ProjectDetails() {
                                             Progress
                                         </p>
                                         <p className="text-sm font-medium text-slate-900">
-                                            {project.progress}%
+                                            {typeof project.progress === "number" ? `${project.progress}%` : "Not available"}
                                         </p>
                                     </div>
-                                    <div className="w-full bg-slate-200 rounded-full h-2.5">
-                                        <div
-                                            className="bg-[#6051E2] h-2.5 rounded-full transition-all duration-300"
-                                            style={{ width: `${project.progress}%` }}
-                                        ></div>
-                                    </div>
+                                    {typeof project.progress === "number" ? (
+                                        <div className="w-full bg-slate-200 rounded-full h-2.5">
+                                            <div
+                                                className="bg-[#6051E2] h-2.5 rounded-full transition-all duration-300"
+                                                style={{ width: `${project.progress}%` }}
+                                            ></div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-slate-500">Not available</p>
+                                    )}
                                 </div>
                             </div>
                         </CardContent>
@@ -772,40 +779,48 @@ export default function ProjectDetails() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {taskListData.map((task) => (
-                                                    <TableRow
-                                                        key={task.id}
-                                                        className="border-b border-slate-100 hover:bg-slate-50"
-                                                    >
-                                                        <TableCell className="py-3 px-4 text-slate-800">
-                                                            {task.taskName}
-                                                        </TableCell>
-                                                        <TableCell className="py-3 px-4 text-slate-800 text-center">
-                                                            {task.startDate}
-                                                        </TableCell>
-                                                        <TableCell className="py-3 px-4 text-slate-800 text-center">
-                                                            {task.endDate}
-                                                        </TableCell>
-                                                        <TableCell className="py-3 px-4 text-right">
-                                                            <span
-                                                                className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(
-                                                                    task.priority
-                                                                )}`}
-                                                            >
-                                                                {task.priority}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="py-3 px-4 text-right">
-                                                            <span
-                                                                className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                                                                    task.status
-                                                                )}`}
-                                                            >
-                                                                {task.status}
-                                                            </span>
+                                                {project.tasks.length > 0 ? (
+                                                    project.tasks.map((task) => (
+                                                        <TableRow
+                                                            key={task.id}
+                                                            className="border-b border-slate-100 hover:bg-slate-50"
+                                                        >
+                                                            <TableCell className="py-3 px-4 text-slate-800">
+                                                                {task.taskName}
+                                                            </TableCell>
+                                                            <TableCell className="py-3 px-4 text-slate-800 text-center">
+                                                                {task.startDate}
+                                                            </TableCell>
+                                                            <TableCell className="py-3 px-4 text-slate-800 text-center">
+                                                                {task.endDate}
+                                                            </TableCell>
+                                                            <TableCell className="py-3 px-4 text-right">
+                                                                <span
+                                                                    className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(
+                                                                        task.priority
+                                                                    )}`}
+                                                                >
+                                                                    {task.priority}
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell className="py-3 px-4 text-right">
+                                                                <span
+                                                                    className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                                                                        task.status
+                                                                    )}`}
+                                                                >
+                                                                    {task.status}
+                                                                </span>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow>
+                                                        <TableCell colSpan={5} className="py-6 text-center text-slate-500">
+                                                            Not available
                                                         </TableCell>
                                                     </TableRow>
-                                                ))}
+                                                )}
                                             </TableBody>
                                         </Table>
                                     </div>
@@ -832,27 +847,39 @@ export default function ProjectDetails() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {meetingListData.map((meeting) => (
-                                                    <TableRow
-                                                        key={meeting.id}
-                                                        className="border-b border-slate-100 hover:bg-slate-50"
-                                                    >
-                                                        <TableCell className="py-3 px-4 text-slate-800">
-                                                            {meeting.date}
-                                                        </TableCell>
-                                                        <TableCell className="py-3 px-4 text-slate-800">
-                                                            {meeting.link}
-                                                        </TableCell>
-                                                        <TableCell className="py-3 px-4 text-slate-800">
-                                                            {meeting.platform}
-                                                        </TableCell>
-                                                        <TableCell className="py-3 px-4">
-                                                            <button onClick={() => router.push(`/projects/project-details/1/meeting-summary?meetingId=${meeting.id}`)} className="text-blue-600 hover:underline cursor-pointer">
-                                                                {meeting.summary}
-                                                            </button>
+                                                {project.meetings.length > 0 ? (
+                                                    project.meetings.map((meeting) => (
+                                                        <TableRow
+                                                            key={meeting.id}
+                                                            className="border-b border-slate-100 hover:bg-slate-50"
+                                                        >
+                                                            <TableCell className="py-3 px-4 text-slate-800">
+                                                                {meeting.date}
+                                                            </TableCell>
+                                                            <TableCell className="py-3 px-4 text-slate-800">
+                                                                {meeting.link}
+                                                            </TableCell>
+                                                            <TableCell className="py-3 px-4 text-slate-800">
+                                                                {meeting.platform}
+                                                            </TableCell>
+                                                            <TableCell className="py-3 px-4">
+                                                                {meeting.summary === "view" ? (
+                                                                    <button onClick={() => router.push(`/projects/project-details/${projectId}/meeting-summary?meetingId=${meeting.id}`)} className="text-blue-600 hover:underline cursor-pointer">
+                                                                        {meeting.summary}
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="text-slate-500">{meeting.summary}</span>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow>
+                                                        <TableCell colSpan={4} className="py-6 text-center text-slate-500">
+                                                            Not available
                                                         </TableCell>
                                                     </TableRow>
-                                                ))}
+                                                )}
                                             </TableBody>
                                         </Table>
                                     </div>
@@ -876,24 +903,36 @@ export default function ProjectDetails() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {documentListData.map((doc) => (
-                                                    <TableRow
-                                                        key={doc.id}
-                                                        className="border-b border-slate-100 hover:bg-slate-50"
-                                                    >
-                                                        <TableCell className="py-3 px-4 text-slate-800">
-                                                            {doc.date}
-                                                        </TableCell>
-                                                        <TableCell className="py-3 px-4 text-slate-800">
-                                                            {doc.url}
-                                                        </TableCell>
-                                                        <TableCell className="py-3 px-4">
-                                                            <button onClick={() => router.push(`/projects/project-details/1/meeting-summary?documentId=${doc.id}`)} className="text-blue-600 hover:underline cursor-pointer">
-                                                                {doc.summary}
-                                                            </button>
+                                                {project.documents.length > 0 ? (
+                                                    project.documents.map((doc) => (
+                                                        <TableRow
+                                                            key={doc.id}
+                                                            className="border-b border-slate-100 hover:bg-slate-50"
+                                                        >
+                                                            <TableCell className="py-3 px-4 text-slate-800">
+                                                                {doc.date}
+                                                            </TableCell>
+                                                            <TableCell className="py-3 px-4 text-slate-800">
+                                                                {doc.url}
+                                                            </TableCell>
+                                                            <TableCell className="py-3 px-4">
+                                                                {doc.summary === "view" ? (
+                                                                    <button onClick={() => router.push(`/projects/project-details/${projectId}/meeting-summary?documentId=${doc.id}`)} className="text-blue-600 hover:underline cursor-pointer">
+                                                                        {doc.summary}
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="text-slate-500">{doc.summary}</span>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow>
+                                                        <TableCell colSpan={3} className="py-6 text-center text-slate-500">
+                                                            Not available
                                                         </TableCell>
                                                     </TableRow>
-                                                ))}
+                                                )}
                                             </TableBody>
                                         </Table>
                                     </div>
@@ -913,61 +952,65 @@ export default function ProjectDetails() {
                                 <div className="absolute left-32 top-0 bottom-0 w-0.5 bg-slate-300 hidden md:block"></div>
 
                                 <div className="space-y-8">
-                                    {project.milestones.map((milestone, index) => (
-                                        <div
-                                            key={milestone.id}
-                                            className="relative flex flex-col md:flex-row items-start"
-                                        >
-                                            {/* Date on Left */}
-                                            <div className="w-full md:w-32 text-left md:text-right md:pr-6 flex-shrink-0">
-                                                <p className="text-sm font-medium text-slate-700">
-                                                    {milestone.date.split(", ")[0]}
-                                                </p>
-                                                <p className="text-xs text-slate-500 mt-1">
-                                                    {milestone.date.includes(", ")
-                                                        ? milestone.date.split(", ")[1]
-                                                        : "10:00 AM"}
-                                                </p>
-                                            </div>
+                                    {project.milestones.length > 0 ? (
+                                        project.milestones.map((milestone) => (
+                                            <div
+                                                key={milestone.id}
+                                                className="relative flex flex-col md:flex-row items-start"
+                                            >
+                                                {/* Date on Left */}
+                                                <div className="w-full md:w-32 text-left md:text-right md:pr-6 flex-shrink-0">
+                                                    <p className="text-sm font-medium text-slate-700">
+                                                        {milestone.date !== "Not available" ? milestone.date.split(", ")[0] : "Not available"}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500 mt-1">
+                                                        {milestone.date !== "Not available" && milestone.date.includes(", ")
+                                                            ? milestone.date.split(", ")[1]
+                                                            : "Not available"}
+                                                    </p>
+                                                </div>
 
-                                            {/* Timeline Dot - on the line */}
-                                            <div className="absolute left-32 transform -translate-x-1/2 -translate-y-1 z-10 hidden md:block">
-                                                <div
-                                                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${milestone.status === "complete"
-                                                        ? "bg-green-500 border-green-500"
-                                                        : "bg-white border-orange-400"
-                                                        }`}
-                                                >
-                                                    {milestone.status === "complete" ? (
-                                                        <CheckCircle2 className="w-4 h-4 text-white" />
-                                                    ) : (
-                                                        <Circle className="w-4 h-4 text-orange-400 fill-orange-400" />
-                                                    )}
+                                                {/* Timeline Dot - on the line */}
+                                                <div className="absolute left-32 transform -translate-x-1/2 -translate-y-1 z-10 hidden md:block">
+                                                    <div
+                                                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${milestone.status === "complete"
+                                                            ? "bg-green-500 border-green-500"
+                                                            : "bg-white border-orange-400"
+                                                            }`}
+                                                    >
+                                                        {milestone.status === "complete" ? (
+                                                            <CheckCircle2 className="w-4 h-4 text-white" />
+                                                        ) : (
+                                                            <Circle className="w-4 h-4 text-orange-400 fill-orange-400" />
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Phase Content on Right */}
+                                                <div className="w-full md:flex-1 md:pl-12 space-y-2">
+                                                    <p className="text-sm font-medium text-slate-700">
+                                                        {milestone.phase.replace("Phase ", "Phase: ")}
+                                                    </p>
+                                                    <p className="text-sm text-slate-600">
+                                                        {milestone.description}
+                                                    </p>
+                                                    <Button
+                                                        size="sm"
+                                                        className={`cursor-pointer rounded-full ${milestone.status === "complete"
+                                                            ? "bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
+                                                            : "bg-orange-100 hover:bg-orange-200 text-orange-800 border-orange-300"
+                                                            } border`}
+                                                    >
+                                                        {milestone.status === "complete"
+                                                            ? "Complete"
+                                                            : "Upcoming"}
+                                                    </Button>
                                                 </div>
                                             </div>
-
-                                            {/* Phase Content on Right */}
-                                            <div className="w-full md:flex-1 md:pl-12 space-y-2">
-                                                <p className="text-sm font-medium text-slate-700">
-                                                    {milestone.phase.replace("Phase ", "Phase: ")}
-                                                </p>
-                                                <p className="text-sm text-slate-600">
-                                                    {milestone.description}
-                                                </p>
-                                                <Button
-                                                    size="sm"
-                                                    className={`cursor-pointer rounded-full ${milestone.status === "complete"
-                                                        ? "bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
-                                                        : "bg-orange-100 hover:bg-orange-200 text-orange-800 border-orange-300"
-                                                        } border`}
-                                                >
-                                                    {milestone.status === "complete"
-                                                        ? "Complete"
-                                                        : "Upcoming"}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-slate-500">Not available</p>
+                                    )}
                                 </div>
                             </div>
                         </CardContent>
@@ -1016,24 +1059,28 @@ export default function ProjectDetails() {
                                 </h3>
                             </div>
                             <div className="space-y-3">
-                                {project.team.map((member, index) => (
-                                    <div
-                                        key={index}
-                                        className="flex items-center gap-3"
-                                    >
-                                        <div className="w-8 h-8 rounded-full bg-[#6051E2] flex items-center justify-center text-white text-xs font-medium">
-                                            {member.name.charAt(0)}
+                                {project.team.length > 0 ? (
+                                    project.team.map((member, index) => (
+                                        <div
+                                            key={index}
+                                            className="flex items-center gap-3"
+                                        >
+                                            <div className="w-8 h-8 rounded-full bg-[#6051E2] flex items-center justify-center text-white text-xs font-medium">
+                                                {member.name.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-slate-900">
+                                                    {member.name}
+                                                </p>
+                                                <p className="text-xs text-slate-500">
+                                                    {member.role}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-slate-900">
-                                                {member.name}
-                                            </p>
-                                            <p className="text-xs text-slate-500">
-                                                {member.role}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-slate-500">Not available</p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -1096,17 +1143,21 @@ export default function ProjectDetails() {
                                 </h3>
                             </div>
                             <div className="space-y-2">
-                                {project.documents.map((doc, index) => (
-                                    <div
-                                        key={index}
-                                        className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-md cursor-pointer"
-                                    >
-                                        <FileText className="w-4 h-4 text-slate-400" />
-                                        <span className="text-sm text-slate-700">
-                                            {doc.name}
-                                        </span>
-                                    </div>
-                                ))}
+                                {project.documents.length > 0 ? (
+                                    project.documents.map((doc, index) => (
+                                        <div
+                                            key={index}
+                                            className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-md cursor-pointer"
+                                        >
+                                            <FileText className="w-4 h-4 text-slate-400" />
+                                            <span className="text-sm text-slate-700">
+                                                {doc.name}
+                                            </span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-slate-500">Not available</p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
