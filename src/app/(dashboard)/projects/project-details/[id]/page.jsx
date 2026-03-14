@@ -1150,9 +1150,9 @@ export default function ProjectDetails() {
                                             className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-md cursor-pointer"
                                         >
                                             <FileText className="w-4 h-4 text-slate-400" />
-                                            <span className="text-sm text-slate-700">
+                                            <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-sm text-slate-700">
                                                 {doc.name}
-                                            </span>
+                                            </a>
                                         </div>
                                     ))
                                 ) : (
