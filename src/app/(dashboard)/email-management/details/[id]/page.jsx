@@ -81,7 +81,7 @@ export default function EmailDetails() {
     if (isLoading) {
         return <Loading />;
     }
-
+console.log(emailData);
     return (
         <div className="space-y-6 ">
             {/* Back Button */}
@@ -203,11 +203,11 @@ export default function EmailDetails() {
                                         <CiSquareCheck className="h-6 w-6 text-green-500" />
                                     </div>
                                     <h3 className="text-lg font-semibold text-slate-900">
-                                        Tasks ({aiExtracted.tasks.length})
+                                        Tasks ({emailData?.tasks?.length})
                                     </h3>
                                 </div>
                                 <ul className="space-y-2 ml-2">
-                                    {aiExtracted.tasks.map((task, index) => (
+                                    {emailData?.tasks?.map((task, index) => (
                                         <li
                                             key={index}
                                             className="text-sm sm:text-base text-slate-700 flex items-start gap-2"
@@ -228,11 +228,11 @@ export default function EmailDetails() {
                                         <FiFile className="h-6 w-6 text-blue-500" />
                                     </div>
                                     <h3 className="text-lg font-semibold text-slate-900">
-                                        Decisions ({aiExtracted.decisions.length})
+                                        Decisions ({emailData?.decisions && emailData?.decisions?.length > 0 ? emailData?.decisions?.length : 0})
                                     </h3>
                                 </div>
                                 <ul className="space-y-2 ml-2">
-                                    {aiExtracted.decisions.map((decision, index) => (
+                                    { emailData?.decisions && emailData?.decisions?.length > 0 && emailData?.decisions?.map((decision, index) => (
                                         <li
                                             key={index}
                                             className="text-sm sm:text-base text-slate-700 flex items-start gap-2"
@@ -251,7 +251,7 @@ export default function EmailDetails() {
                                 Sentiment:
                             </span>
                             <span className="px-4 py-2 bg-green-100 rounded-full text-green-800 text-sm sm:text-base font-semibold">
-                                {aiExtracted.sentiment}
+                                {emailData.sentiment}
                             </span>
                         </div>
                     </div>
@@ -266,11 +266,11 @@ export default function EmailDetails() {
                                         <FiAlertTriangle className="h-6 w-6 text-yellow-500" />
                                     </div>
                                     <h3 className="text-lg font-semibold text-slate-900">
-                                        Risks ({aiExtracted.risks.length})
+                                        Risks ({emailData?.risks && emailData?.risks?.length > 0 ? emailData?.risks?.length : 0})
                                     </h3>
                                 </div>
                                 <ul className="space-y-2 ml-2">
-                                    {aiExtracted.risks.map((risk, index) => (
+                                    {emailData?.risks && emailData?.risks?.length > 0 && emailData?.risks?.map((risk, index) => (
                                         <li
                                             key={index}
                                             className="text-sm sm:text-base text-slate-700 flex items-start gap-2"
