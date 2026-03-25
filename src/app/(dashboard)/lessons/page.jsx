@@ -1,5 +1,6 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     Table,
@@ -19,110 +20,45 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { FiSearch, FiArrowLeft, FiArrowRight, FiEdit2, FiX, FiDownload } from "react-icons/fi";
-import { useRouter } from "next/navigation";
-import PageHeader from "@/components/PageHeader/PageHeader";
+import { FiSearch, FiEdit2, FiEye, FiX, FiDownload } from "react-icons/fi";
 import toast from "react-hot-toast";
+import Loading from "@/components/Loading/Loading";
+import { apiGet, apiPatch } from "@/lib/api";
 
-// Dummy data for Lessons Learned
-const lessonsData = [
-    {
-        id: 1,
-        projectId: "654645",
-        projectName: "NexaPay(05-46-45)",
-        owner: "Arlene McCoy",
-        mail: "abc@gm..",
-        date: "28 Nov, 2025",
-        logger: "Email",
-        lessonLearned: "view",
-        title: "Communication Delays Impacted Project Timeline",
-        client: "Mr Mirja",
-        description: "During the user testing phase, we identified significant communication gaps between the design and development teams. Feedback from designers was not relayed to developers in a timely manner, causing rework and extending the project timeline by approximately two weeks. Implementing a daily stand-up call and using a shared project management board for real-time updates could mitigate this issue in future projects.",
-    },
-    {
-        id: 2,
-        projectId: "654645",
-        projectName: "Fit-loop",
-        owner: "Albert Flores",
-        mail: "abc@gm..",
-        date: "20 Nov, 2025",
-        logger: "Meeting notes",
-        lessonLearned: "view",
-        title: "Resource Allocation Challenges",
-        client: "Mr Smith",
-        description: "The project faced delays due to insufficient resource allocation during peak development phases. Better planning and resource forecasting could have prevented these issues.",
-    },
-    {
-        id: 3,
-        projectId: "654645",
-        projectName: "ShopEase",
-        owner: "Esther Howard",
-        mail: "abc@gm..",
-        date: "20 Nov, 2025",
-        logger: "Recording",
-        lessonLearned: "view",
-        title: "Scope Creep Management",
-        client: "Ms Johnson",
-        description: "Uncontrolled scope changes led to timeline extensions. Implementing stricter change control processes would help manage future projects more effectively.",
-    },
-    {
-        id: 4,
-        projectId: "457832",
-        projectName: "EduSphere",
-        owner: "Cameron Williamson",
-        mail: "abc@gm..",
-        date: "20 Nov, 2025",
-        logger: "Meeting transcript",
-        lessonLearned: "view",
-        title: "Testing Phase Optimization",
-        client: "Dr Brown",
-        description: "Early integration of testing phases helped identify issues sooner. This approach should be adopted for all future projects.",
-    },
-    {
-        id: 5,
-        projectId: "487525",
-        projectName: "Foodio",
-        owner: "Guy Hawkins",
-        mail: "abc@gm..",
-        date: "20 Nov, 2025",
-        logger: "Attachment",
-        lessonLearned: "view",
-        title: "Client Communication Best Practices",
-        client: "Mr Davis",
-        description: "Regular client updates and transparent communication improved project satisfaction and reduced revision cycles.",
-    },
-    {
-        id: 6,
-        projectId: "654645",
-        projectName: "Eventify",
-        owner: "Savannah Nguyen",
-        mail: "abc@gm..",
-        date: "20 Nov, 2025",
-        logger: "Email",
-        lessonLearned: "view",
-        title: "Technology Stack Selection",
-        client: "Ms Wilson",
-        description: "Choosing the right technology stack early in the project prevented major refactoring later. This decision should be made during the planning phase.",
-    },
-    {
-        id: 7,
-        projectId: "564657",
-        projectName: "FinPro",
-        owner: "Kristin Watson",
-        mail: "abc@gm..",
-        date: "20 Nov, 2025",
-        logger: "Meeting notes",
-        lessonLearned: "view",
-        title: "Documentation Importance",
-        client: "Mr Taylor",
-        description: "Comprehensive documentation throughout the project lifecycle significantly reduced onboarding time for new team members and improved knowledge transfer.",
-    },
-];
+const formatDate = (value) => {
+    if (!value) return "Not available";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Not available";
+    return date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    });
+};
+
+const normalizeLesson = (lesson, index) => ({
+    id: String(lesson?.id || index),
+    projectId: String(lesson?.projectId || lesson?.project?.id || "Not available"),
+    projectName:
+        lesson?.projectName ||
+        lesson?.project?.name ||
+        "Not available",
+    owner:
+        lesson?.owner ||
+        lesson?.clientName ||
+        "Not available",
+    mail: lesson?.mail || lesson?.email || "Not available",
+    date: formatDate(lesson?.loggedDate || lesson?.created_at || lesson?.createdAt),
+    rawDate: lesson?.loggedDate || lesson?.created_at || lesson?.createdAt || null,
+    logger: lesson?.source || "Not available",
+    title: lesson?.title || "Not available",
+    client: lesson?.clientName || "Not available",
+    description: lesson?.description || "Not available",
+});
 
 export default function Lessons() {
-    const router = useRouter();
+    const queryClient = useQueryClient();
     const [searchValue, setSearchValue] = useState("");
-    const [lessons, setLessons] = useState(lessonsData);
     const [selectedLesson, setSelectedLesson] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
@@ -131,6 +67,45 @@ export default function Lessons() {
         filter: "all",
         startDate: null,
         endDate: null,
+    });
+
+    const {
+        data: lessonsResponse,
+        isLoading,
+        isError,
+        error,
+    } = useQuery({
+        queryKey: ["lesson-learn"],
+        queryFn: async () => {
+            try {
+                return await apiGet("/api/project-manager/lesson-learn/all");
+            } catch {
+                return apiGet("/api/project-manager/lesson-learn");
+            }
+        },
+    });
+
+    const lessons = useMemo(() => {
+        const rawLessons = Array.isArray(lessonsResponse?.data)
+            ? lessonsResponse.data
+            : Array.isArray(lessonsResponse?.data?.data)
+                ? lessonsResponse.data.data
+                : [];
+
+        return rawLessons.map(normalizeLesson);
+    }, [lessonsResponse]);
+
+    const updateLessonMutation = useMutation({
+        mutationFn: ({ lessonId, payload }) =>
+            apiPatch(`/api/project-manager/lesson-learn/${lessonId}`, payload),
+        onSuccess: async () => {
+            toast.success("Lesson learned updated successfully!");
+            await queryClient.invalidateQueries({ queryKey: ["lesson-learn"] });
+            setIsEditMode(false);
+        },
+        onError: (mutationError) => {
+            toast.error(mutationError?.message || "Failed to update lesson learned.");
+        },
     });
 
     const filteredLessons = useMemo(() => {
@@ -146,11 +121,12 @@ export default function Lessons() {
                     lesson.owner.toLowerCase().includes(searchLower) ||
                     lesson.mail.toLowerCase().includes(searchLower) ||
                     lesson.date.toLowerCase().includes(searchLower) ||
-                    lesson.logger.toLowerCase().includes(searchLower)
+                    lesson.logger.toLowerCase().includes(searchLower) ||
+                    lesson.title.toLowerCase().includes(searchLower) ||
+                    lesson.description.toLowerCase().includes(searchLower)
             );
         }
 
-        // Date filtering (based on date field)
         if (dateFilterState.filter !== "all") {
             const { start, end } = getDateRangeFromFilter(
                 dateFilterState.filter,
@@ -160,9 +136,9 @@ export default function Lessons() {
 
             if (start && end) {
                 filtered = filtered.filter((lesson) => {
-                    // Parse date (format: "20 Nov, 2025")
-                    const lessonDate = new Date(lesson.date);
-                    if (isNaN(lessonDate.getTime())) return true; // Skip invalid dates
+                    if (!lesson.rawDate) return true;
+                    const lessonDate = new Date(lesson.rawDate);
+                    if (Number.isNaN(lessonDate.getTime())) return true;
                     return lessonDate >= start && lessonDate <= end;
                 });
             }
@@ -176,10 +152,6 @@ export default function Lessons() {
         if (lesson) {
             setSelectedLesson(lesson);
             setEditedData({
-                title: lesson.title,
-                projectName: lesson.projectName,
-                date: lesson.date,
-                client: lesson.client,
                 description: lesson.description,
             });
             setIsEditMode(false);
@@ -193,24 +165,16 @@ export default function Lessons() {
 
     const handleSave = () => {
         if (editedData && selectedLesson) {
-            // Update the lesson data
-            setLessons((prevLessons) =>
-                prevLessons.map((lesson) =>
-                    lesson.id === selectedLesson.id
-                        ? {
-                            ...lesson,
-                            ...editedData,
-                        }
-                        : lesson
-                )
-            );
-            // Update selected lesson to reflect changes
             setSelectedLesson({
                 ...selectedLesson,
-                ...editedData,
+                description: editedData.description,
             });
-            toast.success("Lesson learned updated successfully!");
-            setIsEditMode(false);
+            updateLessonMutation.mutate({
+                lessonId: selectedLesson.id,
+                payload: {
+                    description: editedData.description,
+                },
+            });
         }
     };
 
@@ -224,6 +188,20 @@ export default function Lessons() {
     const handleExport = () => {
         toast.success("Lessons learned data exported successfully!");
     };
+
+    if (isLoading) {
+        return <Loading />;
+    }
+
+    if (isError) {
+        return (
+            <Card>
+                <CardContent className="p-6 text-center text-sm text-slate-500 sm:text-base">
+                    {error?.message || "Failed to load lessons learned."}
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <div className="space-y-4 sm:space-y-6">
@@ -290,14 +268,12 @@ export default function Lessons() {
                                         Owner
                                     </TableHead>
                                     <TableHead className="py-3 px-4 text-white font-semibold">
-                                        Mail
+                                        Lessons Learned by Logger
                                     </TableHead>
                                     <TableHead className="py-3 px-4 text-white font-semibold">
                                         Date
                                     </TableHead>
-                                    <TableHead className="py-3 px-4 text-white font-semibold">
-                                        Lessons Learned by Logger
-                                    </TableHead>
+
                                     <TableHead className="py-3 px-4 text-white font-semibold">
                                         Lesson Learned
                                     </TableHead>
@@ -314,13 +290,13 @@ export default function Lessons() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filteredLessons.map((lesson) => (
+                                    filteredLessons.map((lesson, index) => (
                                         <TableRow
                                             key={lesson.id}
                                             className="border-b border-slate-100 hover:bg-slate-50"
                                         >
                                             <TableCell className="py-3 px-4 text-slate-800">
-                                                {lesson.projectId}
+                                                {index + 1}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 text-slate-800">
                                                 {lesson.projectName}
@@ -328,21 +304,22 @@ export default function Lessons() {
                                             <TableCell className="py-3 px-4 text-slate-800">
                                                 {lesson.owner}
                                             </TableCell>
+
+
                                             <TableCell className="py-3 px-4 text-slate-800">
-                                                {lesson.mail}
+                                                {lesson.logger}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 text-slate-800">
                                                 {lesson.date}
                                             </TableCell>
-                                            <TableCell className="py-3 px-4 text-slate-800">
-                                                {lesson.logger}
-                                            </TableCell>
                                             <TableCell className="py-3 px-4">
                                                 <button
                                                     onClick={() => handleViewLesson(lesson.id)}
-                                                    className="text-[#6051E2] hover:text-[#4a3db8] hover:underline transition-colors cursor-pointer font-medium"
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#6051E2]/20 bg-[#6051E2]/10 text-[#6051E2] transition-colors hover:bg-[#6051E2] hover:text-white cursor-pointer"
+                                                    aria-label="View lesson"
+                                                    title="View lesson"
                                                 >
-                                                    {lesson.lessonLearned}
+                                                    <FiEye className="h-4 w-4" />
                                                 </button>
                                             </TableCell>
                                         </TableRow>
@@ -360,7 +337,7 @@ export default function Lessons() {
                             </div>
                         ) : (
                             <div className="divide-y divide-slate-200">
-                                {filteredLessons.map((lesson) => (
+                                {filteredLessons.map((lesson, index) => (
                                     <div
                                         key={lesson.id}
                                         className="p-4 space-y-3 hover:bg-slate-50 transition-colors"
@@ -371,14 +348,16 @@ export default function Lessons() {
                                                     {lesson.projectName}
                                                 </p>
                                                 <p className="text-xs text-slate-500">
-                                                    ID: {lesson.projectId}
+                                                    ID: {index + 1}
                                                 </p>
                                             </div>
                                             <button
                                                 onClick={() => handleViewLesson(lesson.id)}
-                                                className="text-[#6051E2] hover:text-[#4a3db8] hover:underline transition-colors cursor-pointer font-medium text-sm"
+                                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#6051E2]/20 bg-[#6051E2]/10 text-[#6051E2] transition-colors hover:bg-[#6051E2] hover:text-white cursor-pointer"
+                                                aria-label="View lesson"
+                                                title="View lesson"
                                             >
-                                                {lesson.lessonLearned}
+                                                <FiEye className="h-4 w-4" />
                                             </button>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -421,22 +400,9 @@ export default function Lessons() {
                     <div className="bg-[#EFEEFC] p-6">
                         <DialogHeader className="relative">
                             <div className="flex items-start justify-between gap-4">
-                                {isEditMode ? (
-                                    <Input
-                                        value={editedData?.title || ""}
-                                        onChange={(e) =>
-                                            setEditedData({
-                                                ...editedData,
-                                                title: e.target.value,
-                                            })
-                                        }
-                                        className="text-xl sm:text-2xl font-bold text-slate-900 bg-white border-slate-300 flex-1"
-                                    />
-                                ) : (
-                                    <DialogTitle className="text-xl sm:text-2xl font-bold text-slate-900 pr-8 flex-1">
-                                        {selectedLesson?.title || ""}
-                                    </DialogTitle>
-                                )}
+                                <DialogTitle className="text-xl sm:text-2xl font-bold text-slate-900 pr-8 flex-1">
+                                    {selectedLesson?.title || ""}
+                                </DialogTitle>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                     {!isEditMode && (
                                         <button
@@ -462,60 +428,21 @@ export default function Lessons() {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
                             <div>
                                 <p className="text-xs text-slate-600 mb-1">Project Name</p>
-                                {isEditMode ? (
-                                    <Input
-                                        value={editedData?.projectName || ""}
-                                        onChange={(e) =>
-                                            setEditedData({
-                                                ...editedData,
-                                                projectName: e.target.value,
-                                            })
-                                        }
-                                        className="bg-white border-slate-300"
-                                    />
-                                ) : (
-                                    <p className="text-sm font-medium text-slate-900">
-                                        {selectedLesson?.projectName || ""}
-                                    </p>
-                                )}
+                                <p className="text-sm font-medium text-slate-900">
+                                    {selectedLesson?.projectName || ""}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-xs text-slate-600 mb-1">Logged Date</p>
-                                {isEditMode ? (
-                                    <Input
-                                        value={editedData?.date || ""}
-                                        onChange={(e) =>
-                                            setEditedData({
-                                                ...editedData,
-                                                date: e.target.value,
-                                            })
-                                        }
-                                        className="bg-white border-slate-300"
-                                    />
-                                ) : (
-                                    <p className="text-sm font-medium text-slate-900">
-                                        {selectedLesson?.date || ""}
-                                    </p>
-                                )}
+                                <p className="text-sm font-medium text-slate-900">
+                                    {selectedLesson?.date || ""}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-xs text-slate-600 mb-1">Clients</p>
-                                {isEditMode ? (
-                                    <Input
-                                        value={editedData?.client || ""}
-                                        onChange={(e) =>
-                                            setEditedData({
-                                                ...editedData,
-                                                client: e.target.value,
-                                            })
-                                        }
-                                        className="bg-white border-slate-300"
-                                    />
-                                ) : (
-                                    <p className="text-sm font-medium text-slate-900">
-                                        {selectedLesson?.client || ""}
-                                    </p>
-                                )}
+                                <p className="text-sm font-medium text-slate-900">
+                                    {selectedLesson?.client || ""}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -548,9 +475,10 @@ export default function Lessons() {
                             <div className="flex justify-end mt-6">
                                 <Button
                                     onClick={handleSave}
+                                    disabled={updateLessonMutation.isPending}
                                     className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-2 cursor-pointer"
                                 >
-                                    Save
+                                    {updateLessonMutation.isPending ? "Saving..." : "Save"}
                                 </Button>
                             </div>
                         )}
