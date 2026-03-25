@@ -1,5 +1,10 @@
 "use client";
-import { useState, useMemo } from "react";
+
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { FiDownload, FiEye } from "react-icons/fi";
+import toast from "react-hot-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     Table,
@@ -12,72 +17,93 @@ import {
 import { Button } from "@/components/ui/button";
 import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
 import PageHeader from "@/components/PageHeader/PageHeader";
-import { useRouter } from "next/navigation";
-import { FiDownload } from "react-icons/fi";
-import toast from "react-hot-toast";
+import Loading from "@/components/Loading/Loading";
+import { apiGet } from "@/lib/api";
+
+const tabLabelMap = {
+    risk: "Risk",
+    issues: "Issues",
+    assumptions: "Assumptions",
+    decisions: "Decisions",
+    dependencies: "Dependencies",
+};
 
 const tabs = [
     { id: "risk", label: "Risk" },
-    { id: "assumptions", label: "Assumptions" },
     { id: "issues", label: "Issues" },
+    { id: "assumptions", label: "Assumptions" },
     { id: "decisions", label: "Decisions" },
     { id: "dependencies", label: "Dependencies" },
 ];
 
-// Dummy data for each tab
-const riskData = [
-    { id: 1, projectId: "584685", projectName: "Basketball App", status: "low", mail: "abc@gmail.com", date: "20 Nov, 2025" },
-    { id: 2, projectId: "564657", projectName: "Project Alpha", status: "medium", mail: "abc@gmail.com", date: "20 Nov, 2025" },
-    { id: 3, projectId: "654645", projectName: "Project Horizon", status: "High", mail: "abc@gmail.com", date: "20 Nov, 2025" },
-    { id: 4, projectId: "567890", projectName: "Project Horizon", status: "medium", mail: "efg@gmail.com", date: "25 Nov, 2025" },
-    { id: 5, projectId: "765432", projectName: "Project Nova", status: "High", mail: "qrs@gmail.com", date: "05 Dec, 2025" },
-    { id: 6, projectId: "123456", projectName: "Mobile App", status: "low", mail: "ijk@gmail.com", date: "22 Nov, 2025" },
-    { id: 7, projectId: "789012", projectName: "Web Platform", status: "medium", mail: "mno@gmail.com", date: "28 Nov, 2025" },
-    { id: 8, projectId: "345678", projectName: "Dashboard System", status: "High", mail: "xyz@gmail.com", date: "01 Dec, 2025" },
-];
+const normalizeTabType = (value) => {
+    const normalized = String(value || "").trim().toLowerCase();
 
-const assumptionsData = [
-    { id: 1, projectId: "111111", projectName: "E-commerce Site", status: "medium", mail: "assume1@gmail.com", date: "15 Nov, 2025" },
-    { id: 2, projectId: "222222", projectName: "Payment Gateway", status: "low", mail: "assume2@gmail.com", date: "18 Nov, 2025" },
-    { id: 3, projectId: "333333", projectName: "API Integration", status: "High", mail: "assume3@gmail.com", date: "23 Nov, 2025" },
-    { id: 4, projectId: "444444", projectName: "Cloud Migration", status: "medium", mail: "assume4@gmail.com", date: "27 Nov, 2025" },
-    { id: 5, projectId: "555555", projectName: "Security Audit", status: "High", mail: "assume5@gmail.com", date: "03 Dec, 2025" },
-];
+    switch (normalized) {
+        case "risk":
+        case "risks":
+            return "risk";
+        case "issue":
+        case "issues":
+            return "issues";
+        case "assumption":
+        case "assumptions":
+            return "assumptions";
+        case "decision":
+        case "decisions":
+            return "decisions";
+        case "dependency":
+        case "dependencies":
+            return "dependencies";
+        default:
+            return normalized;
+    }
+};
 
-const issuesData = [
-    { id: 1, projectId: "666666", projectName: "Bug Tracker", status: "High", mail: "issue1@gmail.com", date: "19 Nov, 2025" },
-    { id: 2, projectId: "777777", projectName: "Performance Issue", status: "medium", mail: "issue2@gmail.com", date: "21 Nov, 2025" },
-    { id: 3, projectId: "888888", projectName: "Database Error", status: "High", mail: "issue3@gmail.com", date: "24 Nov, 2025" },
-    { id: 4, projectId: "999999", projectName: "UI Bug Fix", status: "low", mail: "issue4@gmail.com", date: "26 Nov, 2025" },
-    { id: 5, projectId: "101010", projectName: "Authentication Issue", status: "High", mail: "issue5@gmail.com", date: "29 Nov, 2025" },
-    { id: 6, projectId: "202020", projectName: "API Timeout", status: "medium", mail: "issue6@gmail.com", date: "02 Dec, 2025" },
-];
+const formatLabel = (value) => {
+    if (!value) return "Not available";
+    return String(value)
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
 
-const decisionsData = [
-    { id: 1, projectId: "303030", projectName: "Tech Stack Decision", status: "medium", mail: "dec1@gmail.com", date: "16 Nov, 2025" },
-    { id: 2, projectId: "404040", projectName: "Architecture Choice", status: "low", mail: "dec2@gmail.com", date: "17 Nov, 2025" },
-    { id: 3, projectId: "505050", projectName: "Framework Selection", status: "medium", mail: "dec3@gmail.com", date: "30 Nov, 2025" },
-    { id: 4, projectId: "606060", projectName: "Database Decision", status: "High", mail: "dec4@gmail.com", date: "04 Dec, 2025" },
-];
+const formatDate = (value) => {
+    if (!value) return "Not available";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Not available";
+    return date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    });
+};
 
-const dependenciesData = [
-    { id: 1, projectId: "707070", projectName: "Third-party API", status: "High", mail: "dep1@gmail.com", date: "14 Nov, 2025" },
-    { id: 2, projectId: "808080", projectName: "Library Update", status: "medium", mail: "dep2@gmail.com", date: "31 Nov, 2025" },
-    { id: 3, projectId: "909090", projectName: "External Service", status: "High", mail: "dep3@gmail.com", date: "06 Dec, 2025" },
-    { id: 4, projectId: "111222", projectName: "Infrastructure Setup", status: "medium", mail: "dep4@gmail.com", date: "07 Dec, 2025" },
-    { id: 5, projectId: "333444", projectName: "Cloud Service", status: "low", mail: "dep5@gmail.com", date: "08 Dec, 2025" },
-];
+const normalizeRaiddItem = (item, index) => {
+    const rawDate =
+        item?.created_at ||
+        item?.createdAt ||
+        item?.updated_at ||
+        item?.updatedAt ||
+        null;
 
-const allData = {
-    risk: riskData,
-    assumptions: assumptionsData,
-    issues: issuesData,
-    decisions: decisionsData,
-    dependencies: dependenciesData,
+    return {
+        id: String(item?.id || index),
+        type: normalizeTabType(item?.type),
+        projectId: String(item?.projectId || item?.project?.id || "Not available"),
+        projectName: item?.project?.name || "Not available",
+        vendorName: item?.project?.vendorName || item?.project?.vendor?.name || "Not available",
+        status: formatLabel(item?.status),
+        title: item?.title || "Not available",
+        description: item?.description || "Not available",
+        rawDate,
+        date: formatDate(rawDate),
+    };
 };
 
 const getStatusStyle = (status) => {
-    const statusLower = status.toLowerCase();
+    const statusLower = String(status || "").toLowerCase();
+
     switch (statusLower) {
         case "low":
             return "bg-yellow-100 text-yellow-700";
@@ -90,26 +116,52 @@ const getStatusStyle = (status) => {
     }
 };
 
-const truncateEmail = (email) => {
-    if (!email) return "";
-    const [localPart, domain] = email.split("@");
-    if (localPart.length > 3) {
-        return `${localPart.substring(0, 3)}@${domain.substring(0, 2)}..`;
-    }
-    return email;
-};
+const viewButtonClass =
+    "inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#6051E2]/20 bg-[#6051E2]/10 text-[#6051E2] transition-colors hover:bg-[#6051E2] hover:text-white cursor-pointer";
 
 export default function RAIDD() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("risk");
     const [searchValue, setSearchValue] = useState("");
     const [dateFilterState, setDateFilterState] = useState({
-        filter: "today",
+        filter: "all",
         startDate: null,
         endDate: null,
     });
 
-    // Calculate date ranges based on filter type
+    const {
+        data: raiddResponse,
+        isLoading,
+        isError,
+        error,
+    } = useQuery({
+        queryKey: ["raidd-list"],
+        queryFn: async () => {
+            try {
+                return await apiGet("/api/project-manager/raidd//all");
+            } catch {
+                return apiGet("/api/project-manager/raidd/all");
+            }
+        },
+    });
+
+    const allData = useMemo(() => {
+        const rawData = Array.isArray(raiddResponse?.data)
+            ? raiddResponse.data
+            : Array.isArray(raiddResponse?.data?.data)
+                ? raiddResponse.data.data
+                : [];
+
+        return rawData.map(normalizeRaiddItem);
+    }, [raiddResponse]);
+
+    useEffect(() => {
+        if (tabs.length === 0) return;
+        if (!tabs.some((tab) => tab.id === activeTab)) {
+            setActiveTab(tabs[0].id);
+        }
+    }, [activeTab, tabs]);
+
     const getDateRange = useMemo(() => {
         return getDateRangeFromFilter(
             dateFilterState.filter,
@@ -119,154 +171,163 @@ export default function RAIDD() {
     }, [dateFilterState]);
 
     const handleExport = () => {
-        toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} data exported successfully!`);
+        toast.success(`${formatLabel(activeTab)} data exported successfully!`);
     };
 
     const filteredData = useMemo(() => {
-        const data = allData[activeTab] || [];
-        let filtered = data;
+        let filtered = allData.filter((item) => item.type === activeTab);
 
-        // Search filtering
         if (searchValue.trim()) {
             const searchLower = searchValue.toLowerCase();
             filtered = filtered.filter(
                 (item) =>
                     item.projectId.toLowerCase().includes(searchLower) ||
                     item.projectName.toLowerCase().includes(searchLower) ||
-                    item.mail.toLowerCase().includes(searchLower) ||
+                    item.vendorName.toLowerCase().includes(searchLower) ||
+                    item.title.toLowerCase().includes(searchLower) ||
+                    item.description.toLowerCase().includes(searchLower) ||
                     item.date.toLowerCase().includes(searchLower)
             );
         }
 
-        // Date filtering
         if (dateFilterState.filter !== "all") {
             const { start, end } = getDateRange;
             if (start && end) {
                 filtered = filtered.filter((item) => {
-                    const itemDate = new Date(item.date);
-                    if (isNaN(itemDate.getTime())) return true; // Skip invalid dates
+                    if (!item.rawDate) return true;
+                    const itemDate = new Date(item.rawDate);
+                    if (Number.isNaN(itemDate.getTime())) return true;
                     return itemDate >= start && itemDate <= end;
                 });
             }
         }
 
         return filtered;
-    }, [activeTab, searchValue, dateFilterState, getDateRange]);
+    }, [activeTab, allData, searchValue, dateFilterState.filter, getDateRange]);
+
+    if (isLoading) {
+        return <Loading />;
+    }
+
+    if (isError) {
+        return (
+            <Card>
+                <CardContent className="p-6 text-center text-sm text-slate-500 sm:text-base">
+                    {error?.message || "Failed to load RAIDD data."}
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <div className="space-y-4 sm:space-y-6">
             <PageHeader
                 title="RAIDD"
                 description="AI powered insights for all your projects"
-                searchPlaceholder="search risk & issues"
+                searchPlaceholder="search RAIDD"
                 searchValue={searchValue}
                 onSearchChange={(e) => setSearchValue(e.target.value)}
             />
 
-            {/* Filter Tabs, Date Filter, and Export Button - All in One Line */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mt-10">
-                {/* Tabs - Left Side */}
+            <div className="mt-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="flex flex-wrap gap-3 lg:flex-nowrap">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${activeTab === tab.id
-                                ? "bg-[#6051E2] text-white"
-                                : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-                                }`}
+                            className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:px-4 sm:py-2 sm:text-sm cursor-pointer ${
+                                activeTab === tab.id
+                                    ? "bg-[#6051E2] text-white"
+                                    : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                            }`}
                         >
                             {tab.label}
                         </button>
                     ))}
                 </div>
 
-                {/* Date Filter - Middle */}
+                <DateFilter onFilterChange={setDateFilterState} initialFilter="all" />
 
-                <DateFilter
-                    onFilterChange={setDateFilterState}
-                    initialFilter="all"
-                />
-
-
-                {/* Export Button - Right Side */}
                 <Button
                     onClick={handleExport}
-                    className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex items-center gap-2 w-full lg:w-auto"
+                    className="flex h-9 w-full items-center gap-2 bg-[#6051E2] px-4 py-2 text-sm font-medium text-white hover:bg-[#4a3db8] sm:h-10 lg:w-auto cursor-pointer"
                 >
                     <FiDownload className="h-4 w-4" />
                     Export
                 </Button>
             </div>
 
-            {/* Show selected custom range below */}
-            {dateFilterState.filter === "custom" && dateFilterState.startDate && dateFilterState.endDate && (
-                <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit mt-2">
-                    <span>{dateFilterState.startDate} - {dateFilterState.endDate}</span>
-                </div>
-            )}
+            {dateFilterState.filter === "custom" &&
+                dateFilterState.startDate &&
+                dateFilterState.endDate && (
+                    <div className="mt-2 flex w-fit items-center rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700">
+                        <span>
+                            {dateFilterState.startDate} - {dateFilterState.endDate}
+                        </span>
+                    </div>
+                )}
 
-            {/* Table Card */}
-            <Card className="overflow-hidden mt-4 sm:mt-6">
+            <Card className="mt-4 overflow-hidden sm:mt-6">
                 <CardContent className="p-0">
-                    {/* Desktop & Large Tablet Table */}
-                    <div className="hidden lg:block overflow-x-auto">
+                    <div className="hidden overflow-x-auto lg:block">
                         <Table>
                             <TableHeader className="bg-[#6051E2] text-white">
                                 <TableRow className="border-b-0">
-                                    <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-sm lg:text-base">
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         Project ID
                                     </TableHead>
-                                    <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-sm lg:text-base">
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         Project Name
                                     </TableHead>
-                                    <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
+                                    <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         Status
                                     </TableHead>
-                                    <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-sm lg:text-base">
-                                        Mail
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
+                                        Vendor Name
                                     </TableHead>
-                                    <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-sm lg:text-base">
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         Date
                                     </TableHead>
-                                    <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
+                                    <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         View Details
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredData.map((item) => (
+                                {filteredData.map((item, index) => (
                                     <TableRow
                                         key={item.id}
                                         className="border-b border-slate-100 hover:bg-slate-50"
                                     >
-                                        <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm lg:text-base">
-                                            {item.projectId}
+                                        <TableCell className="px-4 py-3 text-sm text-slate-800 lg:px-6 lg:py-4 lg:text-base">
+                                            {index + 1}
                                         </TableCell>
-                                        <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm lg:text-base">
+                                        <TableCell className="px-4 py-3 text-sm text-slate-800 lg:px-6 lg:py-4 lg:text-base">
                                             {item.projectName}
                                         </TableCell>
-                                        <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
+                                        <TableCell className="px-4 py-3 text-center lg:px-6 lg:py-4">
                                             <span
-                                                className={`px-2 py-1 lg:px-3 lg:py-1 rounded-full text-xs font-medium capitalize ${getStatusStyle(
+                                                className={`rounded-full px-2 py-1 text-xs font-medium capitalize lg:px-3 lg:py-1 ${getStatusStyle(
                                                     item.status
                                                 )}`}
                                             >
                                                 {item.status}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-sm lg:text-base">
-                                            {truncateEmail(item.mail)}
+                                        <TableCell className="px-4 py-3 text-sm text-slate-600 lg:px-6 lg:py-4 lg:text-base">
+                                            {item.vendorName}
                                         </TableCell>
-                                        <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-sm lg:text-base">
+                                        <TableCell className="px-4 py-3 text-sm text-slate-600 lg:px-6 lg:py-4 lg:text-base">
                                             {item.date}
                                         </TableCell>
-                                        <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
+                                        <TableCell className="px-4 py-3 text-center lg:px-6 lg:py-4">
                                             <button
-                                                className="text-primary hover:underline text-xs lg:text-sm font-medium cursor-pointer"
+                                                className={viewButtonClass}
                                                 onClick={() => router.push(`/raidd/view/${item.id}`)}
+                                                title="View details"
+                                                aria-label="View details"
                                             >
-                                                view
+                                                <FiEye className="h-4 w-4" />
                                             </button>
                                         </TableCell>
                                     </TableRow>
@@ -275,58 +336,65 @@ export default function RAIDD() {
                         </Table>
                     </div>
 
-                    {/* Medium Tablet Table - Simplified */}
-                    <div className="hidden md:block lg:hidden overflow-x-auto">
+                    <div className="hidden overflow-x-auto md:block lg:hidden">
                         <Table>
                             <TableHeader className="bg-[#6051E2] text-white">
                                 <TableRow className="border-b-0">
-                                    <TableHead className="py-3 px-4 text-white font-semibold text-sm">
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white">
                                         Project ID
                                     </TableHead>
-                                    <TableHead className="py-3 px-4 text-white font-semibold text-sm">
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white">
                                         Project Name
                                     </TableHead>
-                                    <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
+                                    <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white">
                                         Status
                                     </TableHead>
-                                    <TableHead className="py-3 px-4 text-white font-semibold text-sm">
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white">
+                                        Vendor Name
+                                    </TableHead>
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white">
                                         Date
                                     </TableHead>
-                                    <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
+                                    <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white">
                                         View
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredData.map((item) => (
+                                {filteredData.map((item, index) => (
                                     <TableRow
                                         key={item.id}
                                         className="border-b border-slate-100 hover:bg-slate-50"
                                     >
-                                        <TableCell className="py-3 px-4 text-slate-800 text-sm">
-                                            {item.projectId}
+                                        <TableCell className="px-4 py-3 text-sm text-slate-800">
+                                            {index + 1}
                                         </TableCell>
-                                        <TableCell className="py-3 px-4 text-slate-800 text-sm">
+                                        <TableCell className="px-4 py-3 text-sm text-slate-800">
                                             {item.projectName}
                                         </TableCell>
-                                        <TableCell className="py-3 px-4 text-center">
+                                        <TableCell className="px-4 py-3 text-center">
                                             <span
-                                                className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusStyle(
+                                                className={`rounded-full px-2 py-1 text-xs font-medium capitalize ${getStatusStyle(
                                                     item.status
                                                 )}`}
                                             >
                                                 {item.status}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="py-3 px-4 text-slate-600 text-sm">
+                                        <TableCell className="px-4 py-3 text-sm text-slate-600">
+                                            {item.vendorName}
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3 text-sm text-slate-600">
                                             {item.date}
                                         </TableCell>
-                                        <TableCell className="py-3 px-4 text-center">
+                                        <TableCell className="px-4 py-3 text-center">
                                             <button
-                                                className="text-primary hover:underline text-xs font-medium cursor-pointer"
+                                                className={viewButtonClass}
                                                 onClick={() => router.push(`/raidd/view/${item.id}`)}
+                                                title="View details"
+                                                aria-label="View details"
                                             >
-                                                view
+                                                <FiEye className="h-4 w-4" />
                                             </button>
                                         </TableCell>
                                     </TableRow>
@@ -335,21 +403,20 @@ export default function RAIDD() {
                         </Table>
                     </div>
 
-                    {/* Mobile Cards */}
-                    <div className="md:hidden divide-y divide-slate-100">
-                        {filteredData.map((item) => (
-                            <div key={item.id} className="p-4 space-y-3">
-                                <div className="flex items-center justify-between">
+                    <div className="divide-y divide-slate-100 md:hidden">
+                        {filteredData.map((item, index) => (
+                            <div key={item.id} className="space-y-3 p-4">
+                                <div className="flex items-center justify-between gap-3">
                                     <div>
-                                        <h3 className="font-semibold text-slate-800 text-base">
+                                        <h3 className="text-base font-semibold text-slate-800">
                                             {item.projectName}
                                         </h3>
-                                        <p className="text-xs text-slate-500 mt-1">
-                                            ID: {item.projectId}
+                                        <p className="mt-1 text-xs text-slate-500">
+                                            ID: {index + 1}
                                         </p>
                                     </div>
                                     <span
-                                        className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${getStatusStyle(
+                                        className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${getStatusStyle(
                                             item.status
                                         )}`}
                                     >
@@ -357,29 +424,33 @@ export default function RAIDD() {
                                     </span>
                                 </div>
                                 <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-slate-500">Mail</span>
-                                        <span className="text-slate-700">{truncateEmail(item.mail)}</span>
+                                    <div className="flex justify-between gap-4">
+                                        <span className="text-slate-500">Vendor</span>
+                                        <span className="text-right text-slate-700">
+                                            {item.vendorName}
+                                        </span>
                                     </div>
-                                    <div className="flex justify-between">
+                                    <div className="flex justify-between gap-4">
                                         <span className="text-slate-500">Date</span>
-                                        <span className="text-slate-700">{item.date}</span>
+                                        <span className="text-right text-slate-700">
+                                            {item.date}
+                                        </span>
                                     </div>
                                 </div>
                                 <button
-                                    className="w-full text-center text-primary hover:underline text-sm font-medium cursor-pointer pt-2"
+                                    className="inline-flex w-full items-center justify-center gap-2 pt-2 text-sm font-medium text-primary hover:underline cursor-pointer"
                                     onClick={() => router.push(`/raidd/view/${item.id}`)}
                                 >
+                                    <FiEye className="h-4 w-4" />
                                     View Details
                                 </button>
                             </div>
                         ))}
                     </div>
 
-                    {/* Empty State */}
                     {filteredData.length === 0 && (
-                        <div className="text-center py-8 sm:py-10 text-slate-500 text-sm sm:text-base">
-                            No {activeTab} found matching your search.
+                        <div className="py-8 text-center text-sm text-slate-500 sm:py-10 sm:text-base">
+                            No raidd found.
                         </div>
                     )}
                 </CardContent>
