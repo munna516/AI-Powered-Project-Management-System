@@ -20,14 +20,6 @@ const tools = [
         connected: false
     },
     {
-        id: 2,
-        name: "Microsoft Teams",
-        icon: (
-            <BiLogoMicrosoftTeams className="w-10 h-10 text-blue-500" />
-        ),
-        connected: false,
-    },
-    {
         id: 3,
         name: "Google Calendar",
         icon: (
@@ -47,6 +39,7 @@ const tools = [
 ];
 
 const OUTLOOK_TOOL_ID = 1;
+const GOOGLE_CALENDAR_TOOL_ID = 3;
 const GMAIL_TOOL_ID = 4;
 const CONNECTABLE_TOOLS = {
     [OUTLOOK_TOOL_ID]: {
@@ -111,6 +104,7 @@ export default function DataSource() {
     const [toolConnectionInfo, setToolConnectionInfo] = useState({});
     const [loadingToolId, setLoadingToolId] = useState(null);
     const [isCheckingStatus, setIsCheckingStatus] = useState(true);
+    const isGmailConnected = Boolean(connectedTools[GMAIL_TOOL_ID]);
 
     useEffect(() => {
         loadConnectionStatuses();
@@ -129,6 +123,22 @@ export default function DataSource() {
             [toolId]: isConnected,
         }));
     };
+
+    useEffect(() => {
+        setConnectedTools((prev) => ({
+            ...prev,
+            [GOOGLE_CALENDAR_TOOL_ID]: isGmailConnected,
+        }));
+        setToolConnectionInfo((prev) => ({
+            ...prev,
+            [GOOGLE_CALENDAR_TOOL_ID]: {
+                isConnected: isGmailConnected,
+                email: isGmailConnected
+                    ? prev[GMAIL_TOOL_ID]?.email || ""
+                    : "",
+            },
+        }));
+    }, [isGmailConnected, toolConnectionInfo[GMAIL_TOOL_ID]?.email]);
 
     const loadConnectionStatuses = async (showLoader = true) => {
         if (showLoader) {
@@ -290,8 +300,10 @@ export default function DataSource() {
                 <div className="space-y-4">
                     {tools.map((tool, index) => {
                         const isSupportedTool = Boolean(CONNECTABLE_TOOLS[tool.id]);
+                        const isAutoConnectedTool = tool.id === GOOGLE_CALENDAR_TOOL_ID;
                         const isActionDisabled =
                             !isSupportedTool ||
+                            isAutoConnectedTool ||
                             loadingToolId === tool.id ||
                             isCheckingStatus;
 
@@ -338,7 +350,11 @@ export default function DataSource() {
                                                     Not Connected
                                                 </p>
                                             )}
-                                            {!isSupportedTool ? (
+                                            {isAutoConnectedTool ? (
+                                                <p className="text-xs text-slate-400 mt-1">
+                                                    Synced with Gmail connection
+                                                </p>
+                                            ) : !isSupportedTool ? (
                                                 <p className="text-xs text-slate-400 mt-1">
                                                     Coming soon
                                                 </p>
@@ -346,7 +362,31 @@ export default function DataSource() {
                                         </div>
                                     </div>
                                     <div className="flex-shrink-0">
-                                        {connectedTools[tool.id] ? (
+                                        {isAutoConnectedTool ? (
+                                            <div className="group relative inline-flex">
+                                                <button
+                                                    type="button"
+                                                    disabled
+                                                    className={`relative inline-flex h-10 items-center justify-center rounded-full border px-5 text-sm font-medium shadow-sm transition-all ${
+                                                        connectedTools[tool.id]
+                                                            ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-700"
+                                                            : "border-slate-200 bg-slate-50 text-slate-500"
+                                                    }`}
+                                                >
+                                                    <span
+                                                        className={`mr-2 h-2.5 w-2.5 rounded-full ${
+                                                            connectedTools[tool.id]
+                                                                ? "bg-emerald-500"
+                                                                : "bg-slate-300"
+                                                        }`}
+                                                    />
+                                                    Auto connected
+                                                </button>
+                                                <div className="pointer-events-none absolute -top-12 left-1/2 z-10 w-64 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-xs text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+                                                    When you connect Gmail, Google Calendar connects automatically.
+                                                </div>
+                                            </div>
+                                        ) : connectedTools[tool.id] ? (
                                             tool.name === "Azure AD" || tool.name === "OKTA" ? (
                                                 <Button
                                                     onClick={() => handleDisconnect(index)}
