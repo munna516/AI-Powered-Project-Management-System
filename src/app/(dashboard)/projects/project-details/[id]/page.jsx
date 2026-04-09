@@ -1,18 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Circle, FileText, Users, TrendingUp, Link2, Trash2, CalendarIcon } from "lucide-react";
+import { FileText, Users, TrendingUp, Link2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiMoreVertical, FiPlus } from "react-icons/fi";
 import {
@@ -28,20 +20,14 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import toast from "react-hot-toast";
 import Loading from "@/components/Loading/Loading";
-import { apiGet, apiPost } from "@/lib/api";
-import Link from "next/link";
+import { apiGet } from "@/lib/api";
+import TaskSection from "@/components/project-details/TaskSection";
+import MeetingSection from "@/components/project-details/MeetingSection";
+import DocumentSection from "@/components/project-details/DocumentSection";
+import MilestonesSection from "@/components/project-details/MilestonesSection";
 
 const projectData = {
-    id: "N/A",
     id: "N/A",
     title: "N/A",
     status: "N/A",
@@ -56,15 +42,8 @@ const projectData = {
         budget: "N/A",
         teamSentiment: "N/A",
     },
-    documents: [],
-    milestones: [],
-    tasks: [],
-    meetings: [],
+    // documents: [],
 };
-
-const taskListData = [];
-const meetingListData = [];
-const documentListData = [];
 
 const tabs = [
     { id: "task", label: "Task list", buttonLabel: "Add Task" },
@@ -72,32 +51,6 @@ const tabs = [
     { id: "document", label: "Document List", buttonLabel: "Upload Document" },
 ];
 
-const priorityOptions = ["High", "Medium", "Low"];
-const statusOptions = ["In Progress", "Pending", "Completed"];
-const platformOptions = ["Google Meet", "Zoom", "Microsoft Teams", "Other"];
-const priorityValueMap = {
-    High: "HIGH",
-    Medium: "MEDIUM",
-    Low: "LOW",
-};
-const statusValueMap = {
-    "In Progress": "IN_PROGRESS",
-    Pending: "PENDING",
-    Completed: "COMPLETED",
-};
-
-const getPriorityColor = (priority) => {
-    switch (priority.toLowerCase()) {
-        case "high":
-            return "bg-red-100 text-red-800 border-red-200";
-        case "medium":
-            return "bg-green-100 text-green-800 border-green-200";
-        case "low":
-            return "bg-orange-100 text-orange-800 border-orange-200";
-        default:
-            return "bg-slate-100 text-slate-800 border-slate-200";
-    }
-};
 
 const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
@@ -124,19 +77,6 @@ const formatDate = (value) => {
         day: "2-digit",
         month: "short",
         year: "numeric",
-    });
-};
-
-const formatDateTime = (value) => {
-    if (!value) return "N/A";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "N/A";
-    return date.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
     });
 };
 
@@ -206,15 +146,7 @@ const calculateProgressFromItems = (items = [], completedStatuses = []) => {
     return Math.round((completedCount / items.length) * 100);
 };
 
-const toApiDateString = (value) => {
-    if (!value) return null;
-    const date = new Date(`${value}T00:00:00Z`);
-    if (Number.isNaN(date.getTime())) return null;
-    return date.toISOString();
-};
-
 export default function ProjectDetails() {
-    const queryClient = useQueryClient();
     const params = useParams();
     const projectId = Array.isArray(params?.id) ? params.id[0] : params?.id;
     const [activeTab, setActiveTab] = useState("task");
@@ -223,9 +155,6 @@ export default function ProjectDetails() {
     const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
     const [uploadMeetingModalOpen, setUploadMeetingModalOpen] = useState(false);
     const [uploadDocumentModalOpen, setUploadDocumentModalOpen] = useState(false);
-    const [taskForm, setTaskForm] = useState({ taskName: "", startDate: "", endDate: "", priority: "", status: "" });
-    const [meetingForm, setMeetingForm] = useState({ date: "", link: "", platform: "", summary: "" });
-    const [documentForm, setDocumentForm] = useState({ date: "", link: "", summary: "" });
     const router = useRouter();
     const {
         data: projectResponse,
@@ -236,22 +165,6 @@ export default function ProjectDetails() {
         queryKey: ["project-details-page", projectId],
         enabled: Boolean(projectId),
         queryFn: () => apiGet(`/api/project-manager/project-management/${projectId}`),
-    });
-
-    const createTaskMutation = useMutation({
-        mutationFn: (payload) =>
-            apiPost("/api/project-manager/project-task/create-task", payload),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({
-                queryKey: ["project-details-page", projectId],
-            });
-            setCreateTaskModalOpen(false);
-            resetTaskForm();
-            toast.success("Task created successfully!");
-        },
-        onError: (mutationError) => {
-            toast.error(mutationError?.message || "Failed to create task.");
-        },
     });
 
     const project = useMemo(() => {
@@ -276,15 +189,6 @@ export default function ProjectDetails() {
                 ? [{ name: rawProject.assignTeam.name, role: "Assigned team" }]
                 : [];
 
-        const meetings = Array.isArray(rawProject?.meetings)
-            ? rawProject.meetings.map((meeting, index) => ({
-                id: meeting?.id || index,
-                date: formatDate(meeting?.meetingDate || meeting?.createdAt),
-                link: formatValue(meeting?.videoPlayUrl),
-                platform: formatValue(meeting?.platform || "Zoom"),
-            }))
-            : meetingListData;
-
         const lastMeetingSummary = Array.isArray(rawProject?.meetings)
             ? rawProject.meetings[0]?.lastMeetingSummary
             : null;
@@ -295,33 +199,6 @@ export default function ProjectDetails() {
                 name: doc?.fileName || doc?.title || "N/A",
                 date: formatDate(doc?.setDate || doc?.createdAt),
                 url: formatValue(doc?.fileUrl || doc?.filePath),
-                summary: doc?.aiDocumentSummary ? "view" : "N/A",
-            }))
-            : documentListData;
-
-        const tasks = Array.isArray(rawProject?.tasks)
-            ? rawProject.tasks.map((task, index) => ({
-                id: task?.id || index,
-                taskName: task?.title || "N/A",
-                startDate: formatDate(task?.startDate),
-                endDate: formatDate(task?.endDate),
-                priority: toTitleCase(task?.priority),
-                status: toTitleCase(task?.status),
-            }))
-            : taskListData;
-
-        const milestones = Array.isArray(rawProject?.milestones)
-            ? rawProject.milestones.map((milestone, index) => ({
-                id: milestone?.id || index,
-                phase: milestone?.phase || milestone?.name || `Phase ${index + 1}`,
-                title: milestone?.title || "N/A",
-                date: formatDateTime(milestone?.date || milestone?.deadline || milestone?.createdAt),
-                description: milestone?.description || "N/A",
-                status:
-                    String(milestone?.status || "").toLowerCase() === "completed" ||
-                        String(milestone?.status || "").toLowerCase() === "complete"
-                        ? "complete"
-                        : "upcoming",
             }))
             : [];
 
@@ -350,9 +227,6 @@ export default function ProjectDetails() {
             team: teamMembers,
             health: getProjectHealth(rawProject?.health),
             documents,
-            milestones,
-            tasks,
-            meetings,
         };
     }, [projectResponse]);
 
@@ -382,63 +256,6 @@ export default function ProjectDetails() {
         else if (activeTab === "meeting") setUploadMeetingModalOpen(true);
         else if (activeTab === "document") setUploadDocumentModalOpen(true);
     };
-
-    const resetTaskForm = () => setTaskForm({ taskName: "", startDate: "", endDate: "", priority: "", status: "" });
-    const resetMeetingForm = () => setMeetingForm({ date: "", link: "", platform: "", summary: "" });
-    const resetDocumentForm = () => setDocumentForm({ date: "", link: "", summary: "" });
-
-    const handleCreateTask = () => {
-        const title = taskForm.taskName.trim();
-
-        if (!projectId) {
-            toast.error("Project ID not found.");
-            return;
-        }
-
-        if (!title || !taskForm.startDate || !taskForm.endDate || !taskForm.priority || !taskForm.status) {
-            toast.error("Please fill in all task fields.");
-            return;
-        }
-
-        const startDate = toApiDateString(taskForm.startDate);
-        const endDate = toApiDateString(taskForm.endDate);
-
-        if (!startDate || !endDate) {
-            toast.error("Please provide valid task dates.");
-            return;
-        }
-
-        if (new Date(endDate) < new Date(startDate)) {
-            toast.error("End date cannot be before start date.");
-            return;
-        }
-
-        createTaskMutation.mutate({
-            projectId,
-            title,
-            status: statusValueMap[taskForm.status] || taskForm.status,
-            startDate,
-            endDate,
-            priority: priorityValueMap[taskForm.priority] || taskForm.priority,
-        });
-    };
-
-    const handleUploadMeeting = () => {
-        // In real app, call API to upload meeting
-        setUploadMeetingModalOpen(false);
-        resetMeetingForm();
-        toast.success("Meeting uploaded successfully!");
-    };
-
-    const handleUploadDocument = () => {
-        // In real app, call API to upload document
-        setUploadDocumentModalOpen(false);
-        resetDocumentForm();
-        toast.success("Document uploaded successfully!");
-    };
-
-    const inputBaseClass = "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6051E2] focus:border-transparent";
-    const labelClass = "text-sm font-medium text-slate-900 block mb-1.5";
 
     if (isLoading) {
         return <Loading />;
@@ -546,234 +363,6 @@ export default function ProjectDetails() {
                 </DialogContent>
             </Dialog>
 
-            {/* Create Task Modal */}
-            <Dialog
-                open={createTaskModalOpen}
-                onOpenChange={(open) => {
-                    setCreateTaskModalOpen(open);
-                    if (!open) resetTaskForm();
-                }}
-            >
-                <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="text-left">Create Task</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div>
-                            <label className={labelClass}>Task Name</label>
-                            <input
-                                type="text"
-                                value={taskForm.taskName}
-                                onChange={(e) => setTaskForm((p) => ({ ...p, taskName: e.target.value }))}
-                                placeholder="e.g. User research"
-                                className={inputBaseClass}
-                            />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className={labelClass}>Start Date</label>
-                                <div className="relative">
-                                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                    <input
-                                        type="date"
-                                        value={taskForm.startDate}
-                                        onChange={(e) => setTaskForm((p) => ({ ...p, startDate: e.target.value }))}
-                                        className={`${inputBaseClass} pl-9`}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className={labelClass}>End Date</label>
-                                <div className="relative">
-                                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                    <input
-                                        type="date"
-                                        value={taskForm.endDate}
-                                        onChange={(e) => setTaskForm((p) => ({ ...p, endDate: e.target.value }))}
-                                        className={`${inputBaseClass} pl-9`}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className={labelClass}>Priority Level</label>
-                                <Select value={taskForm.priority} onValueChange={(v) => setTaskForm((p) => ({ ...p, priority: v }))}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select Priority" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {priorityOptions.map((opt) => (
-                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <label className={labelClass}>Current Status</label>
-                                <Select value={taskForm.status} onValueChange={(v) => setTaskForm((p) => ({ ...p, status: v }))}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {statusOptions.map((opt) => (
-                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => setCreateTaskModalOpen(false)}
-                            disabled={createTaskMutation.isPending}
-                            className="w-full sm:w-auto cursor-pointer"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleCreateTask}
-                            disabled={createTaskMutation.isPending}
-                            className="w-full sm:w-auto bg-[#6051E2] hover:bg-[#6051E2]/90 text-white cursor-pointer flex items-center gap-2 disabled:cursor-not-allowed"
-                        >
-                            <FiPlus className="h-4 w-4" />
-                            {createTaskMutation.isPending ? "Creating..." : "Create Task"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Upload Meeting Modal */}
-            <Dialog
-                open={uploadMeetingModalOpen}
-                onOpenChange={(open) => {
-                    setUploadMeetingModalOpen(open);
-                    if (!open) resetMeetingForm();
-                }}
-            >
-                <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="text-left">Upload Meeting</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div>
-                            <label className={labelClass}>Set Date</label>
-                            <div className="relative">
-                                <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                <input
-                                    type="date"
-                                    value={meetingForm.date}
-                                    onChange={(e) => setMeetingForm((p) => ({ ...p, date: e.target.value }))}
-                                    className={`${inputBaseClass} pl-9`}
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className={labelClass}>Upload recording link</label>
-                            <input
-                                type="url"
-                                value={meetingForm.link}
-                                onChange={(e) => setMeetingForm((p) => ({ ...p, link: e.target.value }))}
-                                placeholder="e.g. Paste the link"
-                                className={inputBaseClass}
-                            />
-                        </div>
-                        <div>
-                            <label className={labelClass}>Platform</label>
-                            <Select value={meetingForm.platform} onValueChange={(v) => setMeetingForm((p) => ({ ...p, platform: v }))}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Platform" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {platformOptions.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <label className={labelClass}>Write Meeting Summary</label>
-                            <textarea
-                                value={meetingForm.summary}
-                                onChange={(e) => setMeetingForm((p) => ({ ...p, summary: e.target.value }))}
-                                placeholder="Write meeting summary..."
-                                className={`${inputBaseClass} min-h-[100px] resize-y`}
-                                rows={4}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
-                        <Button variant="outline" onClick={() => setUploadMeetingModalOpen(false)} className="w-full sm:w-auto cursor-pointer">
-                            Cancel
-                        </Button>
-                        <Button onClick={handleUploadMeeting} className="w-full sm:w-auto bg-[#6051E2] hover:bg-[#6051E2]/90 text-white cursor-pointer flex items-center gap-2">
-                            <FiPlus className="h-4 w-4" />
-                            Upload Meeting
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Upload Document Modal */}
-            <Dialog
-                open={uploadDocumentModalOpen}
-                onOpenChange={(open) => {
-                    setUploadDocumentModalOpen(open);
-                    if (!open) resetDocumentForm();
-                }}
-            >
-                <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="text-left">Upload Document</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div>
-                            <label className={labelClass}>Set Date</label>
-                            <div className="relative">
-                                <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                <input
-                                    type="date"
-                                    value={documentForm.date}
-                                    onChange={(e) => setDocumentForm((p) => ({ ...p, date: e.target.value }))}
-                                    className={`${inputBaseClass} pl-9`}
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className={labelClass}>Upload Document link</label>
-                            <input
-                                type="url"
-                                value={documentForm.link}
-                                onChange={(e) => setDocumentForm((p) => ({ ...p, link: e.target.value }))}
-                                placeholder="e.g. Paste the link"
-                                className={inputBaseClass}
-                            />
-                        </div>
-                        <div>
-                            <label className={labelClass}>Write Document Summary</label>
-                            <textarea
-                                value={documentForm.summary}
-                                onChange={(e) => setDocumentForm((p) => ({ ...p, summary: e.target.value }))}
-                                placeholder="Write document summary..."
-                                className={`${inputBaseClass} min-h-[100px] resize-y`}
-                                rows={4}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
-                        <Button variant="outline" onClick={() => setUploadDocumentModalOpen(false)} className="w-full sm:w-auto cursor-pointer">
-                            Cancel
-                        </Button>
-                        <Button onClick={handleUploadDocument} className="w-full sm:w-auto bg-[#6051E2] hover:bg-[#6051E2]/90 text-white cursor-pointer flex items-center gap-2">
-                            <FiPlus className="h-4 w-4" />
-                            Upload Document
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-6">
@@ -860,274 +449,32 @@ export default function ProjectDetails() {
                             </Button>
                         </div>
 
-                        {/* Tab Content */}
-                        <Card className="overflow-hidden">
-                            <CardContent className="p-0">
-                                {/* Task List */}
-                                {activeTab === "task" && (
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader className="bg-[#6051E2]">
-                                                <TableRow className="border-b-0 hover:bg-[#6051E2]">
-                                                    <TableHead className="py-3 px-4 text-white font-semibold text-left">
-                                                        Task Name
-                                                    </TableHead>
-                                                    <TableHead className="py-3 px-4 text-white font-semibold text-center">
-                                                        Start Date
-                                                    </TableHead>
-                                                    <TableHead className="py-3 px-4 text-white font-semibold text-center">
-                                                        End Date
-                                                    </TableHead>
-                                                    <TableHead className="py-3 px-4 text-white font-semibold text-right">
-                                                        Priority
-                                                    </TableHead>
+                        {activeTab === "task" && (
+                            <TaskSection
+                                projectId={projectId}
+                                createTaskModalOpen={createTaskModalOpen}
+                                setCreateTaskModalOpen={setCreateTaskModalOpen}
+                            />
+                        )}
 
-                                                    <TableHead className="py-3 px-4 text-white font-semibold text-right">Status</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {project.tasks.length > 0 ? (
-                                                    project.tasks.map((task) => (
-                                                        <TableRow
-                                                            key={task.id}
-                                                            className="border-b border-slate-100 hover:bg-slate-50"
-                                                        >
-                                                            <TableCell className="py-3 px-4 text-slate-800">
-                                                                {task.taskName}
-                                                            </TableCell>
-                                                            <TableCell className="py-3 px-4 text-slate-800 text-center">
-                                                                {task.startDate}
-                                                            </TableCell>
-                                                            <TableCell className="py-3 px-4 text-slate-800 text-center">
-                                                                {task.endDate}
-                                                            </TableCell>
-                                                            <TableCell className="py-3 px-4 text-right">
-                                                                <span
-                                                                    className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(
-                                                                        task.priority
-                                                                    )}`}
-                                                                >
-                                                                    {task.priority}
-                                                                </span>
-                                                            </TableCell>
-                                                            <TableCell className="py-3 px-4 text-right">
-                                                                <span
-                                                                    className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                                                                        task.status
-                                                                    )}`}
-                                                                >
-                                                                    {task.status}
-                                                                </span>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow>
-                                                        <TableCell colSpan={5} className="py-6 text-center text-slate-500">
-                                                            N/A
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                )}
+                        {activeTab === "meeting" && (
+                            <MeetingSection
+                                projectId={projectId}
+                                uploadMeetingModalOpen={uploadMeetingModalOpen}
+                                setUploadMeetingModalOpen={setUploadMeetingModalOpen}
+                            />
+                        )}
 
-                                {/* Meeting List */}
-                                {activeTab === "meeting" && (
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader className="bg-[#6051E2]">
-                                                <TableRow className="border-b-0 hover:bg-[#6051E2]">
-                                                    <TableHead className="py-3 px-4 text-white font-semibold">
-                                                        Date
-                                                    </TableHead>
-                                                    <TableHead className="py-3 px-4 text-white font-semibold">
-                                                        Platform
-                                                    </TableHead>
-                                                    <TableHead className="py-3 px-4 text-white font-semibold">
-                                                        Meeting recordings link
-                                                    </TableHead>
-
-                                                    <TableHead className="py-3 px-4 text-white font-semibold">
-                                                        Meeting Summary
-                                                    </TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {project.meetings.length > 0 ? (
-                                                    project.meetings.map((meeting) => (
-                                                        <TableRow
-                                                            key={meeting.id}
-                                                            className="border-b border-slate-100 hover:bg-slate-50"
-                                                        >
-                                                            <TableCell className="py-3 px-4 text-slate-800">
-                                                                {meeting.date}
-                                                            </TableCell>
-
-                                                            <TableCell className="py-3 px-4 text-slate-800">
-                                                                {meeting.platform}
-                                                            </TableCell>
-                                                            <TableCell className="py-3 px-4 text-slate-800">
-                                                                <Link href={meeting.link} target="_blank" className="text-blue-600 hover:underline cursor-pointer">Click to view</Link>
-                                                            </TableCell>
-                                                            <TableCell className="py-3 px-4">
-                                                                <Link
-                                                                    href={`/projects/project-details/${projectId}/meeting-summary?meetingId=${meeting.id}`}
-                                                                    className="text-blue-600 hover:underline cursor-pointer"
-                                                                >
-                                                                    View
-                                                                </Link>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow>
-                                                        <TableCell colSpan={4} className="py-6 text-center text-slate-500">
-                                                            N/A
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                )}
-
-                                {/* Document List */}
-                                {activeTab === "document" && (
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader className="bg-[#6051E2]">
-                                                <TableRow className="border-b-0 hover:bg-[#6051E2]">
-                                                    <TableHead className="py-3 px-4 text-white font-semibold">
-                                                        Date
-                                                    </TableHead>
-                                                    <TableHead className="py-3 px-4 text-white font-semibold">
-                                                        Document Name
-                                                    </TableHead>
-                                                    <TableHead className="py-3 px-4 text-white font-semibold">
-                                                        Document Url
-                                                    </TableHead>
-                                                    <TableHead className="py-3 px-4 text-white font-semibold">
-                                                        Meeting Summary
-                                                    </TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {project.documents.length > 0 ? (
-                                                    project.documents.map((doc) => (
-                                                        <TableRow
-                                                            key={doc.id}
-                                                            className="border-b border-slate-100 hover:bg-slate-50"
-                                                        >
-                                                            <TableCell className="py-3 px-4 text-slate-800">
-                                                                {doc.date}
-                                                            </TableCell>
-                                                            <TableCell className="py-3 px-4 text-slate-800">
-                                                                {doc.name}
-                                                            </TableCell>
-                                                            <TableCell className="py-3 px-4 text-slate-800">
-                                                                <Link href={doc.url} target="_blank" className="text-blue-600 hover:underline cursor-pointer">Click to view</Link>
-                                                            </TableCell>
-                                                            <TableCell className="py-3 px-4">
-                                                                <Link
-                                                                    href={`/projects/project-details/${projectId}/document-summary?documentId=${doc.id}`}
-                                                                    className="text-blue-600 hover:underline cursor-pointer"
-                                                                >
-                                                                    View
-                                                                </Link>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow>
-                                                        <TableCell colSpan={3} className="py-6 text-center text-slate-500">
-                                                            N/A
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                        {activeTab === "document" && (
+                            <DocumentSection
+                                projectId={projectId}
+                                uploadDocumentModalOpen={uploadDocumentModalOpen}
+                                setUploadDocumentModalOpen={setUploadDocumentModalOpen}
+                            />
+                        )}
                     </div>
 
-                    {/* Milestones Section */}
-                    <Card>
-                        <CardContent className="p-4 sm:p-6">
-                            <h3 className="text-lg font-semibold text-slate-900 mb-6">
-                                Milestones
-                            </h3>
-                            <div className="relative">
-                                {/* Vertical Timeline Line - positioned on left-center */}
-                                <div className="absolute left-32 top-0 bottom-0 w-0.5 bg-slate-300 hidden md:block"></div>
-
-                                <div className="space-y-8">
-                                    {project.milestones.length > 0 ? (
-                                        project.milestones.map((milestone) => (
-                                            <div
-                                                key={milestone.id}
-                                                className="relative flex flex-col md:flex-row items-start"
-                                            >
-                                                {/* Date on Left */}
-                                                <div className="w-full md:w-32 text-left md:text-right md:pr-6 flex-shrink-0">
-                                                    <p className="text-sm font-medium text-slate-700">
-                                                        {milestone.date !== "N/A" ? milestone.date.split(", ")[0] : "N/A"}
-                                                    </p>
-                                                    <p className="text-xs text-slate-500 mt-1">
-                                                        {milestone.date !== "N/A" && milestone.date.includes(", ")
-                                                            ? milestone.date.split(", ")[1]
-                                                            : "N/A"}
-                                                    </p>
-                                                </div>
-
-                                                {/* Timeline Dot - on the line */}
-                                                <div className="absolute left-32 transform -translate-x-1/2 -translate-y-1 z-10 hidden md:block">
-                                                    <div
-                                                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${milestone.status === "complete"
-                                                            ? "bg-green-500 border-green-500"
-                                                            : "bg-white border-orange-400"
-                                                            }`}
-                                                    >
-                                                        {milestone.status === "complete" ? (
-                                                            <CheckCircle2 className="w-4 h-4 text-white" />
-                                                        ) : (
-                                                            <Circle className="w-4 h-4 text-orange-400 fill-orange-400" />
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {/* Phase Content on Right */}
-                                                <div className="w-full md:flex-1 md:pl-12 space-y-2">
-                                                    <p className="text-sm font-medium text-slate-700">
-                                                        {milestone.phase.replace("Phase ", "Phase: ")}
-                                                    </p>
-                                                    <p className="text-sm text-slate-600">
-                                                        {milestone.description}
-                                                    </p>
-                                                    <Button
-                                                        size="sm"
-                                                        className={`cursor-pointer rounded-full ${milestone.status === "complete"
-                                                            ? "bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
-                                                            : "bg-orange-100 hover:bg-orange-200 text-orange-800 border-orange-300"
-                                                            } border`}
-                                                    >
-                                                        {milestone.status === "complete"
-                                                            ? "Complete"
-                                                            : "Upcoming"}
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-sm text-slate-500">N/A</p>
-                                    )}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <MilestonesSection projectId={projectId} />
                 </div>
 
                 {/* Sidebar */}
@@ -1142,7 +489,7 @@ export default function ProjectDetails() {
                                 </h3>
                             </div>
                             <p className="text-sm text-slate-600 leading-relaxed">
-                                {(project?.projectAiSummary[0])}
+                                {project?.projectAiSummary[0]}
                             </p>
                         </CardContent>
                     </Card>
