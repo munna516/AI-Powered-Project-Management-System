@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     Table,
@@ -37,22 +37,24 @@ import {
 } from "@/components/ui/select";
 import toast from "react-hot-toast";
 import Loading from "@/components/Loading/Loading";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
+import Link from "next/link";
 
 const projectData = {
-    id: "Not available",
-    title: "Not available",
-    status: "Not available",
-    owner: "Not available",
-    deadline: "Not available",
+    id: "N/A",
+    id: "N/A",
+    title: "N/A",
+    status: "N/A",
+    owner: "N/A",
+    deadline: "N/A",
     progress: null,
-    summary: "Not available",
-    lastMeetingSummary: "Not available",
+    projectAiSummary: "N/A",
+    lastMeetingSummary: "N/A",
     team: [],
     health: {
-        overallStatus: "Not available",
-        budget: "Not available",
-        teamSentiment: "Not available",
+        overallStatus: "N/A",
+        budget: "N/A",
+        teamSentiment: "N/A",
     },
     documents: [],
     milestones: [],
@@ -71,8 +73,18 @@ const tabs = [
 ];
 
 const priorityOptions = ["High", "Medium", "Low"];
-const statusOptions = ["High", "Medium", "Low"];
+const statusOptions = ["In Progress", "Pending", "Completed"];
 const platformOptions = ["Google Meet", "Zoom", "Microsoft Teams", "Other"];
+const priorityValueMap = {
+    High: "HIGH",
+    Medium: "MEDIUM",
+    Low: "LOW",
+};
+const statusValueMap = {
+    "In Progress": "IN_PROGRESS",
+    Pending: "PENDING",
+    Completed: "COMPLETED",
+};
 
 const getPriorityColor = (priority) => {
     switch (priority.toLowerCase()) {
@@ -89,8 +101,10 @@ const getPriorityColor = (priority) => {
 
 const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
+        case "completed":
         case "complete":
             return "bg-green-100 text-green-800 border-green-200";
+        case "in_progress":
         case "pending":
             return "bg-yellow-100 text-yellow-800 border-yellow-200";
         case "ongoing":
@@ -100,12 +114,12 @@ const getStatusColor = (status) => {
     }
 };
 
-const formatValue = (value) => value || "Not available";
+const formatValue = (value) => value || "N/A";
 
 const formatDate = (value) => {
-    if (!value) return "Not available";
+    if (!value) return "N/A";
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Not available";
+    if (Number.isNaN(date.getTime())) return "N/A";
     return date.toLocaleDateString("en-GB", {
         day: "2-digit",
         month: "short",
@@ -114,9 +128,9 @@ const formatDate = (value) => {
 };
 
 const formatDateTime = (value) => {
-    if (!value) return "Not available";
+    if (!value) return "N/A";
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Not available";
+    if (Number.isNaN(date.getTime())) return "N/A";
     return date.toLocaleString("en-GB", {
         day: "2-digit",
         month: "short",
@@ -127,7 +141,7 @@ const formatDateTime = (value) => {
 };
 
 const toTitleCase = (value) => {
-    if (!value) return "Not available";
+    if (!value) return "N/A";
     return String(value)
         .replace(/_/g, " ")
         .toLowerCase()
@@ -146,28 +160,61 @@ const getProjectHealth = (health) => {
         }, {});
 
         return {
-            overallStatus: healthMap.overallStatus || healthMap.status || "Not available",
-            budget: healthMap.budget || "Not available",
-            teamSentiment: healthMap.teamSentiment || healthMap.sentiment || "Not available",
+            overallStatus: healthMap.overallStatus || healthMap.status || "N/A",
+            budget: healthMap.budget || "N/A",
+            teamSentiment: healthMap.teamSentiment || healthMap.sentiment || "N/A",
         };
     }
 
     if (health && typeof health === "object") {
         return {
-            overallStatus: health.overallStatus || health.status || "Not available",
-            budget: health.budget || "Not available",
-            teamSentiment: health.teamSentiment || health.sentiment || "Not available",
+            overallStatus: health.overallStatus || health.status || "N/A",
+            budget: health.budget || "N/A",
+            teamSentiment: health.teamSentiment || health.sentiment || "N/A",
         };
     }
 
     return {
-        overallStatus: "Not available",
-        budget: "Not available",
-        teamSentiment: "Not available",
+        overallStatus: "N/A",
+        budget: "N/A",
+        teamSentiment: "N/A",
     };
 };
 
+const normalizeProgressValue = (value) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return Math.min(100, Math.max(0, Math.round(value)));
+    }
+
+    if (typeof value === "string") {
+        const parsedValue = Number.parseFloat(value.replace("%", "").trim());
+        if (Number.isFinite(parsedValue)) {
+            return Math.min(100, Math.max(0, Math.round(parsedValue)));
+        }
+    }
+
+    return null;
+};
+
+const calculateProgressFromItems = (items = [], completedStatuses = []) => {
+    if (!Array.isArray(items) || items.length === 0) return null;
+
+    const completedCount = items.filter((item) =>
+        completedStatuses.includes(String(item?.status || "").toLowerCase())
+    ).length;
+
+    return Math.round((completedCount / items.length) * 100);
+};
+
+const toApiDateString = (value) => {
+    if (!value) return null;
+    const date = new Date(`${value}T00:00:00Z`);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString();
+};
+
 export default function ProjectDetails() {
+    const queryClient = useQueryClient();
     const params = useParams();
     const projectId = Array.isArray(params?.id) ? params.id[0] : params?.id;
     const [activeTab, setActiveTab] = useState("task");
@@ -189,6 +236,22 @@ export default function ProjectDetails() {
         queryKey: ["project-details-page", projectId],
         enabled: Boolean(projectId),
         queryFn: () => apiGet(`/api/project-manager/project-management/${projectId}`),
+    });
+
+    const createTaskMutation = useMutation({
+        mutationFn: (payload) =>
+            apiPost("/api/project-manager/project-task/create-task", payload),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({
+                queryKey: ["project-details-page", projectId],
+            });
+            setCreateTaskModalOpen(false);
+            resetTaskForm();
+            toast.success("Task created successfully!");
+        },
+        onError: (mutationError) => {
+            toast.error(mutationError?.message || "Failed to create task.");
+        },
     });
 
     const project = useMemo(() => {
@@ -217,26 +280,29 @@ export default function ProjectDetails() {
             ? rawProject.meetings.map((meeting, index) => ({
                 id: meeting?.id || index,
                 date: formatDate(meeting?.meetingDate || meeting?.createdAt),
-                link: formatValue(meeting?.meetingUrl),
-                platform: formatValue(meeting?.platform),
-                summary: meeting?.aiMeetingSummary || meeting?.projectSummary || meeting?.lastMeetingSummary ? "view" : "Not available",
+                link: formatValue(meeting?.videoPlayUrl),
+                platform: formatValue(meeting?.platform || "Zoom"),
             }))
             : meetingListData;
+
+        const lastMeetingSummary = Array.isArray(rawProject?.meetings)
+            ? rawProject.meetings[0]?.lastMeetingSummary
+            : null;
 
         const documents = Array.isArray(rawProject?.documents)
             ? rawProject.documents.map((doc, index) => ({
                 id: doc?.id || index,
-                name: doc?.fileName || doc?.title || "Not available",
+                name: doc?.fileName || doc?.title || "N/A",
                 date: formatDate(doc?.setDate || doc?.createdAt),
                 url: formatValue(doc?.fileUrl || doc?.filePath),
-                summary: doc?.aiDocumentSummary ? "view" : "Not available",
+                summary: doc?.aiDocumentSummary ? "view" : "N/A",
             }))
             : documentListData;
 
         const tasks = Array.isArray(rawProject?.tasks)
             ? rawProject.tasks.map((task, index) => ({
                 id: task?.id || index,
-                taskName: task?.name || task?.taskName || "Not available",
+                taskName: task?.title || "N/A",
                 startDate: formatDate(task?.startDate),
                 endDate: formatDate(task?.endDate),
                 priority: toTitleCase(task?.priority),
@@ -248,8 +314,9 @@ export default function ProjectDetails() {
             ? rawProject.milestones.map((milestone, index) => ({
                 id: milestone?.id || index,
                 phase: milestone?.phase || milestone?.name || `Phase ${index + 1}`,
+                title: milestone?.title || "N/A",
                 date: formatDateTime(milestone?.date || milestone?.deadline || milestone?.createdAt),
-                description: milestone?.description || "Not available",
+                description: milestone?.description || "N/A",
                 status:
                     String(milestone?.status || "").toLowerCase() === "completed" ||
                         String(milestone?.status || "").toLowerCase() === "complete"
@@ -262,22 +329,24 @@ export default function ProjectDetails() {
             [rawProject?.manager?.firstName, rawProject?.manager?.lastName]
                 .filter(Boolean)
                 .join(" ")
-                .trim() || "Not available";
+                .trim() || "N/A";
+        const progress =
+            normalizeProgressValue(rawProject?.projectProgress) ??
+            normalizeProgressValue(rawProject?.progress) ??
+            calculateProgressFromItems(rawProject?.milestones, ["completed", "complete"]) ??
+            calculateProgressFromItems(rawProject?.tasks, ["completed", "complete", "done"]) ??
+            null;
 
         return {
-            id: rawProject?.id || "Not available",
-            title: rawProject?.name || "Not available",
+            id: rawProject?.id || "N/A",
+            title: rawProject?.name || "N/A",
             status: toTitleCase(rawProject?.status),
             owner: managerName,
-            deadline: formatDate(rawProject?.endDate),
-            progress: null,
-            summary: rawProject?.description || "Not available",
+            deadline: formatDate(rawProject?.endDate) || "N/A",
+            progress: progress,
+            projectAiSummary: rawProject?.projectAiSummary || "N/A",
             lastMeetingSummary:
-                rawProject?.weeklyMeetingSummary ||
-                rawProject?.meetings?.[0]?.aiMeetingSummary ||
-                rawProject?.meetings?.[0]?.projectSummary ||
-                rawProject?.meetings?.[0]?.lastMeetingSummary ||
-                "Not available",
+                lastMeetingSummary || "N/A",
             team: teamMembers,
             health: getProjectHealth(rawProject?.health),
             documents,
@@ -319,10 +388,39 @@ export default function ProjectDetails() {
     const resetDocumentForm = () => setDocumentForm({ date: "", link: "", summary: "" });
 
     const handleCreateTask = () => {
-        // In real app, call API to create task
-        setCreateTaskModalOpen(false);
-        resetTaskForm();
-        toast.success("Task created successfully!");
+        const title = taskForm.taskName.trim();
+
+        if (!projectId) {
+            toast.error("Project ID not found.");
+            return;
+        }
+
+        if (!title || !taskForm.startDate || !taskForm.endDate || !taskForm.priority || !taskForm.status) {
+            toast.error("Please fill in all task fields.");
+            return;
+        }
+
+        const startDate = toApiDateString(taskForm.startDate);
+        const endDate = toApiDateString(taskForm.endDate);
+
+        if (!startDate || !endDate) {
+            toast.error("Please provide valid task dates.");
+            return;
+        }
+
+        if (new Date(endDate) < new Date(startDate)) {
+            toast.error("End date cannot be before start date.");
+            return;
+        }
+
+        createTaskMutation.mutate({
+            projectId,
+            title,
+            status: statusValueMap[taskForm.status] || taskForm.status,
+            startDate,
+            endDate,
+            priority: priorityValueMap[taskForm.priority] || taskForm.priority,
+        });
     };
 
     const handleUploadMeeting = () => {
@@ -351,7 +449,7 @@ export default function ProjectDetails() {
             <Card>
                 <CardContent className="p-6 text-center">
                     <p className="text-sm text-slate-600">
-                        {error?.message || "Not available"}
+                        {error?.message || "N/A"}
                     </p>
                 </CardContent>
             </Card>
@@ -527,12 +625,21 @@ export default function ProjectDetails() {
                         </div>
                     </div>
                     <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
-                        <Button variant="outline" onClick={() => setCreateTaskModalOpen(false)} className="w-full sm:w-auto cursor-pointer">
+                        <Button
+                            variant="outline"
+                            onClick={() => setCreateTaskModalOpen(false)}
+                            disabled={createTaskMutation.isPending}
+                            className="w-full sm:w-auto cursor-pointer"
+                        >
                             Cancel
                         </Button>
-                        <Button onClick={handleCreateTask} className="w-full sm:w-auto bg-[#6051E2] hover:bg-[#6051E2]/90 text-white cursor-pointer flex items-center gap-2">
+                        <Button
+                            onClick={handleCreateTask}
+                            disabled={createTaskMutation.isPending}
+                            className="w-full sm:w-auto bg-[#6051E2] hover:bg-[#6051E2]/90 text-white cursor-pointer flex items-center gap-2 disabled:cursor-not-allowed"
+                        >
                             <FiPlus className="h-4 w-4" />
-                            Create Task
+                            {createTaskMutation.isPending ? "Creating..." : "Create Task"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -690,16 +797,16 @@ export default function ProjectDetails() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-200">
                                     <div>
-                                        <p className="text-sm text-slate-600">Owner</p>
-                                        <p className="text-base font-medium text-slate-900 mt-1">
+                                        <span className="text-sm text-slate-600">Owner : </span>
+                                        <span className="text-base font-medium text-slate-900 mt-1">
                                             {project.owner}
-                                        </p>
+                                        </span>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-slate-600">Deadline</p>
-                                        <p className="text-base font-medium text-slate-900 mt-1">
+                                        <span className="text-sm text-slate-600">Deadline : </span>
+                                        <span className="text-base font-medium text-slate-900 mt-1">
                                             {project.deadline}
-                                        </p>
+                                        </span>
                                     </div>
                                 </div>
 
@@ -708,19 +815,19 @@ export default function ProjectDetails() {
                                         <p className="text-sm font-medium text-slate-700">
                                             Progress
                                         </p>
-                                        <p className="text-sm font-medium text-slate-900">
-                                            {typeof project.progress === "number" ? `${project.progress}%` : "Not available"}
+                                        <p className="text-sm font-semibold text-[#6051E2]">
+                                            {typeof project.progress === "number" ? `${project.progress}%` : "N/A"}
                                         </p>
                                     </div>
                                     {typeof project.progress === "number" ? (
-                                        <div className="w-full bg-slate-200 rounded-full h-2.5">
+                                        <div className="w-full h-3 rounded-full bg-slate-200/90 overflow-hidden">
                                             <div
-                                                className="bg-[#6051E2] h-2.5 rounded-full transition-all duration-300"
+                                                className="h-full rounded-full bg-[#6051E2] transition-all duration-300"
                                                 style={{ width: `${project.progress}%` }}
                                             ></div>
                                         </div>
                                     ) : (
-                                        <p className="text-sm text-slate-500">Not available</p>
+                                        <p className="text-sm text-slate-500">N/A</p>
                                     )}
                                 </div>
                             </div>
@@ -817,7 +924,7 @@ export default function ProjectDetails() {
                                                 ) : (
                                                     <TableRow>
                                                         <TableCell colSpan={5} className="py-6 text-center text-slate-500">
-                                                            Not available
+                                                            N/A
                                                         </TableCell>
                                                     </TableRow>
                                                 )}
@@ -836,11 +943,12 @@ export default function ProjectDetails() {
                                                         Date
                                                     </TableHead>
                                                     <TableHead className="py-3 px-4 text-white font-semibold">
-                                                        Meeting recordings link
-                                                    </TableHead>
-                                                    <TableHead className="py-3 px-4 text-white font-semibold">
                                                         Platform
                                                     </TableHead>
+                                                    <TableHead className="py-3 px-4 text-white font-semibold">
+                                                        Meeting recordings link
+                                                    </TableHead>
+
                                                     <TableHead className="py-3 px-4 text-white font-semibold">
                                                         Meeting Summary
                                                     </TableHead>
@@ -856,27 +964,27 @@ export default function ProjectDetails() {
                                                             <TableCell className="py-3 px-4 text-slate-800">
                                                                 {meeting.date}
                                                             </TableCell>
-                                                            <TableCell className="py-3 px-4 text-slate-800">
-                                                                {meeting.link}
-                                                            </TableCell>
+
                                                             <TableCell className="py-3 px-4 text-slate-800">
                                                                 {meeting.platform}
                                                             </TableCell>
+                                                            <TableCell className="py-3 px-4 text-slate-800">
+                                                                <Link href={meeting.link} target="_blank" className="text-blue-600 hover:underline cursor-pointer">Click to view</Link>
+                                                            </TableCell>
                                                             <TableCell className="py-3 px-4">
-                                                                {meeting.summary === "view" ? (
-                                                                    <button onClick={() => router.push(`/projects/project-details/${projectId}/meeting-summary?meetingId=${meeting.id}`)} className="text-blue-600 hover:underline cursor-pointer">
-                                                                        {meeting.summary}
-                                                                    </button>
-                                                                ) : (
-                                                                    <span className="text-slate-500">{meeting.summary}</span>
-                                                                )}
+                                                                <Link
+                                                                    href={`/projects/project-details/${projectId}/meeting-summary?meetingId=${meeting.id}`}
+                                                                    className="text-blue-600 hover:underline cursor-pointer"
+                                                                >
+                                                                    View
+                                                                </Link>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))
                                                 ) : (
                                                     <TableRow>
                                                         <TableCell colSpan={4} className="py-6 text-center text-slate-500">
-                                                            Not available
+                                                            N/A
                                                         </TableCell>
                                                     </TableRow>
                                                 )}
@@ -893,6 +1001,9 @@ export default function ProjectDetails() {
                                                 <TableRow className="border-b-0 hover:bg-[#6051E2]">
                                                     <TableHead className="py-3 px-4 text-white font-semibold">
                                                         Date
+                                                    </TableHead>
+                                                    <TableHead className="py-3 px-4 text-white font-semibold">
+                                                        Document Name
                                                     </TableHead>
                                                     <TableHead className="py-3 px-4 text-white font-semibold">
                                                         Document Url
@@ -913,23 +1024,25 @@ export default function ProjectDetails() {
                                                                 {doc.date}
                                                             </TableCell>
                                                             <TableCell className="py-3 px-4 text-slate-800">
-                                                                {doc.url}
+                                                                {doc.name}
+                                                            </TableCell>
+                                                            <TableCell className="py-3 px-4 text-slate-800">
+                                                                <Link href={doc.url} target="_blank" className="text-blue-600 hover:underline cursor-pointer">Click to view</Link>
                                                             </TableCell>
                                                             <TableCell className="py-3 px-4">
-                                                                {doc.summary === "view" ? (
-                                                                    <button onClick={() => router.push(`/projects/project-details/${projectId}/meeting-summary?documentId=${doc.id}`)} className="text-blue-600 hover:underline cursor-pointer">
-                                                                        {doc.summary}
-                                                                    </button>
-                                                                ) : (
-                                                                    <span className="text-slate-500">{doc.summary}</span>
-                                                                )}
+                                                                <Link
+                                                                    href={`/projects/project-details/${projectId}/document-summary?documentId=${doc.id}`}
+                                                                    className="text-blue-600 hover:underline cursor-pointer"
+                                                                >
+                                                                    View
+                                                                </Link>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))
                                                 ) : (
                                                     <TableRow>
                                                         <TableCell colSpan={3} className="py-6 text-center text-slate-500">
-                                                            Not available
+                                                            N/A
                                                         </TableCell>
                                                     </TableRow>
                                                 )}
@@ -961,12 +1074,12 @@ export default function ProjectDetails() {
                                                 {/* Date on Left */}
                                                 <div className="w-full md:w-32 text-left md:text-right md:pr-6 flex-shrink-0">
                                                     <p className="text-sm font-medium text-slate-700">
-                                                        {milestone.date !== "Not available" ? milestone.date.split(", ")[0] : "Not available"}
+                                                        {milestone.date !== "N/A" ? milestone.date.split(", ")[0] : "N/A"}
                                                     </p>
                                                     <p className="text-xs text-slate-500 mt-1">
-                                                        {milestone.date !== "Not available" && milestone.date.includes(", ")
+                                                        {milestone.date !== "N/A" && milestone.date.includes(", ")
                                                             ? milestone.date.split(", ")[1]
-                                                            : "Not available"}
+                                                            : "N/A"}
                                                     </p>
                                                 </div>
 
@@ -1009,7 +1122,7 @@ export default function ProjectDetails() {
                                             </div>
                                         ))
                                     ) : (
-                                        <p className="text-sm text-slate-500">Not available</p>
+                                        <p className="text-sm text-slate-500">N/A</p>
                                     )}
                                 </div>
                             </div>
@@ -1025,11 +1138,11 @@ export default function ProjectDetails() {
                             <div className="flex items-center gap-2 mb-4">
                                 <div className="w-2 h-2 rounded-full bg-[#6051E2]"></div>
                                 <h3 className="text-base font-semibold text-slate-900">
-                                    Project Summary
+                                    Project AI Summary
                                 </h3>
                             </div>
                             <p className="text-sm text-slate-600 leading-relaxed">
-                                {project.summary}
+                                {(project?.projectAiSummary[0])}
                             </p>
                         </CardContent>
                     </Card>
@@ -1044,7 +1157,7 @@ export default function ProjectDetails() {
                                 </h3>
                             </div>
                             <p className="text-sm text-slate-600 leading-relaxed">
-                                {project.lastMeetingSummary}
+                                {project?.lastMeetingSummary}
                             </p>
                         </CardContent>
                     </Card>
@@ -1079,7 +1192,7 @@ export default function ProjectDetails() {
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="text-sm text-slate-500">Not available</p>
+                                    <p className="text-sm text-slate-500">N/A</p>
                                 )}
                             </div>
                         </CardContent>
@@ -1156,7 +1269,7 @@ export default function ProjectDetails() {
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="text-sm text-slate-500">Not available</p>
+                                    <p className="text-sm text-slate-500">N/A</p>
                                 )}
                             </div>
                         </CardContent>
