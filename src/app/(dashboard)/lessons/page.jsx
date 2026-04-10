@@ -48,6 +48,7 @@ const normalizeLesson = (lesson, index) => ({
         lesson?.clientName ||
         "Not available",
     mail: lesson?.mail || lesson?.email || "Not available",
+    source: lesson?.source || "Not available",
     date: formatDate(lesson?.loggedDate || lesson?.created_at || lesson?.createdAt),
     rawDate: lesson?.loggedDate || lesson?.created_at || lesson?.createdAt || null,
     logger: lesson?.source || "Not available",

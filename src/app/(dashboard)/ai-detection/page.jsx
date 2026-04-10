@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,14 +22,21 @@ import {
 import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
 import toast from "react-hot-toast";
 import Loading from "@/components/Loading/Loading";
-import { apiGet } from "@/lib/api";
+import Swal from "sweetalert2";
+import { apiDelete, apiGet, apiPost } from "@/lib/api";
 
 const tabs = [
   { id: "email", label: "Email" },
   { id: "meetings-transcript", label: "Meeting transcript" },
 ];
 
-const raiddOptions = ["Risk", "Issues", "Assumption", "Decision", "Dependencies"];
+const raiddOptions = [
+  { value: "risk", label: "Risk" },
+  { value: "issue", label: "Issue" },
+  { value: "assumption", label: "Assumption" },
+  { value: "decision", label: "Decision" },
+  { value: "dependency", label: "Dependency" },
+];
 
 const initialApprovalState = {
   itemId: "",
@@ -83,19 +90,19 @@ const getRaiddOptionValue = (value) => {
   switch (normalized) {
     case "risk":
     case "risks":
-      return "Risk";
+      return "risk";
     case "issue":
     case "issues":
-      return "Issues";
+      return "issue";
     case "assumption":
     case "assumptions":
-      return "Assumption";
+      return "assumption";
     case "decision":
     case "decisions":
-      return "Decision";
+      return "decision";
     case "dependency":
     case "dependencies":
-      return "Dependencies";
+      return "dependency";
     default:
       return "";
   }
@@ -165,11 +172,13 @@ export default function AiDetection() {
   const [expandedItems, setExpandedItems] = useState(new Set([]));
   const [hiddenItemIds, setHiddenItemIds] = useState(new Set([]));
   const [approveModalState, setApproveModalState] = useState(initialApprovalState);
+  const [deletingId, setDeletingId] = useState("");
   const [dateFilterState, setDateFilterState] = useState({
     filter: "all",
     startDate: null,
     endDate: null,
   });
+  const queryClient = useQueryClient();
 
   const {
     data: detectionsResponse,
@@ -247,14 +256,48 @@ export default function AiDetection() {
     return filtered;
   }, [communications, activeTab, searchValue, hiddenItemIds, dateFilterState.filter, getDateRange]);
 
-  const handleRemove = (id) => {
-    setHiddenItemIds((prev) => new Set(prev).add(String(id)));
-    setExpandedItems((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
+  const deleteDetectionMutation = useMutation({
+    mutationFn: (id) => apiDelete(`/api/project-manager/ai-detection/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ai-detections"] });
+    },
+  });
+
+  const approveDetectionMutation = useMutation({
+    mutationFn: ({ projectId, type }) =>
+      apiPost("/api/project-manager/raidd/create", { projectId, type }),
+  });
+
+  const handleRemove = async (id) => {
+    const detectionId = String(id);
+    const result = await Swal.fire({
+      title: "Delete this detection?",
+      text: "This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, delete",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+      confirmButtonColor: "#dc2626",
     });
-    toast.success("Detection deleted successfully");
+
+    if (!result.isConfirmed) return;
+
+    setDeletingId(detectionId);
+    try {
+      await deleteDetectionMutation.mutateAsync(detectionId);
+      setHiddenItemIds((prev) => new Set(prev).add(detectionId));
+      setExpandedItems((prev) => {
+        const next = new Set(prev);
+        next.delete(detectionId);
+        return next;
+      });
+      toast.success("Detection deleted successfully");
+    } catch (err) {
+      toast.error(err?.message || "Failed to delete detection.");
+    } finally {
+      setDeletingId("");
+    }
   };
 
   const handleViewDetails = (id) => {
@@ -294,14 +337,27 @@ export default function AiDetection() {
       return;
     }
 
-    setHiddenItemIds((prev) => new Set(prev).add(String(approveModalState.itemId)));
-    setExpandedItems((prev) => {
-      const next = new Set(prev);
-      next.delete(approveModalState.itemId);
-      return next;
-    });
-    toast.success("Detection approved successfully");
-    handleCloseApproveModal();
+    approveDetectionMutation.mutate(
+      {
+        projectId: approveModalState.projectId,
+        type: String(approveModalState.raiddCategory || "").toLowerCase(),
+      },
+      {
+        onSuccess: () => {
+          setHiddenItemIds((prev) => new Set(prev).add(String(approveModalState.itemId)));
+          setExpandedItems((prev) => {
+            const next = new Set(prev);
+            next.delete(approveModalState.itemId);
+            return next;
+          });
+          toast.success("Detection approved successfully");
+          handleCloseApproveModal();
+        },
+        onError: (err) => {
+          toast.error(err?.message || "Failed to approve detection.");
+        },
+      }
+    );
   };
 
   if (isDetectionsLoading) {
@@ -414,8 +470,8 @@ export default function AiDetection() {
                 </SelectTrigger>
                 <SelectContent>
                   {raiddOptions.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -429,10 +485,11 @@ export default function AiDetection() {
             </Button>
             <Button
               type="button"
-              className="bg-[#6051E2] text-white hover:bg-[#6051E2]/90"
+              className="bg-[#6051E2] text-white hover:bg-[#6051E2]/90 cursor-pointer"
               onClick={handleApproveDetection}
+              disabled={approveDetectionMutation.isPending}
             >
-              Approve
+              {approveDetectionMutation.isPending ? "Approving..." : "Approve"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -498,6 +555,7 @@ export default function AiDetection() {
                           type="button"
                           variant="outline"
                           onClick={() => handleRemove(item.id)}
+                          disabled={deletingId === String(item.id)}
                           className="h-9 rounded-full border border-red-200 bg-white px-3 text-xs text-red-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-red-300 hover:bg-red-50 hover:text-red-700 hover:shadow-md sm:text-sm cursor-pointer"
                           title="Delete"
                           aria-label="Delete"

@@ -285,9 +285,9 @@ export default function Dashboard() {
                                         <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-sm lg:text-base">
                                             Deadline
                                         </TableHead>
-                                        <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
+                                        {/* <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
                                             Details view
-                                        </TableHead>
+                                        </TableHead> */}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -326,16 +326,16 @@ export default function Dashboard() {
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-sm lg:text-base">
-                                                {project.deadline}
+                                                {project?.endDate || "N/A"}
                                             </TableCell>
-                                            <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
+                                            {/* <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
                                                 <button
                                                     className="text-primary hover:underline text-xs lg:text-sm font-medium cursor-pointer"
                                                     onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
                                                 >
                                                     view
                                                 </button>
-                                            </TableCell>
+                                            </TableCell> */}
                                         </TableRow>
                                     ))}
                                     {!isLoading && projectsData.length === 0 && (
