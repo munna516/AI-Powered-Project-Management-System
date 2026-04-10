@@ -21,6 +21,7 @@ import Loading from "@/components/Loading/Loading";
 import { apiGet } from "@/lib/api";
 
 const tabLabelMap = {
+    all: "All",
     risk: "Risk",
     issues: "Issues",
     assumptions: "Assumptions",
@@ -29,6 +30,7 @@ const tabLabelMap = {
 };
 
 const tabs = [
+    { id: "all", label: "All" },
     { id: "risk", label: "Risk" },
     { id: "issues", label: "Issues" },
     { id: "assumptions", label: "Assumptions" },
@@ -42,21 +44,21 @@ const normalizeTabType = (value) => {
     switch (normalized) {
         case "risk":
         case "risks":
-            return "risk";
+            return "Risk";
         case "issue":
         case "issues":
-            return "issues";
+            return "Issue";
         case "assumption":
         case "assumptions":
-            return "assumptions";
+            return "Assumption";
         case "decision":
         case "decisions":
-            return "decisions";
+            return "Decision";
         case "dependency":
         case "dependencies":
-            return "dependencies";
+            return "Dependency";
         default:
-            return normalized;
+            return "Not available";
     }
 };
 
@@ -105,12 +107,16 @@ const getStatusStyle = (status) => {
     const statusLower = String(status || "").toLowerCase();
 
     switch (statusLower) {
-        case "low":
-            return "bg-yellow-100 text-yellow-700";
-        case "medium":
-            return "bg-green-100 text-green-700";
-        case "high":
+        case "risk":
             return "bg-red-100 text-red-700";
+        case "issue":
+            return "bg-yellow-100 text-yellow-700";
+        case "assumption":
+            return "bg-blue-100 text-blue-700";
+        case "decision":
+            return "bg-[#E87F24]/30 text-[#E87F24]";
+        case "dependency":
+            return "bg-purple-100 text-purple-700";
         default:
             return "bg-gray-100 text-gray-700";
     }
@@ -121,7 +127,7 @@ const viewButtonClass =
 
 export default function RAIDD() {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState("risk");
+    const [activeTab, setActiveTab] = useState("all");
     const [searchValue, setSearchValue] = useState("");
     const [dateFilterState, setDateFilterState] = useState({
         filter: "all",
@@ -171,11 +177,11 @@ export default function RAIDD() {
     }, [dateFilterState]);
 
     const handleExport = () => {
-        toast.success(`${formatLabel(activeTab)} data exported successfully!`);
+        toast.success(`${tabLabelMap[activeTab] || formatLabel(activeTab)} data exported successfully!`);
     };
 
     const filteredData = useMemo(() => {
-        let filtered = allData.filter((item) => item.type === activeTab);
+        let filtered = activeTab === "all" ? allData : allData.filter((item) => item.type === activeTab);
 
         if (searchValue.trim()) {
             const searchLower = searchValue.toLowerCase();
@@ -235,11 +241,10 @@ export default function RAIDD() {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:px-4 sm:py-2 sm:text-sm cursor-pointer ${
-                                activeTab === tab.id
+                            className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:px-4 sm:py-2 sm:text-sm cursor-pointer ${activeTab === tab.id
                                     ? "bg-[#6051E2] text-white"
                                     : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                            }`}
+                                }`}
                         >
                             {tab.label}
                         </button>
@@ -308,10 +313,10 @@ export default function RAIDD() {
                                         <TableCell className="px-4 py-3 text-center lg:px-6 lg:py-4">
                                             <span
                                                 className={`rounded-full px-2 py-1 text-xs font-medium capitalize lg:px-3 lg:py-1 ${getStatusStyle(
-                                                    item.status
+                                                    item.type
                                                 )}`}
                                             >
-                                                {item.status}
+                                                {item.type}
                                             </span>
                                         </TableCell>
                                         <TableCell className="px-4 py-3 text-sm text-slate-600 lg:px-6 lg:py-4 lg:text-base">
@@ -375,10 +380,10 @@ export default function RAIDD() {
                                         <TableCell className="px-4 py-3 text-center">
                                             <span
                                                 className={`rounded-full px-2 py-1 text-xs font-medium capitalize ${getStatusStyle(
-                                                    item.status
+                                                    item.type
                                                 )}`}
                                             >
-                                                {item.status}
+                                                {item.type}
                                             </span>
                                         </TableCell>
                                         <TableCell className="px-4 py-3 text-sm text-slate-600">

@@ -8,6 +8,7 @@ import { PiMicrosoftOutlookLogo } from "react-icons/pi";
 import { BiLogoMicrosoftTeams } from "react-icons/bi";
 import { GoMail } from "react-icons/go";
 import { SiGooglecalendar } from "react-icons/si";
+import { SiZoom } from "react-icons/si";
 import { apiDelete, apiGet } from "@/lib/api";
 // Tool Connection Data
 const tools = [
@@ -35,12 +36,19 @@ const tools = [
         ),
         connected: false,
     },
+    {
+        id: 5,
+        name: "Zoom",
+        icon: <SiZoom className="w-10 h-10 text-blue-500" />,
+        connected: false,
+    },
 
 ];
 
 const OUTLOOK_TOOL_ID = 1;
 const GOOGLE_CALENDAR_TOOL_ID = 3;
 const GMAIL_TOOL_ID = 4;
+const ZOOM_TOOL_ID = 5;
 const CONNECTABLE_TOOLS = {
     [OUTLOOK_TOOL_ID]: {
         connectEndpoint: "/api/project-manager/outlook/connect",
@@ -83,6 +91,28 @@ const CONNECTABLE_TOOLS = {
             return {
                 isConnected: Boolean(gmailAccount?.isConnected),
                 email: gmailAccount?.email || "",
+            };
+        },
+    },
+    [ZOOM_TOOL_ID]: {
+        connectEndpoint: "/api/project-manager/zoom/authorize",
+        disconnectEndpoint: "/api/project-manager/zoom/disconnect",
+        statusEndpoint: "/api/email-account-connection/status",
+        statusParams: {
+            category: "social",
+        },
+        popupName: "zoom-connect",
+        successMessage: "Zoom connected successfully",
+        disconnectMessage: "Zoom disconnected successfully",
+        getConnectionInfo: (response) => {
+            const accounts = Array.isArray(response?.data) ? response.data : [];
+            const zoomAccount = accounts.find(
+                (account) => String(account?.source || "").toUpperCase() === "ZOOM"
+            );
+
+            return {
+                isConnected: Boolean(zoomAccount?.isConnected),
+                email: zoomAccount?.email || "",
             };
         },
     },
