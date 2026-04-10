@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     Table,
@@ -19,72 +19,43 @@ import {
     Legend,
     ResponsiveContainer,
 } from "recharts";
-import DateFilter from "@/components/DateFilter/Datefilter";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "@/lib/api";
 
-// Chart data
-const chartData = [
-    { date: "Jan 1", Complete: 20, Ongoing: 25, Cancel: 30 },
-    { date: "Jan 2", Complete: 25, Ongoing: 28, Cancel: 25 },
-    { date: "Jan 3", Complete: 30, Ongoing: 30, Cancel: 20 },
-    { date: "Jan 4", Complete: 35, Ongoing: 32, Cancel: 35 },
-    { date: "Jan 5", Complete: 40, Ongoing: 30, Cancel: 42 },
-    { date: "Jan 7", Complete: 38, Ongoing: 28, Cancel: 10 },
+const MONTHS = [
+    { value: "jan", label: "January" },
+    { value: "feb", label: "February" },
+    { value: "mar", label: "March" },
+    { value: "apr", label: "April" },
+    { value: "may", label: "May" },
+    { value: "jun", label: "June" },
+    { value: "jul", label: "July" },
+    { value: "aug", label: "August" },
+    { value: "sep", label: "September" },
+    { value: "oct", label: "October" },
+    { value: "nov", label: "November" },
+    { value: "dec", label: "December" },
 ];
 
-// Projects data
-const projectsData = [
-    {
-        id: "584685",
-        name: "Basketball App",
-        owner: "Mr Mirja",
-        status: "Ongoing",
-        progress: 80,
-        deadline: "20 Nov, 2025",
-    },
-    {
-        id: "564857",
-        name: "abcd",
-        owner: "Mr Mirja",
-        status: "Completed",
-        progress: 60,
-        deadline: "20 Nov, 2025",
-    },
-    {
-        id: "654645",
-        name: "abcd",
-        owner: "Mr Mirja",
-        status: "Ongoing",
-        progress: 60,
-        deadline: "20 Nov, 2025",
-    },
-    {
-        id: "457832",
-        name: "abcd",
-        owner: "Mr Mirja",
-        status: "Completed",
-        progress: 80,
-        deadline: "20 Nov, 2025",
-    },
-    {
-        id: "487525",
-        name: "abcd",
-        owner: "Mr Mirja",
-        status: "cancel",
-        progress: 60,
-        deadline: "20 Nov, 2025",
-    },
-
-];
+const toTitleCase = (value) => {
+    if (!value) return "";
+    return String(value)
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
 
 const getStatusStyle = (status) => {
-    const statusLower = status.toLowerCase();
+    const statusLower = String(status ?? "").toLowerCase();
     switch (statusLower) {
         case "completed":
             return "bg-green-100 text-green-700";
         case "ongoing":
+        case "in_progress":
             return "bg-yellow-100 text-yellow-700";
         case "cancel":
+        case "cancelled":
             return "bg-red-100 text-red-700";
         default:
             return "bg-gray-100 text-gray-700";
@@ -93,11 +64,42 @@ const getStatusStyle = (status) => {
 
 export default function Dashboard() {
     const router = useRouter();
-    const [dateFilterState, setDateFilterState] = useState({
-        filter: "today",
-        startDate: null,
-        endDate: null,
+    const now = useMemo(() => new Date(), []);
+    const currentYear = now.getFullYear();
+
+    const [year, setYear] = useState(currentYear);
+    // Empty string means "all months" (filter by year only)
+    const [month, setMonth] = useState("");
+
+    const { data, isLoading, isFetching, isError, error } = useQuery({
+        queryKey: ["pm-dashboard", { year, month }],
+        queryFn: async () => {
+            const params = { year, ...(month ? { month } : {}) };
+            const res = await apiGet("/api/project-manager/dashboard", {
+                params,
+            });
+            return res?.data ?? res;
+        },
+        keepPreviousData: true,
+        staleTime: 30_000,
     });
+
+    const stats = data?.stats;
+    const projectsData = Array.isArray(data?.projects?.data) ? data.projects.data : [];
+    const chartData = Array.isArray(data?.kpiChart)
+        ? data.kpiChart.map((row) => ({
+            month: `${toTitleCase(row?.month)} ${row?.year ?? ""}`.trim(),
+            Complete: Number(row?.completed ?? 0),
+            Ongoing: Number(row?.ongoing ?? 0),
+            Cancel: Number(row?.cancelled ?? 0),
+        }))
+        : [];
+
+    const yearOptions = useMemo(() => {
+        const years = [];
+        for (let y = currentYear - 3; y <= currentYear + 1; y += 1) years.push(y);
+        return years;
+    }, [currentYear]);
 
     return (
         <div className="space-y-6">
@@ -111,18 +113,34 @@ export default function Dashboard() {
                         </p>
                     </div>
                     <div className="flex flex-col gap-3">
-                        {/* Date Filter */}
-                        <DateFilter
-                            onFilterChange={setDateFilterState}
-                            initialFilter="today"
-                        />
-
-                        {/* Show selected custom range below the inputs */}
-                        {dateFilterState.filter === "custom" && dateFilterState.startDate && dateFilterState.endDate && (
-                            <div className="flex items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-700 w-fit">
-                                <span>{dateFilterState.startDate} - {dateFilterState.endDate}</span>
-                            </div>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <select
+                                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm bg-white cursor-pointer"
+                                value={year}
+                                onChange={(e) => setYear(Number(e.target.value))}
+                            >
+                                {yearOptions.map((y) => (
+                                    <option key={y} value={y}>
+                                        {y}
+                                    </option>
+                                ))}
+                            </select>
+                            <select
+                                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm bg-white cursor-pointer"
+                                value={month}
+                                onChange={(e) => setMonth(e.target.value)}
+                            >
+                                <option value="">All months</option>
+                                {MONTHS.map((m) => (
+                                    <option key={m.value} value={m.value}>
+                                        {m.label}
+                                    </option>
+                                ))}
+                            </select>
+                            {isFetching && (
+                                <span className="text-xs text-slate-500">Updating…</span>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -133,7 +151,9 @@ export default function Dashboard() {
                 <Card className="bg-green-50 border-green-100">
                     <CardContent className="p-4 sm:p-6">
                         <p className="text-sm sm:text-base text-slate-600 mb-2">Overall Project Health</p>
-                        <p className="text-3xl sm:text-4xl font-bold text-slate-900">85%</p>
+                        <p className="text-3xl sm:text-4xl font-bold text-slate-900">
+                            {isLoading ? "—" : `${Number(stats?.overallHealth ?? 0)}%`}
+                        </p>
                     </CardContent>
                 </Card>
 
@@ -141,7 +161,9 @@ export default function Dashboard() {
                 <Card className="bg-pink-50 border-pink-100">
                     <CardContent className="p-4 sm:p-6">
                         <p className="text-sm sm:text-base text-slate-600 mb-2">Upcoming Deadlines</p>
-                        <p className="text-3xl sm:text-4xl font-bold text-slate-900">3</p>
+                        <p className="text-3xl sm:text-4xl font-bold text-slate-900">
+                            {isLoading ? "—" : Number(stats?.upcomingDeadlines ?? 0)}
+                        </p>
                     </CardContent>
                 </Card>
 
@@ -149,7 +171,9 @@ export default function Dashboard() {
                 <Card className="bg-purple-50 border-purple-100">
                     <CardContent className="p-4 sm:p-6">
                         <p className="text-sm sm:text-base text-slate-600 mb-2">Active Projects</p>
-                        <p className="text-3xl sm:text-4xl font-bold text-slate-900">36</p>
+                        <p className="text-3xl sm:text-4xl font-bold text-slate-900">
+                            {isLoading ? "—" : Number(stats?.activeProjects ?? 0)}
+                        </p>
                     </CardContent>
                 </Card>
             </div>
@@ -166,27 +190,24 @@ export default function Dashboard() {
                         <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-2 sm:mb-0">
                             Project Trends
                         </h3>
-                        <div className="flex items-center gap-2">
-                            <select className="px-3 py-1.5 border border-slate-300 rounded-md text-sm bg-white cursor-pointer">
-                                <option>2025</option>
-                                <option>2024</option>
-                                <option>2023</option>
-                            </select>
-                        </div>
+                        {isError && (
+                            <span className="text-xs text-red-600">
+                                {error?.message || "Failed to load dashboard data"}
+                            </span>
+                        )}
                     </div>
                     <div className="w-full h-64 sm:h-80 md:h-96">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                 <XAxis
-                                    dataKey="date"
+                                    dataKey="month"
                                     stroke="#6b7280"
                                     style={{ fontSize: "12px" }}
                                 />
                                 <YAxis
                                     stroke="#6b7280"
-                                    domain={[0, 50]}
-                                    ticks={[0, 20, 30, 40, 50]}
+                                    allowDecimals={false}
                                     style={{ fontSize: "12px" }}
                                 />
                                 <Tooltip
@@ -276,10 +297,10 @@ export default function Dashboard() {
                                             className="border-b border-slate-100 hover:bg-slate-50"
                                         >
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm lg:text-base">
-                                                {project.id}
+                                                {project.projectId}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm lg:text-base">
-                                                {project.name}
+                                                {project.projectName}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-sm lg:text-base">
                                                 {project.owner}
@@ -298,10 +319,10 @@ export default function Dashboard() {
                                                     <div className="flex-1 bg-slate-200 rounded-full h-2">
                                                         <div
                                                             className="bg-blue-500 h-2 rounded-full"
-                                                            style={{ width: `${project.progress}%` }}
+                                                            style={{ width: `${Number(project.progress ?? 0)}%` }}
                                                         ></div>
                                                     </div>
-                                                    <span className="text-xs sm:text-sm">{project.progress}%</span>
+                                                    <span className="text-xs sm:text-sm">{Number(project.progress ?? 0)}%</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-sm lg:text-base">
@@ -310,13 +331,20 @@ export default function Dashboard() {
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
                                                 <button
                                                     className="text-primary hover:underline text-xs lg:text-sm font-medium cursor-pointer"
-                                                    onClick={() => router.push(`/projects/project-details/${project.id}`)}
+                                                    onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
                                                 >
                                                     view
                                                 </button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
+                                    {!isLoading && projectsData.length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={7} className="py-6 text-center text-sm text-slate-500">
+                                                No projects found.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
                                 </TableBody>
                             </Table>
                         </div>
@@ -350,10 +378,10 @@ export default function Dashboard() {
                                             className="border-b border-slate-100 hover:bg-slate-50"
                                         >
                                             <TableCell className="py-3 px-4 text-slate-800 text-sm">
-                                                {project.id}
+                                                {project.projectId}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 text-slate-800 text-sm">
-                                                {project.name}
+                                                {project.projectName}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 text-center">
                                                 <span
@@ -369,22 +397,29 @@ export default function Dashboard() {
                                                     <div className="flex-1 bg-slate-200 rounded-full h-2">
                                                         <div
                                                             className="bg-blue-500 h-2 rounded-full"
-                                                            style={{ width: `${project.progress}%` }}
+                                                            style={{ width: `${Number(project.progress ?? 0)}%` }}
                                                         ></div>
                                                     </div>
-                                                    <span className="text-xs">{project.progress}%</span>
+                                                    <span className="text-xs">{Number(project.progress ?? 0)}%</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-3 px-4 text-center">
                                                 <button
                                                     className="text-primary hover:underline text-xs font-medium cursor-pointer"
-                                                    onClick={() => router.push(`/projects/project-details/${project.id}`)}
+                                                    onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
                                                 >
                                                     view
                                                 </button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
+                                    {!isLoading && projectsData.length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="py-6 text-center text-sm text-slate-500">
+                                                No projects found.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
                                 </TableBody>
                             </Table>
                         </div>
@@ -396,10 +431,10 @@ export default function Dashboard() {
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <h3 className="font-semibold text-slate-800 text-base">
-                                                {project.name}
+                                                {project.projectName}
                                             </h3>
                                             <p className="text-xs text-slate-500 mt-1">
-                                                ID: {project.id}
+                                                ID: {project.projectId}
                                             </p>
                                         </div>
                                         <span
@@ -423,11 +458,11 @@ export default function Dashboard() {
                                                 <div className="w-24 bg-slate-200 rounded-full h-2">
                                                     <div
                                                         className="bg-blue-500 h-2 rounded-full"
-                                                        style={{ width: `${project.progress}%` }}
+                                                        style={{ width: `${Number(project.progress ?? 0)}%` }}
                                                     ></div>
                                                 </div>
                                                 <span className="text-slate-700 font-medium text-xs">
-                                                    {project.progress}%
+                                                    {Number(project.progress ?? 0)}%
                                                 </span>
                                             </div>
                                         </div>
@@ -440,12 +475,15 @@ export default function Dashboard() {
                                     </div>
                                     <button
                                         className="w-full text-center text-primary hover:underline text-sm font-medium cursor-pointer pt-2"
-                                        onClick={() => router.push(`/projects/project-details/${project.id}`)}
+                                        onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
                                     >
                                         View
                                     </button>
                                 </div>
                             ))}
+                            {!isLoading && projectsData.length === 0 && (
+                                <div className="p-4 text-center text-sm text-slate-500">No projects found.</div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

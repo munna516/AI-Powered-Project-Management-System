@@ -96,8 +96,8 @@ const normalizeProject = (project) => {
         startDate: project.startDate || null,
         endDate: project.endDate || null,
         createdAt: project.createdAt || null,
-        aiSummary:
-            project.weeklyMeetingSummary ||
+        weeklyAiSummary:
+            project.weeklyAiSummary ||
             "No summary available for this project yet.",
         timeline: getTimelineItems(project, normalizedStatus),
     };
@@ -124,6 +124,8 @@ export default function Projects() {
         queryKey: ["my-projects"],
         queryFn: () => apiGet("/api/project-manager/project-management/my-projects"),
     });
+
+    console.log(projectsResponse);
 
     const deleteProjectMutation = useMutation({
         mutationFn: (projectId) =>
@@ -152,7 +154,7 @@ export default function Projects() {
             const searchLower = searchValue.toLowerCase();
             projects = projects.filter((project) =>
                 project.title.toLowerCase().includes(searchLower) ||
-                project.aiSummary.toLowerCase().includes(searchLower) ||
+                project.weeklyAiSummary.toLowerCase().includes(searchLower) ||
                 project.vendorName.toLowerCase().includes(searchLower) ||
                 project.teamName.toLowerCase().includes(searchLower)
             );
@@ -440,9 +442,9 @@ export default function Projects() {
                                             <h3 className="text-sm sm:text-base font-semibold text-slate-700">
                                                 Weekly AI summary
                                             </h3>
-                                            <div className="bg-slate-50 rounded-lg p-4 min-h-[120px]">
-                                                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                                                    {project.aiSummary}
+                                            <div className="rounded-lg p-4 min-h-[120px]">
+                                                <p className="text-xs sm:text-sm text-black">
+                                                   {project.weeklyAiSummary}
                                                 </p>
                                             </div>
                                             <div className="flex flex-wrap gap-3 justify-end">

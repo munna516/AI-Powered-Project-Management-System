@@ -233,9 +233,9 @@ export default function Vendors() {
                                         <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
                                             Total project
                                         </TableHead>
-                                        <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
+                                        {/* <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
                                             Details view
-                                        </TableHead>
+                                        </TableHead> */}
                                         <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
                                             Action
                                         </TableHead>
@@ -268,14 +268,14 @@ export default function Vendors() {
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-center text-sm lg:text-base">
                                                 {vendor.totalProjects}
                                             </TableCell>
-                                            <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
+                                            {/* <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
                                                 <button
                                                     className="text-primary hover:underline text-xs lg:text-sm font-medium cursor-pointer"
                                                     onClick={() => router.push(`/vendors/view/${vendor.id}`)}
                                                 >
                                                     view
                                                 </button>
-                                            </TableCell>
+                                            </TableCell> */}
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6">
                                                 <div className="flex items-center justify-center gap-3">
                                                     <button
@@ -317,9 +317,9 @@ export default function Vendors() {
                                         <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
                                             Projects
                                         </TableHead>
-                                        <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
+                                        {/* <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
                                             View
-                                        </TableHead>
+                                        </TableHead> */}
                                         <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
                                             Action
                                         </TableHead>
@@ -420,14 +420,14 @@ export default function Vendors() {
                                             </span>
                                         </div>
                                     </div>
-                                    <Button
+                                    {/* <Button
                                         variant="primary"
                                         size="lg"
                                         className="w-full cursor-pointer text-sm sm:text-base"
                                         onClick={() => router.push(`/vendors/view/${vendor.id}`)}
                                     >
                                         View Details
-                                    </Button>
+                                    </Button> */}
                                     <div className="flex items-center gap-3">
                                         <button
                                             type="button"
