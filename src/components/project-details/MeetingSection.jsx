@@ -213,7 +213,7 @@ export default function MeetingSection({
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className={labelClass}>Select File</label>
+              <label className={labelClass}>Select Transcript File</label>
               <input
                 ref={fileInputRef}
                 type="file"

@@ -21,11 +21,12 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import Loading from "@/components/Loading/Loading";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPatch } from "@/lib/api";
 import TaskSection from "@/components/project-details/TaskSection";
 import MeetingSection from "@/components/project-details/MeetingSection";
 import DocumentSection from "@/components/project-details/DocumentSection";
 import MilestonesSection from "@/components/project-details/MilestonesSection";
+import toast from "react-hot-toast";
 
 const projectData = {
     id: "N/A",
@@ -33,15 +34,12 @@ const projectData = {
     status: "N/A",
     owner: "N/A",
     deadline: "N/A",
+    description: "N/A",
     progress: null,
     projectAiSummary: "N/A",
     lastMeetingSummary: "N/A",
     team: [],
-    health: {
-        overallStatus: "N/A",
-        budget: "N/A",
-        teamSentiment: "N/A",
-    },
+    health: [],
     // documents: [],
 };
 
@@ -53,9 +51,11 @@ const tabs = [
 
 
 const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
+    const normalizedStatus = String(status ?? "").trim().toLowerCase();
+    switch (normalizedStatus) {
         case "completed":
         case "complete":
+        case "on_track":
             return "bg-green-100 text-green-800 border-green-200";
         case "in_progress":
         case "pending":
@@ -88,38 +88,6 @@ const toTitleCase = (value) => {
         .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
-const getProjectHealth = (health) => {
-    if (Array.isArray(health)) {
-        const healthMap = health.reduce((acc, item) => {
-            const key = item?.name || item?.type || item?.label;
-            const value = item?.status || item?.value;
-            if (key && value) {
-                acc[key] = value;
-            }
-            return acc;
-        }, {});
-
-        return {
-            overallStatus: healthMap.overallStatus || healthMap.status || "N/A",
-            budget: healthMap.budget || "N/A",
-            teamSentiment: healthMap.teamSentiment || healthMap.sentiment || "N/A",
-        };
-    }
-
-    if (health && typeof health === "object") {
-        return {
-            overallStatus: health.overallStatus || health.status || "N/A",
-            budget: health.budget || "N/A",
-            teamSentiment: health.teamSentiment || health.sentiment || "N/A",
-        };
-    }
-
-    return {
-        overallStatus: "N/A",
-        budget: "N/A",
-        teamSentiment: "N/A",
-    };
-};
 
 const normalizeProgressValue = (value) => {
     if (typeof value === "number" && Number.isFinite(value)) {
@@ -152,6 +120,8 @@ export default function ProjectDetails() {
     const [activeTab, setActiveTab] = useState("task");
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deleteReason, setDeleteReason] = useState("");
+    const [isCancelling, setIsCancelling] = useState(false);
+    const [cancelError, setCancelError] = useState("");
     const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
     const [uploadMeetingModalOpen, setUploadMeetingModalOpen] = useState(false);
     const [uploadDocumentModalOpen, setUploadDocumentModalOpen] = useState(false);
@@ -177,6 +147,7 @@ export default function ProjectDetails() {
             return projectData;
         }
 
+        const description = rawProject?.description || "N/A";
         const teamMembers = Array.isArray(rawProject?.assignTeam?.employees)
             ? rawProject.assignTeam.employees.map((member, index) => ({
                 name:
@@ -214,10 +185,30 @@ export default function ProjectDetails() {
             calculateProgressFromItems(rawProject?.tasks, ["completed", "complete", "done"]) ??
             null;
 
+        const healthRaw = rawProject?.health;
+        const healthArray = Array.isArray(healthRaw)
+            ? healthRaw
+            : healthRaw && typeof healthRaw === "object"
+                ? Object.entries(healthRaw).map(([type, healthStatus]) => ({
+                    id: type,
+                    type,
+                    healthStatus,
+                }))
+                : [];
+
+        const health = healthArray
+            .map((item) => ({
+                id: item?.id ?? item?.type,
+                type: String(item?.type ?? "N/A"),
+                healthStatus: String(item?.healthStatus ?? item?.status ?? "N/A"),
+            }))
+            .filter((item) => item.type !== "N/A" || item.healthStatus !== "N/A");
+
         return {
             id: rawProject?.id || "N/A",
             title: rawProject?.name || "N/A",
             status: toTitleCase(rawProject?.status),
+            description: description,
             owner: managerName,
             deadline: formatDate(rawProject?.endDate) || "N/A",
             progress: progress,
@@ -225,7 +216,7 @@ export default function ProjectDetails() {
             lastMeetingSummary:
                 lastMeetingSummary || "N/A",
             team: teamMembers,
-            health: getProjectHealth(rawProject?.health),
+            health: health,
             documents,
         };
     }, [projectResponse]);
@@ -234,16 +225,30 @@ export default function ProjectDetails() {
         setDeleteModalOpen(true);
     };
 
-    const handleDeleteProject = () => {
-        // In real app, call API to delete/cancel project
-        setDeleteModalOpen(false);
-        setDeleteReason("");
-        router.push("/projects");
+    const handleDeleteProject = async () => {
+        if (!projectId) return;
+        setCancelError("");
+        setIsCancelling(true);
+        try {
+            await apiPatch(`/api/project-manager/project-management/${projectId}`, {
+                status: "CANCELLED",
+                cancelledReason: deleteReason,
+            });
+            setDeleteModalOpen(false);
+            setDeleteReason("");
+            toast.success("Project cancelled successfully!");
+            router.push("/projects");
+        } catch (err) {
+            setCancelError(err?.message || "Failed to cancel project.");
+        } finally {
+            setIsCancelling(false);
+        }
     };
 
     const handleCloseDeleteModal = () => {
         setDeleteModalOpen(false);
         setDeleteReason("");
+        setCancelError("");
     };
 
     const getAddButtonConfig = () => {
@@ -306,7 +311,7 @@ export default function ProjectDetails() {
                     Project Details
                 </h1>
                 <p className="text-sm text-slate-600 mt-2">
-                    Overview of your projects and team performance
+                    {project.description}
                 </p>
             </div>
 
@@ -331,6 +336,9 @@ export default function ProjectDetails() {
                                 This action cannot be undone. All project data, including files and history, will be permanently removed.
                             </p>
                         </div>
+                        {cancelError && (
+                            <p className="text-sm text-red-600">{cancelError}</p>
+                        )}
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-900 block">
                                 Please let us know why you are canceling this project.
@@ -354,10 +362,11 @@ export default function ProjectDetails() {
                         </Button>
                         <Button
                             onClick={handleDeleteProject}
+                            disabled={isCancelling}
                             className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white cursor-pointer flex items-center gap-2"
                         >
                             <Trash2 className="h-4 w-4" />
-                            Cancel Project
+                            {isCancelling ? "Cancelling..." : "Cancel Project"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -555,40 +564,27 @@ export default function ProjectDetails() {
                                 </h3>
                             </div>
                             <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-slate-600">
-                                        Overall status
-                                    </span>
-                                    <span
-                                        className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                                            project.health.overallStatus
-                                        )}`}
-                                    >
-                                        {project.health.overallStatus}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-slate-600">Budget</span>
-                                    <span
-                                        className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                                            project.health.budget
-                                        )}`}
-                                    >
-                                        {project.health.budget}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-slate-600">
-                                        Team sentiment
-                                    </span>
-                                    <span
-                                        className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                                            project.health.teamSentiment
-                                        )}`}
-                                    >
-                                        {project.health.teamSentiment}
-                                    </span>
-                                </div>
+                                {Array.isArray(project?.health) && project.health.length > 0 ? (
+                                    project.health.map((item) => (
+                                        <div
+                                            key={item?.id || item?.type}
+                                            className="flex items-center justify-between"
+                                        >
+                                            <span className="text-sm text-slate-600">
+                                                {toTitleCase(item?.type)}
+                                            </span>
+                                            <span
+                                                className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                                                    item?.healthStatus
+                                                )}`}
+                                            >
+                                                {toTitleCase(item?.healthStatus)}
+                                            </span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-slate-500">N/A</p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

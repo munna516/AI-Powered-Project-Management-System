@@ -13,7 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Upload, Calendar, Link2, X } from "lucide-react";
+import { Upload, Calendar, X } from "lucide-react";
 import toast from "react-hot-toast";
 import Loading from "@/components/Loading/Loading";
 import { apiGet, apiPatch, apiPost, getStoredUser } from "@/lib/api";
@@ -99,7 +99,6 @@ export default function CreateProject() {
         endDate: "",
     });
 
-    const [meetingLinks, setMeetingLinks] = useState([""]);
     const [documents, setDocuments] = useState([]);
     const [isDraggingDocuments, setIsDraggingDocuments] = useState(false);
     const [errors, setErrors] = useState({});
@@ -215,12 +214,6 @@ export default function CreateProject() {
                 : "",
         }));
 
-        setMeetingLinks(
-            Array.isArray(projectDetails.meetings) && projectDetails.meetings.length > 0
-                ? projectDetails.meetings.map((meeting) => meeting.meetingUrl || "")
-                : [""]
-        );
-
         setDocuments(
             Array.isArray(projectDetails.documents)
                 ? projectDetails.documents.map((document) => ({
@@ -255,22 +248,6 @@ export default function CreateProject() {
         setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) {
             setErrors((prev) => ({ ...prev, [name]: "" }));
-        }
-    };
-
-    const handleMeetingLinkChange = (index, value) => {
-        const newLinks = [...meetingLinks];
-        newLinks[index] = value;
-        setMeetingLinks(newLinks);
-    };
-
-    const addMeetingLink = () => {
-        setMeetingLinks([...meetingLinks, ""]);
-    };
-
-    const removeMeetingLink = (index) => {
-        if (meetingLinks.length > 1) {
-            setMeetingLinks(meetingLinks.filter((_, i) => i !== index));
         }
     };
 
@@ -363,11 +340,6 @@ export default function CreateProject() {
                     payload.append("endDate", basePayload.endDate);
                 }
 
-                meetingLinks
-                    .map((link) => link.trim())
-                    .filter(Boolean)
-                    .forEach((link) => payload.append("meetings", link));
-
                 documents.forEach((file) => {
                     if (file instanceof File) {
                         payload.append("documents", file);
@@ -377,7 +349,7 @@ export default function CreateProject() {
                 createProjectMutation.mutate(payload);
             }
         },
-        [createProjectMutation, documents, formData, isEditMode, meetingLinks, projectDetails?.status, projectId, updateProjectMutation]
+        [createProjectMutation, documents, formData, isEditMode, projectDetails?.status, projectId, updateProjectMutation]
     );
 
     if (isEditMode && isProjectDetailsLoading) {
@@ -582,85 +554,6 @@ export default function CreateProject() {
                                         </button>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Upload Meeting Link Section */}
-                        <div className="space-y-4">
-                            <h2 className="text-lg font-semibold text-slate-900">
-                                Upload meeting link here
-                            </h2>
-                            <div className="space-y-3">
-                                {meetingLinks.map((link, index) => (
-                                    <div key={index} className="space-y-2">
-                                        <div className="flex flex-col sm:flex-row gap-2">
-                                            <div className="relative flex-1">
-                                                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                                <Input
-                                                    type="url"
-                                                    value={link}
-                                                    onChange={(e) =>
-                                                        handleMeetingLinkChange(
-                                                            index,
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                    placeholder="Upload meeting link here"
-                                                    className="pl-10"
-                                                />
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="primary"
-                                                    onClick={async () => {
-                                                        try {
-                                                            const text =
-                                                                await navigator.clipboard.readText();
-                                                            handleMeetingLinkChange(
-                                                                index,
-                                                                text
-                                                            );
-                                                            toast.success(
-                                                                "Link pasted successfully"
-                                                            );
-                                                        } catch (error) {
-                                                            toast.error(
-                                                                "Failed to paste from clipboard"
-                                                            );
-                                                        }
-                                                    }}
-                                                >
-                                                    Paste
-                                                </Button>
-                                                {meetingLinks.length > 1 && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="icon"
-                                                        onClick={() =>
-                                                            removeMeetingLink(
-                                                                index
-                                                            )
-                                                        }
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {index ===
-                                            meetingLinks.length - 1 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={addMeetingLink}
-                                                    className="text-primary hover:underline cursor-pointer text-sm font-medium"
-                                                >
-                                                    + Add Another
-                                                </button>
-                                            )}
-                                    </div>
-                                ))}
                             </div>
                         </div>
 
