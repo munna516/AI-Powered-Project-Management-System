@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -10,21 +10,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { FiSearch, FiCheck, FiAlertCircle, FiZap, FiMail, FiArrowUp, FiArrowDown } from "react-icons/fi";
+import { FiSearch, FiEye, FiTrash2 } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import { SelectTrigger, SelectValue, SelectContent, SelectItem, Select } from "@/components/ui/select";
-
-
-// Dummy data for Meeting Management
-const dataManagementData = [
-  { id: 1, projectName: "SmartSys", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Zoom", link: "https://meet.google.com/", details: "view" },
-  { id: 2, projectName: "TechNova", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Google meet", link: "https://meet.google.com/", details: "view" },
-  { id: 3, projectName: "NextGen Solutions", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Google meet", link: "https://meet.google.com/", details: "view" },
-  { id: 4, projectName: "CloudAxis", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Zoom", link: "https://meet.google.com/", details: "view" },
-  { id: 5, projectName: "NeuralNet", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Zoom", link: "https://meet.google.com/", details: "view" },
-  { id: 6, projectName: "Business Tech Portal", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Zoom", link: "https://meet.google.com/", details: "view" },
-  { id: 7, projectName: "EduTech Hub", dateTime: "Dec 12, 2025 at 2:00 pm", source: "Google meet", link: "https://meet.google.com/", details: "view" },
-];
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "@/lib/api";
+import Loading from "@/components/Loading/Loading";
 
 export default function MeetingManagement() {
   const [searchValue, setSearchValue] = useState("");
@@ -51,36 +42,130 @@ export default function MeetingManagement() {
     return "";
   };
 
-  const filteredData = useMemo(() => {
-    let filtered = dataManagementData;
+  const {
+    data: meetingsResponse,
+    isLoading: isMeetingsLoading,
+    isError: isMeetingsError,
+    error: meetingsError,
+  } = useQuery({
+    queryKey: ["my-meetings"],
+    queryFn: () => apiGet("/api/project-manager/project-meeting/my-meetings"),
+  });
 
-    // Filter by source - if "all" is selected, show everything, otherwise filter by selected source
+  const meetingsRaw = useMemo(() => {
+    const r1 = meetingsResponse?.data;
+    const r2 = meetingsResponse?.data?.data;
+    const r3 = meetingsResponse?.data?.meetings;
+
+    if (Array.isArray(r1)) return r1;
+    if (Array.isArray(r2)) return r2;
+    if (Array.isArray(r3)) return r3;
+    return [];
+  }, [meetingsResponse]);
+
+  const normalizeMeeting = (m) => {
+    const id = m?.id ?? m?.meetingId ?? m?._id ?? "";
+    const dateTime = m?.createdAt ?? m?.dateTime ?? m?.meetingDateTime ?? m?.meetingDate ?? m?.startTime ?? m?.time ?? null;
+    const platform = m?.platform ?? m?.source ?? m?.meetingPlatform ?? m?.meetingSource ?? "Zoom";
+    const recordingLink = m?.videoPlayUrl ?? m?.meetingRecordingLink ?? m?.recording_url ?? m?.link ?? m?.url ?? "";
+
+    return {
+      id: String(id),
+      dateTime,
+      platform: String(platform || ""),
+      recordingLink: String(recordingLink || ""),
+    };
+  };
+
+  const normalizedMeetings = useMemo(
+    () => meetingsRaw.map(normalizeMeeting).filter((m) => Boolean(m.id)),
+    [meetingsRaw]
+  );
+
+  const getDateRangeLocal = () => {
+    const now = new Date();
+
+    if (dateFilter === "custom") {
+      if (!customStartDate || !customEndDate) return { start: null, end: null };
+      const start = new Date(`${customStartDate}T00:00:00`);
+      const end = new Date(`${customEndDate}T23:59:59.999`);
+      return { start, end };
+    }
+
+    if (dateFilter === "today") {
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+
+    if (dateFilter === "7days") {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+
+    if (dateFilter === "month") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+
+    return { start: null, end: null };
+  };
+
+  const filteredData = useMemo(() => {
+    let filtered = normalizedMeetings;
+
+    // Filter by source/platform
     if (selectedSource !== "all") {
       filtered = filtered.filter((item) => {
-        const sourceLower = item.source.toLowerCase();
-        if (selectedSource === "zoom") {
-          return sourceLower.includes("zoom");
-        } else if (selectedSource === "google-meet") {
-          return sourceLower.includes("google meet");
-        } 
-        return false;
+        const platformLower = String(item.platform || "").toLowerCase();
+        if (selectedSource === "zoom") return platformLower.includes("zoom");
+        if (selectedSource === "google-meet") return platformLower.includes("google") || platformLower.includes("meet");
+        return true;
       });
     }
+
+    // Filter by source - if "all" is selected, show everything, otherwise filter by selected source
+    // (Handled above via platform filter.)
 
     // Filter by search
     if (searchValue.trim()) {
       const searchLower = searchValue.toLowerCase();
       filtered = filtered.filter(
         (item) =>
-          item.projectName.toLowerCase().includes(searchLower) ||
-          item.dateTime.toLowerCase().includes(searchLower) ||
-          item.source.toLowerCase().includes(searchLower) ||
-          item.link.toLowerCase().includes(searchLower)
+          String(item.platform || "").toLowerCase().includes(searchLower) ||
+          String(item.dateTime || "").toLowerCase().includes(searchLower) ||
+          String(item.recordingLink || "").toLowerCase().includes(searchLower)
       );
     }
 
+    // Filter by date range
+    const { start, end } = getDateRangeLocal();
+    if (start && end) {
+      filtered = filtered.filter((item) => {
+        if (!item.dateTime) return true;
+        const d = new Date(item.dateTime);
+        if (Number.isNaN(d.getTime())) return true;
+        return d >= start && d <= end;
+      });
+    }
+
     return filtered;
-  }, [searchValue, selectedSource]);
+  }, [
+    normalizedMeetings,
+    searchValue,
+    selectedSource,
+    dateFilter,
+    customStartDate,
+    customEndDate,
+  ]);
 
   const handleSourceChange = (sourceId) => {
     setSelectedSource(sourceId);
@@ -96,6 +181,31 @@ export default function MeetingManagement() {
     { id: "google-meet", label: "Google meet" },
   ];
 
+  const formatMeetingDate = (value) => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  if (isMeetingsLoading) {
+    return <Loading />;
+  }
+
+  if (isMeetingsError) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center text-sm text-slate-500 sm:text-base">
+          {meetingsError?.message || "Failed to load meetings."}
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
@@ -103,68 +213,7 @@ export default function MeetingManagement() {
         <h1 className="text-xl md:text-2xl font-bold text-slate-900">Meeting Management</h1>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        {/* Task Extracted */}
-        <Card className="bg-slate-50 border-slate-200">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FiCheck className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Task Extracted</p>
-                <p className="text-2xl sm:text-3xl font-bold text-slate-900">47</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Issues Found */}
-        <Card className="bg-slate-50 border-slate-200">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FiAlertCircle className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Issues Found</p>
-                <p className="text-2xl sm:text-3xl font-bold text-slate-900">08</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* AI Processed */}
-        <Card className="bg-slate-50 border-slate-200">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-400 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FiZap className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-600 mb-1">AI Processed</p>
-                <p className="text-2xl sm:text-3xl font-bold text-slate-900">08</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Unread Email */}
-        <Card className="bg-slate-50 border-slate-200">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-slate-400 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FiMail className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Unread Email</p>
-                <p className="text-2xl sm:text-3xl font-bold text-slate-900">08</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Search Bar with Filter Icon */}
       <div className="relative mt-4 sm:mt-6">
@@ -276,28 +325,17 @@ export default function MeetingManagement() {
             <Table>
               <TableHeader className="bg-[#6051E2] text-white">
                 <TableRow className="border-b-0 hover:bg-[#6051E2]">
-                  <TableHead className="py-3 px-4 text-white font-semibold">
-                    Project Name
-                  </TableHead>
-                  <TableHead className="py-3 px-4 text-white font-semibold">
-                    Date & time
-                  </TableHead>
-                  <TableHead className="py-3 px-4 text-white font-semibold">
-                    Sources
-                  </TableHead>
-                  <TableHead className="py-3 px-4 text-white font-semibold">
-                    Link
-                  </TableHead>
-                  <TableHead className="py-3 px-4 text-white font-semibold">
-                    Details
-                  </TableHead>
+                  <TableHead className="py-3 px-4 text-white font-semibold">Date</TableHead>
+                  <TableHead className="py-3 px-4 text-white font-semibold">Platform</TableHead>
+                  <TableHead className="py-3 px-4 text-white font-semibold">Meeting recordings link</TableHead>
+                  <TableHead className="py-3 px-4 text-white font-semibold">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={4}
                       className="text-center py-8 text-slate-500"
                     >
                       No data found
@@ -310,31 +348,43 @@ export default function MeetingManagement() {
                       className="border-b border-slate-100 hover:bg-slate-50"
                     >
                       <TableCell className="py-3 px-4 text-slate-800">
-                        {item.projectName}
+                        {formatMeetingDate(item.dateTime)}
                       </TableCell>
-                      <TableCell className="py-3 px-4 text-slate-800">
-                        {item.dateTime}
-                      </TableCell>
-                      <TableCell className="py-3 px-4 text-slate-800">
-                        {item.source}
-                      </TableCell>
-                      <TableCell className="py-3 px-4 text-slate-800">
-                        <a
-                          href={item.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                        >
-                          {item.link}
-                        </a>
+                      <TableCell className="py-3 px-4 text-slate-800">{item.platform || "-"}</TableCell>
+                      <TableCell className="py-3 px-4">
+                        {item.recordingLink ? (
+                          <a
+                            href={item.recordingLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                          >
+                            Click to view
+                          </a>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="py-3 px-4">
-                        <button
-                          onClick={() => handleViewDetails(item.id)}
-                          className="text-[#6051E2] hover:text-[#4a3db8] hover:underline transition-colors cursor-pointer font-medium"
-                        >
-                          {item.details}
-                        </button>
+                        <div className="flex items-center justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleViewDetails(item.id)}
+                            className="text-[#6051E2] hover:text-[#4a3db8] transition-colors cursor-pointer"
+                            title="View details"
+                            aria-label="View details"
+                          >
+                            <FiEye className="h-4 w-4" />
+                          </button>
+
+                          <span
+                            className="text-slate-400"
+                            title="Delete not wired"
+                            aria-label="Delete"
+                          >
+                            <FiTrash2 className="h-4 w-4 cursor-not-allowed opacity-60" />
+                          </span>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -358,37 +408,39 @@ export default function MeetingManagement() {
                   >
                     <div className="flex items-start justify-between">
                       <div className="space-y-1 flex-1">
+                        <p className="text-xs text-slate-500">Date</p>
                         <p className="text-sm font-semibold text-slate-900">
-                          {item.projectName}
+                          {formatMeetingDate(item.dateTime)}
                         </p>
-                        <p className="text-xs text-slate-500">
-                          {item.dateTime}
+                        <p className="text-xs text-slate-500 mt-2">Platform</p>
+                        <p className="text-sm font-medium text-slate-800">
+                          {item.platform || "-"}
                         </p>
                       </div>
                       <button
                         onClick={() => handleViewDetails(item.id)}
-                        className="text-[#6051E2] hover:text-[#4a3db8] hover:underline transition-colors cursor-pointer font-medium text-sm flex-shrink-0 ml-2"
+                        className="text-[#6051E2] hover:text-[#4a3db8] transition-colors cursor-pointer flex-shrink-0 ml-2"
+                        title="View details"
+                        aria-label="View details"
                       >
-                        {item.details}
+                        <FiEye className="h-4 w-4" />
                       </button>
                     </div>
                     <div className="grid grid-cols-1 gap-2 text-xs">
                       <div>
-                        <p className="text-slate-500">Source</p>
-                        <p className="text-slate-800 font-medium">
-                          {item.source}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-slate-500">Link</p>
-                        <a
-                          href={item.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 hover:underline transition-colors break-all"
-                        >
-                          {item.link}
-                        </a>
+                        <p className="text-slate-500">Meeting recordings link</p>
+                        {item.recordingLink ? (
+                          <a
+                            href={item.recordingLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 hover:underline transition-colors break-all"
+                          >
+                            Click to view
+                          </a>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -38,6 +38,30 @@ const tabs = [
     { id: "dependencies", label: "Dependencies" },
 ];
 
+const normalizeTabId = (value) => {
+    const normalized = String(value || "").trim().toLowerCase();
+
+    switch (normalized) {
+        case "risk":
+        case "risks":
+            return "risk";
+        case "issue":
+        case "issues":
+            return "issues";
+        case "assumption":
+        case "assumptions":
+            return "assumptions";
+        case "decision":
+        case "decisions":
+            return "decisions";
+        case "dependency":
+        case "dependencies":
+            return "dependencies";
+        default:
+            return "all";
+    }
+};
+
 const normalizeTabType = (value) => {
     const normalized = String(value || "").trim().toLowerCase();
 
@@ -91,6 +115,7 @@ const normalizeRaiddItem = (item, index) => {
 
     return {
         id: String(item?.id || index),
+        tabType: normalizeTabId(item?.type),
         type: normalizeTabType(item?.type),
         projectId: String(item?.projectId || item?.project?.id || "Not available"),
         projectName: item?.project?.name || "Not available",
@@ -181,7 +206,10 @@ export default function RAIDD() {
     };
 
     const filteredData = useMemo(() => {
-        let filtered = activeTab === "all" ? allData : allData.filter((item) => item.type === activeTab);
+        let filtered =
+            activeTab === "all"
+                ? allData
+                : allData.filter((item) => item.tabType === activeTab);
 
         if (searchValue.trim()) {
             const searchLower = searchValue.toLowerCase();

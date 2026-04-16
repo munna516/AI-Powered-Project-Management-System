@@ -1,57 +1,124 @@
 "use client";
 import { Card, CardContent } from "@/components/ui/card";
 import { FiArrowLeft } from "react-icons/fi";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "@/lib/api";
+import Loading from "@/components/Loading/Loading";
 
-// Dummy meeting data
-const meetingData = {
-    title: "Weekly Project Sync",
-    date: "December 14, 2025",
-    time: "10:00-10:30 AM",
-    organizer: "Alex Johnson",
-    participants: ["Alex", "Priya", "Sam", "Jordan"],
-    agenda: [
-        "Project status updates",
-        "Blockers & risks",
-        "Next sprint planning",
-    ],
-    discussionSummary: [
-        {
-            topic: "Frontend progress",
-            text: "Sam confirmed the UI redesign is 80% complete and on track for Friday delivery.",
-            hasIcon: true,
-        },
-        {
-            topic: "Backend updates",
-            text: "Priya reported API integration is complete, pending final testing.",
-        },
-        {
-            topic: "Blockers",
-            text: "Jordan noted delays due to missing analytics requirements.",
-        },
-        {
-            topic: "Timeline",
-            text: "Team agreed to extend the testing phase by 2 days.",
-        },
-    ],
-    decisions: [
-        "Final UI review scheduled for Dec 16",
-        "Testing phase extended until Dec 20",
-        "Analytics requirements to be finalized this week",
-    ],
-    actionItems: [
-        { task: "Share analytics requirements", owner: "Jordan", dueDate: "Dec 15" },
-        { task: "Complete UI redesign", owner: "Sam", dueDate: "Dec 15" },
-        { task: "Run full QA testing", owner: "Priya", dueDate: "Dec 18" },
-    ],
-    notes: [
-        "Next meeting scheduled for Dec 18 at 10:00 AM",
-        "Meeting notes auto-saved to Google Docs and shared with all attendees",
-    ],
+const fallback = "Not available";
+
+const normalizeMeeting = (raw) => {
+    const detail = raw?.data?.data || raw?.data || raw || {};
+
+    const participantsRaw =
+        detail?.participants ?? detail?.attendees ?? detail?.invitees ?? [];
+    const participants =
+        Array.isArray(participantsRaw)
+            ? participantsRaw.map((p) => (p ? String(p) : "")).filter(Boolean)
+            : [];
+
+    const normalizeTextList = (v) =>
+        Array.isArray(v)
+            ? v
+                .map((x) => {
+                    if (x == null) return "";
+                    if (typeof x === "string") return x;
+                    if (typeof x === "object" && typeof x.text === "string") return x.text;
+                    return "";
+                })
+                .filter(Boolean)
+            : [];
+
+    const meetingDateValue = detail?.meetingDate ?? detail?.createdAt ?? detail?.date ?? "";
+    const meetingDate = meetingDateValue ? new Date(meetingDateValue) : null;
+    const date = meetingDate && !Number.isNaN(meetingDate.getTime())
+        ? meetingDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+        : fallback;
+    const time = meetingDate && !Number.isNaN(meetingDate.getTime())
+        ? meetingDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })
+        : fallback;
+
+    // API shape from your payload:
+    // agenda: { meetingTopics: string[], coreDiscussionPoints: string[] }
+    const agenda = normalizeTextList(detail?.agenda?.meetingTopics);
+
+    const discussionSummary = normalizeTextList(detail?.agenda?.coreDiscussionPoints).map((text) => ({
+        topic: "",
+        text,
+    }));
+
+    // keyPoints: [{ content: string, ... }]
+    const decisions = Array.isArray(detail?.keyPoints)
+        ? detail.keyPoints.map((kp) => kp?.content).filter(Boolean)
+        : [];
+
+    // actionPoints: [{ content: string, status: string, ... }]
+    const actionItems = Array.isArray(detail?.actionPoints)
+        ? detail.actionPoints.map((ap) => ({
+            task: ap?.content ?? ap?.task ?? "",
+            owner: ap?.status ?? "",
+            dueDate: "",
+        }))
+        : [];
+
+    // notes: string
+    const notes = typeof detail?.notes === "string" && detail.notes.trim()
+        ? [detail.notes]
+        : normalizeTextList(detail?.notes ?? detail?.meetingNotes);
+
+    return {
+        title: detail?.title ?? detail?.subject ?? detail?.name ?? "Meeting Notes",
+        date,
+        time,
+        organizer: detail?.organizer ?? detail?.organizerName ?? detail?.host ?? fallback,
+        participants,
+        agenda,
+        discussionSummary,
+        decisions,
+        actionItems,
+        notes,
+        recordingLink:
+            detail?.recordingLink ??
+            detail?.meetingRecordingLink ??
+            detail?.recording_url ??
+            detail?.videoPlayUrl ??
+            detail?.link ??
+            detail?.url ??
+            "",
+    };
 };
 
 export default function MeetingSummary() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const params = useParams();
+    const meetingId = searchParams.get("id") || params?.id;
+
+    const {
+        data: meetingResponse,
+        isLoading,
+        isError,
+        error,
+    } = useQuery({
+        queryKey: ["meeting-details", meetingId],
+        enabled: Boolean(meetingId),
+        queryFn: () => apiGet(`/api/project-manager/project-meeting/${meetingId}`),
+    });
+
+    const meetingData = useMemo(() => normalizeMeeting(meetingResponse), [meetingResponse]);
+
+    if (isLoading) return <Loading />;
+    if (isError || !meetingId) {
+        return (
+            <Card>
+                <CardContent className="p-6 text-center text-sm text-slate-500 sm:text-base">
+                    {error?.message || "Failed to load meeting details."}
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <div className="space-y-6 ">
@@ -68,10 +135,10 @@ export default function MeetingSummary() {
             {/* Header */}
             <div className="space-y-2">
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-2">
-                    🚀 AI summary Google Meet – Meeting Notes
+                    🚀 Meeting Notes
                 </h1>
                 <p className="text-lg sm:text-xl text-slate-700">
-                    Meeting Title: {meetingData.title}
+                    Meeting Title: {meetingData.title || fallback}
                 </p>
             </div>
 
@@ -81,23 +148,37 @@ export default function MeetingSummary() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm sm:text-base">
                         <div>
                             <span className="text-slate-600 font-medium">Date:</span>{" "}
-                            <span className="text-slate-900">{meetingData.date}</span>
+                            <span className="text-slate-900">{meetingData.date || fallback}</span>
                         </div>
                         <div>
                             <span className="text-slate-600 font-medium">Time:</span>{" "}
-                            <span className="text-slate-900">{meetingData.time}</span>
+                            <span className="text-slate-900">{meetingData.time || fallback}</span>
                         </div>
                         <div>
                             <span className="text-slate-600 font-medium">Organizer:</span>{" "}
-                            <span className="text-slate-900">{meetingData.organizer}</span>
+                            <span className="text-slate-900">{meetingData.organizer || fallback}</span>
                         </div>
                         <div>
                             <span className="text-slate-600 font-medium">Participants:</span>{" "}
                             <span className="text-slate-900">
-                                {meetingData.participants.join(", ")}
+                                {meetingData.participants?.length ? meetingData.participants.join(", ") : fallback}
                             </span>
                         </div>
                     </div>
+
+                    {meetingData.recordingLink ? (
+                        <div className="pt-3">
+                            <span className="text-slate-600 font-medium">Recording:</span>{" "}
+                            <a
+                                href={meetingData.recordingLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[#6051E2] hover:underline break-all"
+                            >
+                                Click to view
+                            </a>
+                        </div>
+                    ) : null}
                 </CardContent>
             </Card>
 
@@ -108,14 +189,18 @@ export default function MeetingSummary() {
                 </h2>
                 <Card>
                     <CardContent className="p-6">
-                        <ul className="space-y-2">
-                            {meetingData.agenda.map((item, index) => (
-                                <li key={index} className="text-slate-700 flex items-start gap-2">
-                                    <span className="text-slate-400 mt-1">•</span>
-                                    <span>{item}</span>
-                                </li>
-                            ))}
-                        </ul>
+                        {meetingData.agenda?.length ? (
+                            <ul className="space-y-2">
+                                {meetingData.agenda.map((item, index) => (
+                                    <li key={index} className="text-slate-700 flex items-start gap-2">
+                                        <span className="text-slate-400 mt-1">•</span>
+                                        <span>{item}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-slate-500">No agenda found.</p>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -127,22 +212,27 @@ export default function MeetingSummary() {
                 </h2>
                 <Card>
                     <CardContent className="p-6">
-                        <ul className="space-y-4">
-                            {meetingData.discussionSummary.map((item, index) => (
-                                <li key={index} className="text-slate-700">
-                                    <div className="flex items-start gap-2">
-                                        <span className="text-slate-400 mt-1">•</span>
-                                        <div className="flex-1">
-                                            <span className="font-semibold text-slate-900">
-                                                {item.topic}:
-                                            </span>{" "}
-                                            <span>{item.text}</span>
-                                            
+                        {meetingData.discussionSummary?.length ? (
+                            <ul className="space-y-4">
+                                {meetingData.discussionSummary.map((item, index) => (
+                                    <li key={index} className="text-slate-700">
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-slate-400 mt-1">•</span>
+                                            <div className="flex-1">
+                                                {item.topic ? (
+                                                    <span className="font-semibold text-slate-900">
+                                                        {item.topic}:
+                                                    </span>
+                                                ) : null}{" "}
+                                                <span>{item.text || fallback}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-slate-500">No discussion summary found.</p>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -154,14 +244,18 @@ export default function MeetingSummary() {
                 </h2>
                 <Card>
                     <CardContent className="p-6">
-                        <ul className="space-y-2">
-                            {meetingData.decisions.map((item, index) => (
-                                <li key={index} className="text-slate-700 flex items-start gap-2">
-                                    <span className="text-slate-400 mt-1">•</span>
-                                    <span>{item}</span>
-                                </li>
-                            ))}
-                        </ul>
+                        {meetingData.decisions?.length ? (
+                            <ul className="space-y-2">
+                                {meetingData.decisions.map((item, index) => (
+                                    <li key={index} className="text-slate-700 flex items-start gap-2">
+                                        <span className="text-slate-400 mt-1">•</span>
+                                        <span>{item}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-slate-500">No decisions found.</p>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -189,22 +283,33 @@ export default function MeetingSummary() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {meetingData.actionItems.map((item, index) => (
-                                        <tr
-                                            key={index}
-                                            className="border-b border-slate-100 last:border-b-0"
-                                        >
-                                            <td className="py-3 px-3 text-slate-700">
-                                                {item.task}
-                                            </td>
-                                            <td className="py-3 px-3 text-slate-700">
-                                                {item.owner}
-                                            </td>
-                                            <td className="py-3 px-3 text-slate-700">
-                                                {item.dueDate}
+                                    {meetingData.actionItems?.length ? (
+                                        meetingData.actionItems.map((item, index) => (
+                                            <tr
+                                                key={index}
+                                                className="border-b border-slate-100 last:border-b-0"
+                                            >
+                                                <td className="py-3 px-3 text-slate-700">
+                                                    {item.task || fallback}
+                                                </td>
+                                                <td className="py-3 px-3 text-slate-700">
+                                                    {item.owner || fallback}
+                                                </td>
+                                                <td className="py-3 px-3 text-slate-700">
+                                                    {item.dueDate || fallback}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td
+                                                colSpan={3}
+                                                className="py-5 px-3 text-center text-sm text-slate-500"
+                                            >
+                                                No action items found.
                                             </td>
                                         </tr>
-                                    ))}
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -219,14 +324,18 @@ export default function MeetingSummary() {
                 </h2>
                 <Card>
                     <CardContent className="p-6">
-                        <ul className="space-y-2">
-                            {meetingData.notes.map((item, index) => (
-                                <li key={index} className="text-slate-700 flex items-start gap-2">
-                                    <span className="text-slate-400 mt-1">•</span>
-                                    <span>{item}</span>
-                                </li>
-                            ))}
-                        </ul>
+                        {meetingData.notes?.length ? (
+                            <ul className="space-y-2">
+                                {meetingData.notes.map((item, index) => (
+                                    <li key={index} className="text-slate-700 flex items-start gap-2">
+                                        <span className="text-slate-400 mt-1">•</span>
+                                        <span>{item}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-slate-500">No notes found.</p>
+                        )}
                     </CardContent>
                 </Card>
             </div>

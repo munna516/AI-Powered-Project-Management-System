@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
 import PageHeader from "@/components/PageHeader/PageHeader";
-import { FiPlus, FiDownload, FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiPlus, FiDownload, FiEdit2, FiTrash2, FiEye } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -281,6 +281,15 @@ export default function Vendors() {
                                                     <button
                                                         type="button"
                                                         className="text-primary hover:text-primary/80 transition cursor-pointer"
+                                                        onClick={() => router.push(`/vendors/view/${vendor.id}`)}
+                                                        title="View details"
+                                                        aria-label="View details"
+                                                    >
+                                                        <FiEye className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="text-primary hover:text-primary/80 transition cursor-pointer"
                                                         onClick={() => handleEditVendor(vendor)}
                                                     >
                                                         <FiEdit2 className="h-4 w-4" />
@@ -352,16 +361,17 @@ export default function Vendors() {
                                             <TableCell className="py-3 px-4 text-slate-600 text-center text-sm">
                                                 {vendor.totalProjects}
                                             </TableCell>
-                                            <TableCell className="py-3 px-4 text-center">
-                                                <button
-                                                    className="text-primary hover:underline text-xs font-medium cursor-pointer"
-                                                    onClick={() => router.push(`/vendors/view/${vendor.id}`)}
-                                                >
-                                                    view
-                                                </button>
-                                            </TableCell>
                                             <TableCell className="py-3 px-4">
                                                 <div className="flex items-center justify-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        className="text-primary hover:text-primary/80 transition cursor-pointer"
+                                                        onClick={() => router.push(`/vendors/view/${vendor.id}`)}
+                                                        title="View details"
+                                                        aria-label="View details"
+                                                    >
+                                                        <FiEye className="h-4 w-4" />
+                                                    </button>
                                                     <button
                                                         type="button"
                                                         className="text-primary hover:text-primary/80 transition cursor-pointer"

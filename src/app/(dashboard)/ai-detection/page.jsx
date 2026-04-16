@@ -42,6 +42,79 @@ const initialApprovalState = {
   itemId: "",
   projectId: "",
   raiddCategory: "",
+  detectedRaiddCategories: [],
+};
+
+const normalizeRaiddCategoryLabel = (value) => {
+  const normalized = String(value || "").toLowerCase();
+  switch (normalized) {
+    case "risk":
+    case "risks":
+      return "Risk";
+    case "issue":
+    case "issues":
+      return "Issue";
+    case "assumption":
+    case "assumptions":
+      return "Assumption";
+    case "decision":
+    case "decisions":
+      return "Decision";
+    case "dependency":
+    case "dependencies":
+      return "Dependency";
+    default:
+      return "";
+  }
+};
+
+const deriveRaiddAnalysisFromFullAiResponse = (fullAiResponse) => {
+  // `fullAiResponse` shape (from API):
+  // [{ raiddAnalysis: { risks: [], issues: [], assumptions: [], decisions: [], dependencies: [] } }]
+  const keyToLabel = {
+    risks: "Risk",
+    issues: "Issue",
+    assumptions: "Assumption",
+    decisions: "Decision",
+    dependencies: "Dependency",
+  };
+
+  const aggregatedByLabel = {
+    Risk: [],
+    Issue: [],
+    Assumption: [],
+    Decision: [],
+    Dependency: [],
+  };
+
+  if (!Array.isArray(fullAiResponse)) {
+    return { raiddCategories: [], raiddDetailsByCategory: aggregatedByLabel };
+  }
+
+  fullAiResponse.forEach((aiItem) => {
+    const raidd = aiItem?.raiddAnalysis;
+    if (!raidd) return;
+
+    Object.entries(keyToLabel).forEach(([key, label]) => {
+      if (Array.isArray(raidd?.[key])) {
+        aggregatedByLabel[label].push(...raidd[key]);
+      }
+    });
+  });
+
+  // De-duplicate strings per category.
+  const dedupedByLabel = Object.fromEntries(
+    Object.entries(aggregatedByLabel).map(([label, values]) => [
+      label,
+      Array.from(new Set(values.filter(Boolean))),
+    ])
+  );
+
+  const raiddCategories = Object.entries(dedupedByLabel)
+    .filter(([, values]) => Array.isArray(values) && values.length > 0)
+    .map(([label]) => label);
+
+  return { raiddCategories, raiddDetailsByCategory: dedupedByLabel };
 };
 
 const normalizeSourceType = (value) => {
@@ -132,14 +205,30 @@ const getRaiddBadgeClass = (value) => {
   }
 };
 
-const normalizeDetection = (item, index) => ({
-  id: String(item?.id || index),
-  type: normalizeSourceType(item?.sourceType),
-  title: item?.title || "Not available",
-  details: item?.summary || "Not available",
-  raiddAnalysis: formatRaiddLabel(item?.raiddAnalysis),
-  dateTime: item?.createdAt || item?.updatedAt || null,
-});
+const normalizeDetection = (item, index) => {
+  const derived = deriveRaiddAnalysisFromFullAiResponse(item?.fullAiResponse);
+
+  const rootRaiddCategories = Array.isArray(item?.raiddAnalysis)
+    ? item.raiddAnalysis.map(normalizeRaiddCategoryLabel).filter(Boolean)
+    : [];
+
+  // Important: show only the categories detected in the *top-level* `raiddAnalysis`.
+  // `fullAiResponse.raiddAnalysis` is used only as the backing data for details.
+  const raiddCategories = rootRaiddCategories.length > 0 ? rootRaiddCategories : derived.raiddCategories;
+
+  return {
+    id: String(item?.id || index),
+    type: normalizeSourceType(item?.sourceType),
+    title: item?.title || "Not available",
+    // Keep this optional; expanded view will show RAIDD details if present.
+    details: item?.summary || "",
+    // Main categories to display on the card (Issue/Risk/Dependency etc.)
+    raiddAnalysis: raiddCategories,
+    // Detailed strings inside "View details" for each detected category
+    raiddDetailsByCategory: derived.raiddDetailsByCategory,
+    dateTime: item?.createdAt || item?.updatedAt || null,
+  };
+};
 
 const normalizeProject = (project, index) => ({
   id: String(project?.id || project?.projectId || index),
@@ -201,7 +290,7 @@ export default function AiDetection() {
       : Array.isArray(detectionsResponse?.data?.data)
         ? detectionsResponse.data.data
         : [];
-
+    console.log(rawItems);
     return rawItems.map(normalizeDetection);
   }, [detectionsResponse]);
 
@@ -232,10 +321,13 @@ export default function AiDetection() {
       if (hiddenItemIds.has(String(item.id))) return false;
 
       const matchesTab = item.type === activeTab;
+      const raiddSearch = Array.isArray(item.raiddAnalysis)
+        ? item.raiddAnalysis.join(" ")
+        : String(item.raiddAnalysis || "");
       const matchesSearch =
         item.title.toLowerCase().includes(searchLower) ||
         item.details.toLowerCase().includes(searchLower) ||
-        item.raiddAnalysis.toLowerCase().includes(searchLower);
+        raiddSearch.toLowerCase().includes(searchLower);
 
       return matchesTab && matchesSearch;
     });
@@ -269,6 +361,7 @@ export default function AiDetection() {
   });
 
   const handleRemove = async (id) => {
+
     const detectionId = String(id);
     const result = await Swal.fire({
       title: "Delete this detection?",
@@ -315,10 +408,15 @@ export default function AiDetection() {
   const handleOpenApproveModal = (id) => {
     const selectedItem = communications.find((item) => String(item.id) === String(id));
 
+    const detectedCategories = Array.isArray(selectedItem?.raiddAnalysis)
+      ? selectedItem.raiddAnalysis
+      : [];
+
     setApproveModalState({
       itemId: String(id),
       projectId: "",
-      raiddCategory: getRaiddOptionValue(selectedItem?.raiddAnalysis),
+      raiddCategory: getRaiddOptionValue(detectedCategories[0]),
+      detectedRaiddCategories: detectedCategories,
     });
   };
 
@@ -327,6 +425,7 @@ export default function AiDetection() {
   };
 
   const handleApproveDetection = () => {
+
     if (!approveModalState.projectId) {
       toast.error("Please select a project");
       return;
@@ -343,7 +442,7 @@ export default function AiDetection() {
         type: String(approveModalState.raiddCategory || "").toLowerCase(),
       },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
           setHiddenItemIds((prev) => new Set(prev).add(String(approveModalState.itemId)));
           setExpandedItems((prev) => {
             const next = new Set(prev);
@@ -351,6 +450,7 @@ export default function AiDetection() {
             return next;
           });
           toast.success("Detection approved successfully");
+          await deleteDetectionMutation.mutateAsync(approveModalState.itemId);
           handleCloseApproveModal();
         },
         onError: (err) => {
@@ -392,8 +492,8 @@ export default function AiDetection() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:px-4 sm:py-2 sm:text-sm ${activeTab === tab.id
-                    ? "bg-[#6051E2] text-white"
-                    : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  ? "bg-[#6051E2] text-white"
+                  : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                   }`}
               >
                 {tab.label}
@@ -469,7 +569,14 @@ export default function AiDetection() {
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {raiddOptions.map((option) => (
+                  {(approveModalState.detectedRaiddCategories?.length > 0
+                    ? raiddOptions.filter((option) =>
+                      approveModalState.detectedRaiddCategories
+                        .map(getRaiddOptionValue)
+                        .includes(option.value)
+                    )
+                    : raiddOptions
+                  ).map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -515,20 +622,57 @@ export default function AiDetection() {
                         <p className="text-xs font-bold leading-snug text-slate-900 sm:text-sm md:text-base sm:leading-normal">
                           {item.title}
                         </p>
-                        <span
-                          className={`inline-flex rounded-full border px-2.5 py-1 text-[12px] font-medium ${getRaiddBadgeClass(
-                            item.raiddAnalysis
-                          )}`}
-                        >
-                          {item.raiddAnalysis}
-                        </span>
+                        {Array.isArray(item.raiddAnalysis) && item.raiddAnalysis.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {item.raiddAnalysis.map((category) => (
+                              <span
+                                key={category}
+                                className={`inline-flex rounded-full border px-2.5 py-1 text-[12px] font-medium ${getRaiddBadgeClass(
+                                  category
+                                )}`}
+                              >
+                                {category}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[12px] font-medium text-slate-600">
+                            Not available
+                          </span>
+                        )}
                       </div>
 
                       {isExpanded && (
                         <div className="mt-3 border-t border-slate-200 pt-3 sm:mt-4 sm:pt-4">
-                          <p className="text-xs leading-relaxed text-slate-600 sm:text-sm md:text-base">
-                            {item.details}
-                          </p>
+                          <div className="space-y-3">
+                            {item.details ? (
+                              <p className="text-xs leading-relaxed text-slate-600 sm:text-sm md:text-base">
+                                {item.details}
+                              </p>
+                            ) : null}
+
+                            {Array.isArray(item.raiddAnalysis) && item.raiddAnalysis.length > 0 ? (
+                              <div className="space-y-2">
+                                {item.raiddAnalysis.map((category) => {
+                                  const detectedItems = item.raiddDetailsByCategory?.[category] || [];
+                                  if (!detectedItems.length) return null;
+
+                                  return (
+                                    <div key={category} className="space-y-1">
+                                      <p className="text-xs font-semibold text-slate-800 sm:text-sm">
+                                        {category}
+                                      </p>
+                                      <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed text-slate-600 sm:text-sm md:text-base">
+                                        {detectedItems.map((text, idx) => (
+                                          <li key={`${category}-${idx}`}>{text}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
                       )}
                     </div>
