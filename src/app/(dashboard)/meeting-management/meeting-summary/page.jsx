@@ -2,7 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { FiArrowLeft } from "react-icons/fi";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
 import Loading from "@/components/Loading/Loading";
@@ -91,6 +91,14 @@ const normalizeMeeting = (raw) => {
 };
 
 export default function MeetingSummary() {
+    return (
+        <Suspense fallback={<Loading />}>
+            <MeetingSummaryInner />
+        </Suspense>
+    );
+}
+
+function MeetingSummaryInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const params = useParams();
