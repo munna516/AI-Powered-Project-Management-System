@@ -8,17 +8,77 @@ import { FaLinkedin } from "react-icons/fa";
 import { CiSquareCheck } from "react-icons/ci";
 import { FiAlertTriangle } from "react-icons/fi";
 import { FiFile } from "react-icons/fi";
-import { toast } from "react-hot-toast";
 import { useQuery } from "@tanstack/react-query";
 import Loading from "@/components/Loading/Loading";
 import { apiGet } from "@/lib/api";
 
-const EMPTY_AI_EXTRACTED = {
-    tasks: [],
-    risks: [],
-    decisions: [],
-    sentiment: "N/A",
+const EMPTY_AI_EXTRACTED = {};
+
+const normalizeRaiddKey = (value) => {
+    const normalized = String(value || "").toLowerCase();
+
+    switch (normalized) {
+        case "task":
+        case "tasks":
+            return "tasks";
+        case "risk":
+        case "risks":
+            return "risks";
+        case "issue":
+        case "issues":
+            return "issues";
+        case "assumption":
+        case "assumptions":
+            return "assumptions";
+        case "decision":
+        case "decisions":
+            return "decisions";
+        case "dependency":
+        case "dependencies":
+            return "dependencies";
+        default:
+            return "";
+    }
 };
+
+const extractedSections = [
+    {
+        key: "tasks",
+        title: "Tasks",
+        icon: <CiSquareCheck className="h-6 w-6 text-green-500" />,
+        iconClass: "bg-green-50",
+    },
+    {
+        key: "risks",
+        title: "Risks",
+        icon: <FiAlertTriangle className="h-6 w-6 text-yellow-500" />,
+        iconClass: "bg-yellow-50",
+    },
+    {
+        key: "issues",
+        title: "Issues",
+        icon: <FiAlertTriangle className="h-6 w-6 text-amber-500" />,
+        iconClass: "bg-amber-50",
+    },
+    {
+        key: "assumptions",
+        title: "Assumptions",
+        icon: <FiFile className="h-6 w-6 text-sky-500" />,
+        iconClass: "bg-sky-50",
+    },
+    {
+        key: "decisions",
+        title: "Decisions",
+        icon: <FiFile className="h-6 w-6 text-blue-500" />,
+        iconClass: "bg-blue-50",
+    },
+    {
+        key: "dependencies",
+        title: "Dependencies",
+        icon: <FiFile className="h-6 w-6 text-purple-500" />,
+        iconClass: "bg-purple-50",
+    },
+];
 
 const formatDateTime = (dateValue) => {
     if (!dateValue) return "";
@@ -58,10 +118,45 @@ export default function EmailDetails() {
     });
 
     const emailData = emailResponse?.data || null;
-    const aiExtracted = useMemo(
-        () => emailData?.aiExtracted || EMPTY_AI_EXTRACTED,
-        [emailData]
-    );
+    const aiExtracted = useMemo(() => {
+        if (!emailData) return EMPTY_AI_EXTRACTED;
+
+        const fullAiResponse = Array.isArray(emailData?.fullAiResponse) ? emailData.fullAiResponse : [];
+        const detectedRaiddKeys = Array.isArray(emailData?.raiddAnalysis)
+            ? emailData.raiddAnalysis.map(normalizeRaiddKey).filter(Boolean)
+            : [];
+
+        const aggregated = {
+            tasks: Array.isArray(emailData?.tasks) ? emailData.tasks.filter(Boolean) : [],
+            risks: [],
+            issues: [],
+            assumptions: [],
+            decisions: Array.isArray(emailData?.decisions) ? emailData.decisions.filter(Boolean) : [],
+            dependencies: [],
+        };
+
+        fullAiResponse.forEach((entry) => {
+            const raidd = entry?.raiddAnalysis;
+            if (!raidd) return;
+
+            extractedSections.forEach((section) => {
+                if (section.key === "tasks") return;
+                const values = raidd?.[section.key];
+                if (Array.isArray(values)) {
+                    aggregated[section.key].push(...values.filter(Boolean));
+                }
+            });
+        });
+
+        const deduped = Object.fromEntries(
+            Object.entries(aggregated).map(([key, values]) => [key, Array.from(new Set(values))])
+        );
+
+        return {
+            ...deduped,
+            detectedRaiddKeys,
+        };
+    }, [emailData]);
 
     const handlePrint = () => {
         window.print();
@@ -72,16 +167,10 @@ export default function EmailDetails() {
         router.back();
     };
 
-    const handleRaidToProject = () => {
-        // Handle RAIDD to Project logic
-        toast.success("Email RAIDD to Project successfully");
-        router.push("/raidd");
-    };
-
     if (isLoading) {
         return <Loading />;
     }
-console.log(emailData);
+    console.log(emailData);
     return (
         <div className="space-y-6 ">
             {/* Back Button */}
@@ -111,142 +200,138 @@ console.log(emailData);
             ) : (
                 <>
 
-            {/* Email Document Section */}
-            <Card>
-                <CardContent className="p-6 sm:p-8">
-                    {/* Header with Title and Action Icons */}
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 pb-6 border-b border-slate-200">
-                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex-1">
-                            {emailData.subject || "Untitled email"}
-                        </h1>
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={handlePrint}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                                title="Print"
-                            >
-                                <FiPrinter className="h-5 w-5 text-slate-600" />
-                            </button>
-                            <button
-                                onClick={handleDelete}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                                title="Delete"
-                            >
-                                <FiTrash2 className="h-5 w-5 text-slate-600" />
-                            </button>
-                            <button
-                                onClick={() => setIsStarred(!isStarred)}
-                                className={`p-2 rounded-lg transition-colors cursor-pointer ${isStarred
-                                    ? "bg-yellow-50 text-yellow-500"
-                                    : "hover:bg-slate-100 text-slate-600"
-                                    }`}
-                                title="Star"
-                            >
-                                <FiStar
-                                    className={`h-5 w-5 ${isStarred ? "fill-current" : ""}`}
-                                />
-                            </button>
-                            <Button onClick={() => router.push("/email-management/generate-email")} className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-3 text-sm sm:text-base font-semibold cursor-pointer">
-                                <FiMail className="h-4 w-4" /> Draft Email
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Sender Information */}
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FaLinkedin className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <p className="text-sm sm:text-base font-semibold text-slate-900">
-                                {emailData.senderEmail || "Unknown sender"}
-                            </p>
-                            <p className="text-xs sm:text-sm text-slate-600">
-                                To: {emailData.receiverEmail || "Unknown receiver"}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Email Content */}
-                    <div className="space-y-6 text-sm sm:text-base text-slate-700 leading-relaxed">
-                        <div className="flex flex-wrap gap-4 text-xs sm:text-sm text-slate-500">
-                            {emailData.type ? <span>Source: {emailData.type}</span> : null}
-                            {emailData.category ? <span>Category: {emailData.category}</span> : null}
-                            {formatDateTime(emailData.receivedAt || emailData.createdAt) ? (
-                                <span>
-                                    Received: {formatDateTime(emailData.receivedAt || emailData.createdAt)}
-                                </span>
-                            ) : null}
-                        </div>
-
-                        <div className="whitespace-pre-line break-words">
-                            {emailData.body || "No email body available."}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* AI Extracted Information Section */}
-            <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4 sm:mb-6">
-                    AI Extracted Information
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                    {/* Left Column */}
-                    <div className="space-y-4 sm:space-y-6">
-                        {/* Tasks Card */}
-                        <Card className="bg-white border-slate-200">
-                            <CardContent className="p-4 sm:p-6">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <CiSquareCheck className="h-6 w-6 text-green-500" />
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-slate-900">
-                                        Tasks ({emailData?.tasks?.length})
-                                    </h3>
+                    {/* Email Document Section */}
+                    <Card>
+                        <CardContent className="p-6 sm:p-8">
+                            {/* Header with Title and Action Icons */}
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 pb-6 border-b border-slate-200">
+                                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex-1">
+                                    {emailData.subject || "Untitled email"}
+                                </h1>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={handlePrint}
+                                        className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                        title="Print"
+                                    >
+                                        <FiPrinter className="h-5 w-5 text-slate-600" />
+                                    </button>
+                                    <button
+                                        onClick={handleDelete}
+                                        className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                        title="Delete"
+                                    >
+                                        <FiTrash2 className="h-5 w-5 text-slate-600" />
+                                    </button>
+                                    <button
+                                        onClick={() => setIsStarred(!isStarred)}
+                                        className={`p-2 rounded-lg transition-colors cursor-pointer ${isStarred
+                                            ? "bg-yellow-50 text-yellow-500"
+                                            : "hover:bg-slate-100 text-slate-600"
+                                            }`}
+                                        title="Star"
+                                    >
+                                        <FiStar
+                                            className={`h-5 w-5 ${isStarred ? "fill-current" : ""}`}
+                                        />
+                                    </button>
+                                    <Button onClick={() => router.push("/email-management/generate-email")} className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-3 text-sm sm:text-base font-semibold cursor-pointer">
+                                        <FiMail className="h-4 w-4" /> Draft Email
+                                    </Button>
                                 </div>
-                                <ul className="space-y-2 ml-2">
-                                    {emailData?.tasks?.map((task, index) => (
-                                        <li
-                                            key={index}
-                                            className="text-sm sm:text-base text-slate-700 flex items-start gap-2"
-                                        >
-                                            <span className="text-slate-400 mt-1">•</span>
-                                            <span>{task}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </CardContent>
-                        </Card>
+                            </div>
 
-                        {/* Decisions Card */}
-                        <Card className="bg-white border-slate-200">
-                            <CardContent className="p-4 sm:p-6">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <FiFile className="h-6 w-6 text-blue-500" />
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-slate-900">
-                                        Decisions ({emailData?.decisions && emailData?.decisions?.length > 0 ? emailData?.decisions?.length : 0})
-                                    </h3>
+                            {/* Sender Information */}
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <FaLinkedin className="h-5 w-5 text-white" />
                                 </div>
-                                <ul className="space-y-2 ml-2">
-                                    { emailData?.decisions && emailData?.decisions?.length > 0 && emailData?.decisions?.map((decision, index) => (
-                                        <li
-                                            key={index}
-                                            className="text-sm sm:text-base text-slate-700 flex items-start gap-2"
-                                        >
-                                            <span className="text-slate-400 mt-1">•</span>
-                                            <span>{decision}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </CardContent>
-                        </Card>
+                                <div>
+                                    <p className="text-sm sm:text-base font-semibold text-slate-900">
+                                        {emailData.senderEmail || "Unknown sender"}
+                                    </p>
+                                    <p className="text-xs sm:text-sm text-slate-600">
+                                        To: {emailData.receiverEmail || "Unknown receiver"}
+                                    </p>
+                                </div>
+                            </div>
 
-                        {/* Sentiment */}
-                        <div className="flex items-center gap-4">
+                            {/* Email Content */}
+                            <div className="space-y-6 text-sm sm:text-base text-slate-700 leading-relaxed">
+                                <div className="flex flex-wrap gap-4 text-xs sm:text-sm text-slate-500">
+                                    {emailData.type ? <span>Source: {emailData.type}</span> : null}
+                                    {emailData.category ? <span>Category: {emailData.category}</span> : null}
+                                    {formatDateTime(emailData.receivedAt || emailData.createdAt) ? (
+                                        <span>
+                                            Received: {formatDateTime(emailData.receivedAt || emailData.createdAt)}
+                                        </span>
+                                    ) : null}
+                                </div>
+
+                                <div className="whitespace-pre-line break-words">
+                                    {emailData.body || "No email body available."}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* AI Extracted Information Section */}
+                    <div>
+                        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4 sm:mb-6">
+                            AI Extracted Information
+                        </h2>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                            {extractedSections.map((section) => {
+                                const items = Array.isArray(aiExtracted?.[section.key]) ? aiExtracted[section.key] : [];
+                                const isDetected =
+                                    section.key === "tasks" ||
+                                    (Array.isArray(aiExtracted?.detectedRaiddKeys) &&
+                                        aiExtracted.detectedRaiddKeys.includes(section.key));
+
+                                return (
+                                    <Card key={section.key} className="bg-white border-slate-200">
+                                        <CardContent className="p-4 sm:p-6">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${section.iconClass}`}>
+                                                    {section.icon}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h3 className="text-lg font-semibold text-slate-900">
+                                                        {section.title} ({items.length})
+                                                    </h3>
+                                                    {section.key !== "tasks" && (
+                                                        <p className="text-xs text-slate-500">
+                                                            {isDetected ? "Detected" : "Not detected"}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {items.length > 0 ? (
+                                                <ul className="ml-2 space-y-2">
+                                                    {items.map((item, index) => (
+                                                        <li
+                                                            key={`${section.key}-${index}`}
+                                                            className="flex items-start gap-2 text-sm sm:text-base text-slate-700"
+                                                        >
+                                                            <span className="mt-1 text-slate-400">•</span>
+                                                            <span>{item}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-sm text-slate-500">
+                                                    In this mail no   {section.title.toLowerCase()} realted context found.
+                                                </p>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mt-6 flex items-center gap-4">
                             <span className="text-sm sm:text-base font-medium text-slate-700">
                                 Sentiment:
                             </span>
@@ -255,46 +340,6 @@ console.log(emailData);
                             </span>
                         </div>
                     </div>
-
-                    {/* Right Column */}
-                    <div>
-                        {/* Risks Card */}
-                        <Card className="bg-white border-slate-200">
-                            <CardContent className="p-4 sm:p-6">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-10 h-10 bg-yellow-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <FiAlertTriangle className="h-6 w-6 text-yellow-500" />
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-slate-900">
-                                        Risks ({emailData?.risks && emailData?.risks?.length > 0 ? emailData?.risks?.length : 0})
-                                    </h3>
-                                </div>
-                                <ul className="space-y-2 ml-2">
-                                    {emailData?.risks && emailData?.risks?.length > 0 && emailData?.risks?.map((risk, index) => (
-                                        <li
-                                            key={index}
-                                            className="text-sm sm:text-base text-slate-700 flex items-start gap-2"
-                                        >
-                                            <span className="text-slate-400 mt-1">•</span>
-                                            <span>{risk}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
-
-                {/* RAIDD to Project Button */}
-                <div className="flex justify-end mt-6">
-                    <Button
-                        onClick={handleRaidToProject}
-                        className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-3 text-sm sm:text-base font-semibold cursor-pointer"
-                    >
-                        RAIDD to Project
-                    </Button>
-                </div>
-            </div>
                 </>
             )}
         </div>
