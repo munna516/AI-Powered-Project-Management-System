@@ -1,210 +1,172 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import {
-    FiEdit,
-    FiPaperclip,
-    FiLink,
-    FiTrash2,
-    FiArrowLeft,
-} from "react-icons/fi";
-import { HiOutlineSparkles } from "react-icons/hi2";
-import { BsEmojiSmile } from "react-icons/bs";
-import { FiFileText } from "react-icons/fi";
-import { useRouter } from "next/navigation";
-export default function GenerateEmail() {
-    const [emailContent, setEmailContent] = useState("");
-    const [prompt, setPrompt] = useState("");
-    const [tone, setTone] = useState("Professional");
-    const [length, setLength] = useState("Short");
-    const [selectedContexts, setSelectedContexts] = useState([]);
-    const router = useRouter();
-    const contextOptions = [
-        { id: "project-data", label: "Project data" },
-        { id: "meeting-notes", label: "Meeting notes" },
-        { id: "last-email", label: "Last email" },
-        { id: "add-file", label: "Add file" },
-    ];
+import { FiArrowLeft, FiCopy } from "react-icons/fi";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import Loading from "@/components/Loading/Loading";
+import { apiGet } from "@/lib/api";
+import toast from "react-hot-toast";
 
-    const toggleContext = (id) => {
-        setSelectedContexts((prev) =>
-            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+const UNIFIED_INBOX_KEY = ["unified-inbox"];
+
+function resolveGeneratedReply(data, emailIdFromQuery) {
+    if (!data) return null;
+
+    if (!Array.isArray(data) && data.generatedReply) {
+        return data.generatedReply;
+    }
+
+    const list = Array.isArray(data) ? data : data?.data;
+    if (!Array.isArray(list) || list.length === 0) return null;
+
+    if (emailIdFromQuery) {
+        const match = list.find(
+            (item) => String(item?.id) === String(emailIdFromQuery)
         );
+        if (match?.generatedReply) return match.generatedReply;
+    }
+
+    const withReply = list.find((item) => item?.generatedReply);
+    return withReply?.generatedReply ?? list[0]?.generatedReply ?? null;
+}
+
+function GenerateEmailContent() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const emailIdFromQuery = searchParams.get("id");
+
+    const { data: inboxResponse, isLoading, error } = useQuery({
+        queryKey: UNIFIED_INBOX_KEY,
+        queryFn: () => apiGet("/api/project-manager/outlook/unified-inbox"),
+    });
+
+    const generatedReply = useMemo(() => {
+        if (inboxResponse?.generatedReply) return inboxResponse.generatedReply;
+        return resolveGeneratedReply(inboxResponse?.data, emailIdFromQuery);
+    }, [inboxResponse, emailIdFromQuery]);
+
+    const toDisplay = (value) => {
+        if (value == null) return "Not Available";
+        const s = String(value).trim();
+        return s || "Not Available";
     };
 
-    const handleGenerate = () => {
-        // Handle AI email generation
-        console.log("Generating email with:", { prompt, tone, length, selectedContexts });
+    const subjectDisplay = toDisplay(generatedReply?.subject);
+    const bodyDisplay = toDisplay(generatedReply?.body);
+
+    const copyText = async (text, label) => {
+        if (!text || text === "Not Available") {
+            toast.error(`No ${label.toLowerCase()} to copy`);
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(text);
+            toast.success(`${label} copied`);
+        } catch {
+            toast.error("Could not copy to clipboard");
+        }
     };
+
+    if (isLoading) {
+        return <Loading />;
+    }
+
+    if (error) {
+        return (
+            <div className="space-y-6">
+                <button
+                    type="button"
+                    onClick={() => router.back()}
+                    className="text-blue-600 cursor-pointer hover:underline flex items-center gap-2"
+                >
+                    <FiArrowLeft className="h-4 w-4" /> Go Back
+                </button>
+                <p className="text-slate-700">
+                    {error?.message || "Failed to load generated reply."}
+                </p>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-6 ">
-            {/* Title */}
+        <div className="space-y-6">
             <div className="flex justify-between items-center gap-4">
                 <button
+                    type="button"
                     onClick={() => router.back()}
                     className="text-blue-600 cursor-pointer hover:underline flex items-center gap-2"
                 >
                     <FiArrowLeft className="h-4 w-4" /> Go Back
                 </button>
             </div>
+
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                Compose your email...
+                Generated email
             </h1>
 
-
-            {/* Email Composition Area */}
-            <Card className="bg-white">
-                <CardContent className="p-4 sm:p-6">
-                    <div className="relative">
+            <div className="space-y-4">
+                <Card className="bg-white">
+                    <CardContent className="p-4 sm:p-6 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <label className="text-sm font-medium text-slate-700">
+                                Subject
+                            </label>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="cursor-pointer shrink-0"
+                                onClick={() => copyText(subjectDisplay, "Subject")}
+                            >
+                                <FiCopy className="h-4 w-4 mr-1.5" />
+                                Copy
+                            </Button>
+                        </div>
                         <Textarea
-                            value={emailContent}
-                            onChange={(e) => setEmailContent(e.target.value)}
-                            placeholder="Start typing your email..."
-                            className="min-h-[200px] sm:min-h-[250px] pr-24 pb-12 text-sm sm:text-base"
+                            readOnly
+                            value={subjectDisplay}
+                            className="min-h-[52px] resize-none text-sm sm:text-base bg-slate-50"
                         />
-                        <Button
-                            className="absolute bottom-4 right-4 bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 flex items-center gap-2 cursor-pointer"
-                        >
-                            <FiEdit className="h-4 w-4" />
-                            <span className="text-sm">Compose</span>
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
 
-            {/* AI Draft Section */}
-            <Card className="bg-[#EFEEFC] border-[#6051E2]/20">
-                <CardContent className="p-4 sm:p-6 space-y-6">
-                    {/* AI Draft Header */}
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-[#6051E2] rounded-lg flex items-center justify-center flex-shrink-0">
-                            <HiOutlineSparkles className="h-5 w-5 text-white" />
+                <Card className="bg-white">
+                    <CardContent className="p-4 sm:p-6 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <label className="text-sm font-medium text-slate-700">
+                                Body
+                            </label>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="cursor-pointer shrink-0"
+                                onClick={() => copyText(bodyDisplay, "Body")}
+                            >
+                                <FiCopy className="h-4 w-4 mr-1.5" />
+                                Copy
+                            </Button>
                         </div>
-                        <h2 className="text-xl sm:text-2xl font-bold text-slate-900">AI Draft</h2>
-                    </div>
-
-                    {/* Use context from */}
-                    <div>
-                        <p className="text-sm font-medium text-slate-700 mb-3">Use context from:</p>
-                        <div className="flex flex-wrap gap-3">
-                            {contextOptions.map((option) => {
-                                const isSelected = selectedContexts.includes(option.id);
-                                return (
-                                    <button
-                                        key={option.id}
-                                        onClick={() => toggleContext(option.id)}
-                                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer ${isSelected
-                                            ? "bg-[#6051E2] text-white"
-                                            : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
-                                            }`}
-                                    >
-                                        {option.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Prompt */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Prompt
-                        </label>
-                        <Input
-                            type="text"
-                            placeholder="e.g., Draft a follow-up email asking for feedback"
-                            value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
-                            className="w-full"
+                        <Textarea
+                            readOnly
+                            value={bodyDisplay}
+                            className="min-h-[220px] sm:min-h-[280px] resize-y text-sm sm:text-base bg-slate-50"
                         />
-                    </div>
-
-                    {/* Tone and Length */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Tone
-                            </label>
-                            <Select value={tone} onValueChange={setTone}>
-                                <SelectTrigger className="w-full bg-white">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Professional">Professional</SelectItem>
-                                    <SelectItem value="Casual">Casual</SelectItem>
-                                    <SelectItem value="Friendly">Friendly</SelectItem>
-                                    <SelectItem value="Formal">Formal</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Length
-                            </label>
-                            <Select value={length} onValueChange={setLength}>
-                                <SelectTrigger className="w-full bg-white">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Short">Short</SelectItem>
-                                    <SelectItem value="Medium">Medium</SelectItem>
-                                    <SelectItem value="Long">Long</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center justify-between gap-4 pt-2">
-                        <Button
-                            onClick={handleGenerate}
-                            className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-3 flex items-center gap-2 cursor-pointer"
-                        >
-                            <FiFileText className="h-5 w-5" />
-                            <span>Generate</span>
-                        </Button>
-
-                        <div className="flex items-center gap-3">
-                            <button
-                                className="p-2 hover:bg-white/50 rounded-lg transition-colors cursor-pointer"
-                                title="Attach file"
-                            >
-                                <FiPaperclip className="h-5 w-5 text-slate-600" />
-                            </button>
-                            <button
-                                className="p-2 hover:bg-white/50 rounded-lg transition-colors cursor-pointer"
-                                title="Insert link"
-                            >
-                                <FiLink className="h-5 w-5 text-slate-600" />
-                            </button>
-                            <button
-                                className="p-2 hover:bg-white/50 rounded-lg transition-colors cursor-pointer"
-                                title="Insert emoji"
-                            >
-                                <BsEmojiSmile className="h-5 w-5 text-slate-600" />
-                            </button>
-                            <button
-                                className="p-2 hover:bg-white/50 rounded-lg transition-colors cursor-pointer"
-                                title="Delete"
-                            >
-                                <FiTrash2 className="h-5 w-5 text-slate-600" />
-                            </button>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
+    );
+}
+
+export default function GenerateEmail() {
+    return (
+        <Suspense fallback={<Loading />}>
+            <GenerateEmailContent />
+        </Suspense>
     );
 }
