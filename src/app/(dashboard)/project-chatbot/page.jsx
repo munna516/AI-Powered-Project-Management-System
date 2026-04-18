@@ -117,6 +117,44 @@ export default function ProjectChatbot() {
     const sendMessageMutation = useMutation({
         mutationFn: (payload) =>
             apiPost("/api/project-manager/project-chatbot/send", payload),
+        onMutate: async (payload) => {
+            const queryKey = [...CHAT_QUERY_KEY, selectedProjectId];
+            await queryClient.cancelQueries({ queryKey });
+
+            const previous = queryClient.getQueryData(queryKey);
+            const optimisticId = `optimistic-${Date.now()}`;
+            const optimisticCreatedAt = new Date().toISOString();
+            const optimisticContent = String(payload?.get?.("content") || "").trim();
+
+            const optimisticMessage = {
+                id: optimisticId,
+                sender: "USER",
+                content: optimisticContent,
+                createdAt: optimisticCreatedAt,
+                documentUrl: "",
+                documentPath: payload?.get?.("document")?.name || "",
+            };
+
+            queryClient.setQueryData(queryKey, (current) => {
+                const append = (arr) => [...(Array.isArray(arr) ? arr : []), optimisticMessage];
+
+                if (Array.isArray(current)) {
+                    return append(current);
+                }
+
+                if (current && Array.isArray(current.data)) {
+                    return { ...current, data: append(current.data) };
+                }
+
+                if (current?.data && Array.isArray(current.data.data)) {
+                    return { ...current, data: { ...current.data, data: append(current.data.data) } };
+                }
+
+                return { ...(current || {}), data: [optimisticMessage] };
+            });
+
+            return { previous, optimisticId };
+        },
         onSuccess: async (response) => {
             const createdMessage = response?.data || {};
             setAwaitingReplyMeta({
@@ -129,8 +167,49 @@ export default function ProjectChatbot() {
             }
             await queryClient.invalidateQueries({ queryKey: [...CHAT_QUERY_KEY, selectedProjectId] });
         },
-        onError: (mutationError) => {
+        onError: (mutationError, _payload, context) => {
+            const queryKey = [...CHAT_QUERY_KEY, selectedProjectId];
+            if (context?.previous) {
+                queryClient.setQueryData(queryKey, context.previous);
+            } else if (context?.optimisticId) {
+                queryClient.setQueryData(queryKey, (current) => {
+                    const remove = (arr) =>
+                        (Array.isArray(arr) ? arr : []).filter(
+                            (item) => String(item?.id) !== String(context.optimisticId)
+                        );
+
+                    if (Array.isArray(current)) return remove(current);
+                    if (current && Array.isArray(current.data)) {
+                        return { ...current, data: remove(current.data) };
+                    }
+                    if (current?.data && Array.isArray(current.data.data)) {
+                        return { ...current, data: { ...current.data, data: remove(current.data.data) } };
+                    }
+                    return current;
+                });
+            }
             toast.error(mutationError?.message || "Failed to send message.");
+        },
+        onSettled: async (_data, _error, _variables, context) => {
+            const queryKey = [...CHAT_QUERY_KEY, selectedProjectId];
+            const createdMessage = _data?.data;
+            if (!createdMessage || !context?.optimisticId) return;
+
+            queryClient.setQueryData(queryKey, (current) => {
+                const replace = (arr) =>
+                    (Array.isArray(arr) ? arr : []).map((item) =>
+                        String(item?.id) === String(context.optimisticId) ? createdMessage : item
+                    );
+
+                if (Array.isArray(current)) return replace(current);
+                if (current && Array.isArray(current.data)) {
+                    return { ...current, data: replace(current.data) };
+                }
+                if (current?.data && Array.isArray(current.data.data)) {
+                    return { ...current, data: { ...current.data, data: replace(current.data.data) } };
+                }
+                return current;
+            });
         },
     });
 
@@ -213,7 +292,7 @@ export default function ProjectChatbot() {
     }
 
     return (
-        <div className="mx-auto flex h-[calc(100vh-2rem)] max-w-[1440px] flex-col overflow-x-hidden sm:h-[calc(100vh-10rem)]">
+        <div className="mx-auto flex h-[calc(100vh-2rem)]  flex-col overflow-x-hidden sm:h-[calc(100vh-10rem)]">
             <div className="mb-4 sm:mb-6 flex items-start justify-between gap-3">
                 <div>
                     <h1 className="mb-2 text-2xl font-bold text-blue-900 sm:text-3xl">
@@ -313,7 +392,7 @@ export default function ProjectChatbot() {
                 </aside>
 
                 {/* Chat */}
-                <div className="flex-1 min-w-0 flex flex-col">
+                <div className="flex-1 min-w-0 flex flex-col pl-3">
                     <div
                         ref={chatContainerRef}
                         className="mb-4 flex-1 space-y-4 overflow-x-hidden overflow-y-auto pr-2 sm:mb-6"
