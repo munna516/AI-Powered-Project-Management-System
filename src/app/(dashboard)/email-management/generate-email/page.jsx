@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,7 +34,7 @@ function resolveGeneratedReply(data, emailIdFromQuery) {
     return withReply?.generatedReply ?? list[0]?.generatedReply ?? null;
 }
 
-export default function GenerateEmail() {
+function GenerateEmailContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const emailIdFromQuery = searchParams.get("id");
@@ -160,5 +160,13 @@ export default function GenerateEmail() {
                 </Card>
             </div>
         </div>
+    );
+}
+
+export default function GenerateEmail() {
+    return (
+        <Suspense fallback={<Loading />}>
+            <GenerateEmailContent />
+        </Suspense>
     );
 }
