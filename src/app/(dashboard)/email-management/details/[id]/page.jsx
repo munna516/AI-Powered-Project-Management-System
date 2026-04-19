@@ -14,6 +14,9 @@ import { apiGet } from "@/lib/api";
 
 const EMPTY_AI_EXTRACTED = {};
 
+const unwrapEmailPayload = (response) =>
+    response?.data?.data ?? response?.data ?? null;
+
 const normalizeRaiddKey = (value) => {
     const normalized = String(value || "").toLowerCase();
 
@@ -117,39 +120,78 @@ export default function EmailDetails() {
         enabled: Boolean(emailId),
     });
 
-    const emailData = emailResponse?.data || null;
+    const emailData = unwrapEmailPayload(emailResponse);
     const aiExtracted = useMemo(() => {
         if (!emailData) return EMPTY_AI_EXTRACTED;
 
-        const fullAiResponse = Array.isArray(emailData?.fullAiResponse) ? emailData.fullAiResponse : [];
+        const fullAi = emailData?.fullAiResponse;
         const detectedRaiddKeys = Array.isArray(emailData?.raiddAnalysis)
             ? emailData.raiddAnalysis.map(normalizeRaiddKey).filter(Boolean)
             : [];
 
         const aggregated = {
-            tasks: Array.isArray(emailData?.tasks) ? emailData.tasks.filter(Boolean) : [],
+            tasks: [],
             risks: [],
             issues: [],
             assumptions: [],
-            decisions: Array.isArray(emailData?.decisions) ? emailData.decisions.filter(Boolean) : [],
+            decisions: [],
             dependencies: [],
         };
 
-        fullAiResponse.forEach((entry) => {
-            const raidd = entry?.raiddAnalysis;
-            if (!raidd) return;
+        const pushRaiddValues = (targetKey, raw) => {
+            if (raw == null) return;
+            if (Array.isArray(raw)) {
+                raw.forEach((v) => {
+                    if (typeof v === "string" && v.trim()) aggregated[targetKey].push(v.trim());
+                });
+            } else if (typeof raw === "string" && raw.trim()) {
+                aggregated[targetKey].push(raw.trim());
+            }
+        };
 
+        const ingestRaiddBlock = (raidd) => {
+            if (!raidd || typeof raidd !== "object") return;
             extractedSections.forEach((section) => {
                 if (section.key === "tasks") return;
-                const values = raidd?.[section.key];
-                if (Array.isArray(values)) {
-                    aggregated[section.key].push(...values.filter(Boolean));
-                }
+                pushRaiddValues(section.key, raidd[section.key]);
             });
-        });
+        };
+
+        if (Array.isArray(emailData?.tasks)) {
+            aggregated.tasks = emailData.tasks
+                .map((t) => {
+                    if (typeof t === "string") return t.trim();
+                    if (t && typeof t === "object") {
+                        return (
+                            t.title ||
+                            t.name ||
+                            t.content ||
+                            t.description ||
+                            ""
+                        );
+                    }
+                    return "";
+                })
+                .filter(Boolean);
+        }
+
+        if (typeof emailData?.decisions === "string" && emailData.decisions.trim()) {
+            aggregated.decisions.push(emailData.decisions.trim());
+        } else if (Array.isArray(emailData?.decisions)) {
+            aggregated.decisions.push(...emailData.decisions.filter(Boolean));
+        }
+
+        if (Array.isArray(fullAi)) {
+            fullAi.forEach((entry) => ingestRaiddBlock(entry?.raiddAnalysis));
+        } else if (fullAi && typeof fullAi === "object") {
+            ingestRaiddBlock(fullAi.raiddAnalysis);
+        }
 
         const deduped = Object.fromEntries(
-            Object.entries(aggregated).map(([key, values]) => [key, Array.from(new Set(values))])
+            Object.entries(aggregated).map(([key, values]) => [
+                key,
+                Array.from(new Set((Array.isArray(values) ? values : []).filter(Boolean))),
+            ])
         );
 
         return {
@@ -170,7 +212,7 @@ export default function EmailDetails() {
     if (isLoading) {
         return <Loading />;
     }
-    console.log(emailData);
+
     return (
         <div className="space-y-6 ">
             {/* Back Button */}
@@ -322,7 +364,7 @@ export default function EmailDetails() {
                                                 </ul>
                                             ) : (
                                                 <p className="text-sm text-slate-500">
-                                                    In this mail no   {section.title.toLowerCase()} realted context found.
+                                                    In this mail no {section.title.toLowerCase()} related context found.
                                                 </p>
                                             )}
                                         </CardContent>
@@ -335,8 +377,8 @@ export default function EmailDetails() {
                             <span className="text-sm sm:text-base font-medium text-slate-700">
                                 Sentiment:
                             </span>
-                            <span className="px-4 py-2 bg-green-100 rounded-full text-green-800 text-sm sm:text-base font-semibold">
-                                {emailData.sentiment}
+                            <span className="px-4 py-2 bg-green-100 rounded-full text-green-800 text-sm sm:text-base font-semibold capitalize">
+                                {emailData.sentiment || emailData?.fullAiResponse?.sentiment || "N/A"}
                             </span>
                         </div>
                     </div>

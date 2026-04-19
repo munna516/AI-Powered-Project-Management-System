@@ -70,6 +70,41 @@ const normalizeProject = (project, index) => ({
     vendorName: project?.vendorName || fallback,
 });
 
+/**
+ * API may return RAIDD entries as plain strings or as objects:
+ * { status, details: string[], category, ai_summary }
+ */
+const normalizeRaiddEntry = (entry) => {
+    if (entry == null) return null;
+    if (typeof entry === "string") {
+        const t = entry.trim();
+        return t ? { kind: "line", text: t } : null;
+    }
+    if (typeof entry === "object" && !Array.isArray(entry)) {
+        const details = Array.isArray(entry.details)
+            ? entry.details.map((d) => String(d || "").trim()).filter(Boolean)
+            : [];
+        const summary = String(entry.ai_summary || entry.aiSummary || "").trim();
+        const status = String(entry.status || "").trim();
+        const category = String(entry.category || "").trim();
+        if (!summary && details.length === 0) return null;
+        return { kind: "block", status, category, summary, details };
+    }
+    return null;
+};
+
+const normalizeRaiddSection = (raw) => {
+    if (!Array.isArray(raw)) return [];
+    return raw.map(normalizeRaiddEntry).filter(Boolean);
+};
+
+const normalizePerformanceScorePercent = (value) => {
+    const n = Number(value);
+    if (Number.isNaN(n)) return 0;
+    if (n >= 0 && n <= 1) return Math.round(n * 100);
+    return Math.round(n);
+};
+
 const normalizeVendor = (vendor) => {
     const ai = vendor?.vendorAiResponse || {};
     const raidd = ai?.raiddFlags || {};
@@ -100,16 +135,16 @@ const normalizeVendor = (vendor) => {
             session: ai?.session || fallback,
             notes: ai?.notes || "",
             summary: ai?.summary || "",
-            performanceScore: Number(ai?.performanceScore || 0),
+            performanceScore: normalizePerformanceScorePercent(ai?.performanceScore),
             lessonsLearned: Array.isArray(ai?.lessonsLearned) ? ai.lessonsLearned : [],
             actionPoints: Array.isArray(ai?.actionPoints) ? ai.actionPoints : [],
             discussionPoints: Array.isArray(ai?.discussionPoints) ? ai.discussionPoints : [],
             raiddFlags: {
-                risks: Array.isArray(raidd?.risks) ? raidd.risks : [],
-                issues: Array.isArray(raidd?.issues) ? raidd.issues : [],
-                assumptions: Array.isArray(raidd?.assumptions) ? raidd.assumptions : [],
-                decisions: Array.isArray(raidd?.decisions) ? raidd.decisions : [],
-                dependencies: Array.isArray(raidd?.dependencies) ? raidd.dependencies : [],
+                risks: normalizeRaiddSection(raidd?.risks),
+                issues: normalizeRaiddSection(raidd?.issues),
+                assumptions: normalizeRaiddSection(raidd?.assumptions),
+                decisions: normalizeRaiddSection(raidd?.decisions),
+                dependencies: normalizeRaiddSection(raidd?.dependencies),
             },
         },
     };
@@ -146,7 +181,49 @@ function DetailRow({ icon, label, value, isLink = false }) {
     );
 }
 
+function RaiddEntryBlock({ entry, title }) {
+    if (entry.kind === "line") {
+        return (
+            <li className="flex gap-2 text-xs leading-relaxed text-slate-600">
+                <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-slate-400" />
+                <span>{entry.text}</span>
+            </li>
+        );
+    }
+
+    if (entry.kind === "block") {
+        return (
+            <li className="space-y-2 rounded-lg border border-slate-200/80 bg-white/60 p-3 text-xs leading-relaxed text-slate-600">
+                <div className="flex flex-wrap items-center gap-2">
+                    {entry.status ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                            {entry.status}
+                        </span>
+                    ) : null}
+                    {entry.category ? (
+                        <span className="text-[11px] font-medium text-slate-500">{entry.category}</span>
+                    ) : null}
+                </div>
+                {entry.summary ? (
+                    <p className="text-xs leading-relaxed text-slate-700">{entry.summary}</p>
+                ) : null}
+                {entry.details.length > 0 ? (
+                    <ul className="list-disc space-y-1 pl-4 text-xs text-slate-600">
+                        {entry.details.map((line, i) => (
+                            <li key={`${title}-d-${i}`}>{line}</li>
+                        ))}
+                    </ul>
+                ) : null}
+            </li>
+        );
+    }
+
+    return null;
+}
+
 function AiListCard({ title, detailsTitle, items }) {
+    const hasContent = Array.isArray(items) && items.length > 0;
+
     return (
         <Card className="bg-[#EFEEFC] p-4">
             <CardContent className="space-y-3 p-0">
@@ -155,13 +232,10 @@ function AiListCard({ title, detailsTitle, items }) {
                     <p className="mb-2 text-sm font-medium text-slate-700">
                         {detailsTitle || `${title} Details`}
                     </p>
-                    {items.length > 0 ? (
-                        <ul className="space-y-2">
-                            {items.map((item, idx) => (
-                                <li key={`${title}-${idx}`} className="flex gap-2 text-xs leading-relaxed text-slate-600">
-                                    <span className="mt-1.5 h-1 w-1 rounded-full bg-slate-400" />
-                                    <span>{item}</span>
-                                </li>
+                    {hasContent ? (
+                        <ul className="space-y-3">
+                            {items.map((entry, idx) => (
+                                <RaiddEntryBlock key={`${title}-${idx}`} entry={entry} title={title} />
                             ))}
                         </ul>
                     ) : (
@@ -457,7 +531,11 @@ export default function ViewVendor() {
                                 label="Email"
                                 value={vendor.contactEmail}
                             />
-                            
+                            <DetailRow
+                                icon={<FiPhone className="h-4 w-4" />}
+                                label="Phone"
+                                value={vendor.contactPhone}
+                            />
                         </CardContent>
                     </Card>
 

@@ -77,10 +77,16 @@ export default function ProjectChatbot() {
                 ? projectsResponse.data.data
                 : [];
 
+        // Prefer projectId over id — backend project-manager routes use projectId; using id first
+        // can collapse multiple projects to the same key if id is not the management id.
         return rawProjects
             .map((p) => ({
-                id: String(p?.id || p?.projectId || ""),
-                name: p?.name || p?.projectName || p?.title || `Project ${p?.id || ""}`,
+                id: String(p?.projectId ?? p?.id ?? ""),
+                name:
+                    p?.name ||
+                    p?.projectName ||
+                    p?.title ||
+                    `Project ${p?.projectId ?? p?.id ?? ""}`,
             }))
             .filter((p) => p.id);
     }, [projectsResponse]);
@@ -109,10 +115,16 @@ export default function ProjectChatbot() {
                 ? messagesResponse.data.data
                 : [];
 
-        return rawMessages.map((message, index) =>
+        const scoped = rawMessages.filter((m) => {
+            const pid = m?.projectId ?? m?.project?.id;
+            if (pid == null || pid === "") return true;
+            return String(pid) === String(selectedProjectId);
+        });
+
+        return scoped.map((message, index) =>
             normalizeMessage(message, index, currentUser)
         );
-    }, [currentUser, messagesResponse]);
+    }, [currentUser, messagesResponse, selectedProjectId]);
 
     const sendMessageMutation = useMutation({
         mutationFn: (payload) =>
@@ -158,6 +170,7 @@ export default function ProjectChatbot() {
         onSuccess: async (response) => {
             const createdMessage = response?.data || {};
             setAwaitingReplyMeta({
+                projectId: selectedProjectId,
                 createdAt: createdMessage?.createdAt || new Date().toISOString(),
             });
             setInputValue("");
@@ -219,6 +232,13 @@ export default function ProjectChatbot() {
 
     useEffect(() => {
         if (!awaitingReplyMeta) return;
+        if (
+            awaitingReplyMeta.projectId != null &&
+            awaitingReplyMeta.projectId !== "" &&
+            String(awaitingReplyMeta.projectId) !== String(selectedProjectId)
+        ) {
+            return;
+        }
 
         const sentAt = new Date(awaitingReplyMeta.createdAt).getTime();
         const hasAgentReply = messages.some(
@@ -231,7 +251,7 @@ export default function ProjectChatbot() {
         if (hasAgentReply) {
             setAwaitingReplyMeta(null);
         }
-    }, [awaitingReplyMeta, messages]);
+    }, [awaitingReplyMeta, messages, selectedProjectId]);
 
     const handleSend = () => {
         if (!selectedProjectId) {
@@ -408,7 +428,7 @@ export default function ProjectChatbot() {
                         ) : (
                             messages.map((message) => (
                                 <div
-                                    key={message.id}
+                                    key={`${selectedProjectId}-${message.id}`}
                                     className={`flex items-start gap-3 ${
                                         message.sender === "user" ? "flex-row-reverse" : "flex-row"
                                     }`}
@@ -467,7 +487,12 @@ export default function ProjectChatbot() {
                             ))
                         )}
 
-                        {(sendMessageMutation.isPending || awaitingReplyMeta) && (
+                        {(sendMessageMutation.isPending ||
+                            (awaitingReplyMeta &&
+                                (awaitingReplyMeta.projectId == null ||
+                                    awaitingReplyMeta.projectId === "" ||
+                                    String(awaitingReplyMeta.projectId) ===
+                                        String(selectedProjectId)))) && (
                             <div className="flex items-start gap-3">
                                 <div className="flex flex-shrink-0 flex-col items-center gap-1">
                                     <span className="text-left text-xs text-slate-500">Project AI</span>
