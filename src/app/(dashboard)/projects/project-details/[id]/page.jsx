@@ -203,7 +203,7 @@ export default function ProjectDetails() {
                 healthStatus: String(item?.healthStatus ?? item?.status ?? "N/A"),
             }))
             .filter((item) => item.type !== "N/A" || item.healthStatus !== "N/A");
-
+        console.log(rawProject?.projectAiSummary);
         return {
             id: rawProject?.id || "N/A",
             title: rawProject?.name || "N/A",
@@ -498,9 +498,7 @@ export default function ProjectDetails() {
                                 </h3>
                             </div>
                             <p className="text-sm text-slate-600 leading-relaxed">
-                                {Array.isArray(project?.projectAiSummary)
-                                    ? project.projectAiSummary.filter(Boolean).join(" ") || "N/A"
-                                    : project?.projectAiSummary || "N/A"}
+                                {project?.projectAiSummary[0]}
                             </p>
                         </CardContent>
                     </Card>
