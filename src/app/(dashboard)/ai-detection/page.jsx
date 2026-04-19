@@ -69,8 +69,9 @@ const normalizeRaiddCategoryLabel = (value) => {
 };
 
 const deriveRaiddAnalysisFromFullAiResponse = (fullAiResponse) => {
-  // `fullAiResponse` shape (from API):
-  // [{ raiddAnalysis: { risks: [], issues: [], assumptions: [], decisions: [], dependencies: [] } }]
+  // Supported shapes:
+  // - Single object: fullAiResponse.raiddAnalysis = { risks, issues, decisions, assumptions, dependencies }
+  // - Array of segments: [{ raiddAnalysis: { ... } }, ...]
   const keyToLabel = {
     risks: "Risk",
     issues: "Issue",
@@ -87,20 +88,27 @@ const deriveRaiddAnalysisFromFullAiResponse = (fullAiResponse) => {
     Dependency: [],
   };
 
-  if (!Array.isArray(fullAiResponse)) {
-    return { raiddCategories: [], raiddDetailsByCategory: aggregatedByLabel };
-  }
+  const pushRaiddValue = (label, raw) => {
+    if (raw == null) return;
+    if (Array.isArray(raw)) {
+      aggregatedByLabel[label].push(...raw.filter(Boolean));
+    } else if (typeof raw === "string" && raw.trim()) {
+      aggregatedByLabel[label].push(raw.trim());
+    }
+  };
 
-  fullAiResponse.forEach((aiItem) => {
-    const raidd = aiItem?.raiddAnalysis;
-    if (!raidd) return;
-
+  const ingestRaiddBlock = (raidd) => {
+    if (!raidd || typeof raidd !== "object") return;
     Object.entries(keyToLabel).forEach(([key, label]) => {
-      if (Array.isArray(raidd?.[key])) {
-        aggregatedByLabel[label].push(...raidd[key]);
-      }
+      pushRaiddValue(label, raidd[key]);
     });
-  });
+  };
+
+  if (Array.isArray(fullAiResponse)) {
+    fullAiResponse.forEach((aiItem) => ingestRaiddBlock(aiItem?.raiddAnalysis));
+  } else if (fullAiResponse && typeof fullAiResponse === "object") {
+    ingestRaiddBlock(fullAiResponse.raiddAnalysis);
+  }
 
   // De-duplicate strings per category.
   const dedupedByLabel = Object.fromEntries(
@@ -290,7 +298,6 @@ export default function AiDetection() {
       : Array.isArray(detectionsResponse?.data?.data)
         ? detectionsResponse.data.data
         : [];
-    console.log(rawItems);
     return rawItems.map(normalizeDetection);
   }, [detectionsResponse]);
 
@@ -612,6 +619,11 @@ export default function AiDetection() {
         ) : (
           filteredCommunications.map((item) => {
             const isExpanded = expandedItems.has(item.id);
+            const hasRaiddBullets =
+              Array.isArray(item.raiddAnalysis) &&
+              item.raiddAnalysis.some(
+                (category) => (item.raiddDetailsByCategory?.[category] || []).length > 0
+              );
 
             return (
               <Card key={item.id} className="rounded-lg">
@@ -645,7 +657,8 @@ export default function AiDetection() {
                       {isExpanded && (
                         <div className="mt-3 border-t border-slate-200 pt-3 sm:mt-4 sm:pt-4">
                           <div className="space-y-3">
-                            {item.details ? (
+                            {/* Avoid duplicating the same narrative: summary often mirrors fullAiResponse.raiddAnalysis */}
+                            {item.details && !hasRaiddBullets ? (
                               <p className="text-xs leading-relaxed text-slate-600 sm:text-sm md:text-base">
                                 {item.details}
                               </p>

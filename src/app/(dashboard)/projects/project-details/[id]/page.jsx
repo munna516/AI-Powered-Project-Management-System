@@ -498,7 +498,9 @@ export default function ProjectDetails() {
                                 </h3>
                             </div>
                             <p className="text-sm text-slate-600 leading-relaxed">
-                                {project?.projectAiSummary[0]}
+                                {Array.isArray(project?.projectAiSummary)
+                                    ? project.projectAiSummary.filter(Boolean).join(" ") || "N/A"
+                                    : project?.projectAiSummary || "N/A"}
                             </p>
                         </CardContent>
                     </Card>
