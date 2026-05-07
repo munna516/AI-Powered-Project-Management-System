@@ -310,23 +310,23 @@ export default function ProjectChatbot() {
             </div>
         );
     }
-
     return (
-        <div className="mx-auto flex h-[calc(100vh-2rem)]  flex-col overflow-x-hidden sm:h-[calc(100vh-10rem)]">
-            <div className="mb-4 sm:mb-6 flex items-start justify-between gap-3">
+        <div className="flex h-full flex-col overflow-hidden">
+            {/* Header with improved styling */}
+            <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="mb-2 text-2xl font-bold text-blue-900 sm:text-3xl">
-                        Project AI Chatbot
+                    <h1 className="text-2xl font-extrabold bg-gradient-to-r from-blue-900 to-[#6051E2] bg-clip-text text-transparent sm:text-3xl">
+                        Project AI Assistant
                     </h1>
-                    <p className="text-sm text-slate-600 sm:text-base">
-                        Ask me anything about your projects, tasks, risks, issues, and actions. I'm here to help you stay on top of your work.
+                    <p className="mt-1 text-sm font-medium text-slate-500 max-w-2xl">
+                        Intelligent insights for your projects and tasks. Ask anything about risks, milestones, or project health.
                     </p>
                 </div>
 
                 <Button
                     type="button"
                     variant="outline"
-                    className="sm:hidden cursor-pointer"
+                    className="sm:hidden border-slate-200 bg-white/50 backdrop-blur-md hover:bg-white transition-all shadow-sm"
                     onClick={() => setIsProjectSidebarOpen(true)}
                     disabled={isProjectsLoading}
                 >
@@ -335,54 +335,50 @@ export default function ProjectChatbot() {
                 </Button>
             </div>
 
-            <div className="flex flex-1 min-h-0 relative">
-                {isProjectSidebarOpen ? (
+            <div className="flex flex-1 min-h-0 relative gap-6">
+                {/* Overlay for mobile */}
+                {isProjectSidebarOpen && (
                     <div
-                        className="fixed inset-0 bg-black/20 z-40 sm:hidden"
+                        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 sm:hidden transition-opacity duration-300"
                         onClick={() => setIsProjectSidebarOpen(false)}
                     />
-                ) : null}
+                )}
 
-                {/* Sidebar like ChatGPT */}
+                {/* Sidebar with Premium Design */}
                 <aside
-                    className={`w-72 border-r border-slate-200 bg-white overflow-y-auto fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ${
-                        isProjectSidebarOpen ? "translate-x-0" : "-translate-x-full"
-                    } sm:static sm:inset-auto sm:translate-x-0 sm:z-auto`}
+                    className={`w-72 rounded-2xl border border-slate-200/60 bg-white/70 backdrop-blur-xl overflow-hidden flex flex-col fixed inset-y-4 left-4 z-50 transform transition-all duration-300 shadow-xl ${isProjectSidebarOpen ? "translate-x-0" : "-translate-x-full sm:translate-x-0"
+                        } sm:static sm:inset-auto sm:shadow-sm sm:bg-white/40 sm:rounded-xl`}
                 >
-                    <div className="p-4">
-                        <div className="flex items-center justify-between gap-3">
+                    <div className="p-5 border-b border-slate-200/50 bg-white/30">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <div className="text-sm font-semibold text-slate-700">Projects</div>
-                                <div className="mt-1 text-xs text-slate-500">Select a project to chat.</div>
+                                <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Your Projects</div>
+                                <div className="text-[10px] text-slate-500 font-medium">Select to analyze data</div>
                             </div>
 
                             <button
                                 type="button"
                                 onClick={() => setIsProjectSidebarOpen(false)}
-                                className="sm:hidden rounded-md p-2 hover:bg-slate-50 cursor-pointer"
-                                aria-label="Close projects drawer"
-                                title="Close"
+                                className="sm:hidden rounded-full p-1.5 bg-slate-100/50 hover:bg-slate-100 transition-colors"
                             >
-                                <FiX className="h-4 w-4" />
+                                <FiX className="h-4 w-4 text-slate-600" />
                             </button>
                         </div>
                     </div>
 
-                    {isProjectsLoading ? (
-                        <div className="px-4 pb-6">
-                            <Loading />
-                        </div>
-                    ) : isProjectsError ? (
-                        <div className="px-4 pb-6 text-sm text-red-600">
-                            {projectsError?.message || "Failed to load projects"}
-                        </div>
-                    ) : projects.length === 0 ? (
-                        <div className="px-4 pb-6 text-sm text-slate-500">
-                            No projects found.
-                        </div>
-                    ) : (
-                        <div className="pb-6">
-                            {projects.map((project) => {
+                    <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+                        {isProjectsLoading ? (
+                            <div className="py-10 flex justify-center"><Loading /></div>
+                        ) : isProjectsError ? (
+                            <div className="px-4 py-4 text-xs font-medium text-red-500 bg-red-50 rounded-lg border border-red-100 text-center">
+                                {projectsError?.message || "Error loading projects"}
+                            </div>
+                        ) : projects.length === 0 ? (
+                            <div className="px-4 py-10 text-xs text-slate-400 text-center italic font-medium">
+                                No projects assigned yet.
+                            </div>
+                        ) : (
+                            projects.map((project) => {
                                 const active = project.id === selectedProjectId;
                                 return (
                                     <button
@@ -396,210 +392,201 @@ export default function ProjectChatbot() {
                                             setSelectedFile(null);
                                             if (fileInputRef.current) fileInputRef.current.value = "";
                                         }}
-                                        className={`w-full px-4 py-2 text-left text-sm transition-colors cursor-pointer ${
-                                            active
-                                                ? "bg-[#6051E2] text-white"
-                                                : "text-slate-700 hover:bg-slate-50"
-                                        }`}
-                                        aria-current={active ? "page" : undefined}
+                                        className={`w-full group relative flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium transition-all duration-200 cursor-pointer overflow-hidden ${active
+                                            ? "bg-[#6051E2] text-white shadow-lg shadow-[#6051E2]/20 translate-x-1"
+                                            : "text-slate-600 hover:bg-white/80 hover:text-blue-900 hover:shadow-sm"
+                                            }`}
                                     >
-                                        {project.name}
+                                        <div className={`h-2 w-2 rounded-full transition-all duration-300 ${active ? "bg-white scale-125" : "bg-slate-300 group-hover:bg-[#6051E2]"
+                                            }`} />
+                                        <span className="truncate flex-1">{project.name}</span>
+                                        {active && isFetching && (
+                                            <div className="absolute right-3 opacity-50">
+                                                <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                                            </div>
+                                        )}
                                     </button>
                                 );
-                            })}
-                        </div>
-                    )}
+                            })
+                        )}
+                    </div>
                 </aside>
 
-                {/* Chat */}
-                <div className="flex-1 min-w-0 flex flex-col pl-3">
+                {/* Chat Container with Modern Aesthetic */}
+                <div className="flex-1 min-w-0 flex flex-col bg-slate-50/30 rounded-2xl border border-slate-200/40 backdrop-blur-sm overflow-hidden shadow-inner">
                     <div
                         ref={chatContainerRef}
-                        className="mb-4 flex-1 space-y-4 overflow-x-hidden overflow-y-auto pr-2 sm:mb-6"
+                        className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto custom-scrollbar"
                     >
                         {!selectedProjectId ? (
-                            <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-                                Select a project to start chatting.
+                            <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4">
+                                <div className="h-20 w-20 rounded-3xl bg-white/80 shadow-sm flex items-center justify-center text-[#6051E2] animate-pulse">
+                                    <FiRefreshCw className="h-10 w-10 opacity-20" />
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-bold text-slate-800">Ready to assist</h3>
+                                    <p className="text-sm text-slate-500 font-medium">Please select a project from the sidebar to begin our session.</p>
+                                </div>
                             </div>
                         ) : messages.length === 0 ? (
-                            <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-                                No messages found.
+                            <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                                <div className="p-4 bg-white/60 rounded-full border border-slate-100 mb-4 animate-bounce duration-1000">
+                                    <div className="h-4 w-4 bg-[#6051E2] rounded-full" />
+                                </div>
+                                <p className="text-sm text-slate-400 font-medium italic">No conversation history yet. Start by asking a question!</p>
                             </div>
                         ) : (
                             messages.map((message) => (
                                 <div
                                     key={`${selectedProjectId}-${message.id}`}
-                                    className={`flex items-start gap-3 ${
-                                        message.sender === "user" ? "flex-row-reverse" : "flex-row"
-                                    }`}
+                                    className={`flex items-end gap-3 max-w-[90%] sm:max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-500 ${message.sender === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
+                                        }`}
                                 >
-                                    <div className="flex flex-shrink-0 flex-col items-center gap-1">
-                                        <span
-                                            className={`text-xs text-slate-500 ${
-                                                message.sender === "user" ? "text-right" : "text-left"
-                                            }`}
-                                        >
-                                            {message.senderName}
+                                    {/* Avatar */}
+                                    <div className={`flex flex-shrink-0 h-9 w-9 items-center justify-center rounded-2xl shadow-sm border transition-transform hover:scale-105 ${message.sender === "ai"
+                                        ? "bg-gradient-to-br from-teal-500 to-teal-700 text-white border-teal-400/30"
+                                        : "bg-white text-[#6051E2] border-slate-100"
+                                        }`}>
+                                        <span className="text-[10px] font-bold tracking-tighter">
+                                            {message.sender === "ai" ? "AI" : "YOU"}
                                         </span>
-                                        <div
-                                            className={`flex h-8 w-8 items-center justify-center rounded-full sm:h-10 sm:w-10 ${
-                                                message.sender === "ai"
-                                                    ? "bg-teal-700 text-white"
-                                                    : "bg-slate-200 text-orange-600"
-                                            }`}
-                                        >
-                                            <span className="text-xs font-semibold sm:text-sm">
-                                                {message.sender === "ai"
-                                                    ? "A"
-                                                    : ((currentUser?.firstName || "U").charAt(0).toUpperCase())}
-                                            </span>
-                                        </div>
                                     </div>
 
-                                    <div className="mt-5 flex max-w-[75%] flex-col sm:max-w-[70%]">
-                                        <div
-                                            className={`rounded-lg border-0 px-4 py-2.5 sm:px-5 sm:py-3 ${
-                                                message.sender === "ai"
-                                                    ? "bg-purple-100 text-slate-900"
-                                                    : "bg-[#6051E2] text-white"
-                                            }`}
-                                        >
-                                            <p className="whitespace-pre-wrap text-sm leading-relaxed sm:text-base">
-                                                {message.text || "Attachment"}
-                                            </p>
-                                            {message.documentUrl ? (
+                                    {/* Message Bubble */}
+                                    <div className={`group flex flex-col gap-1.5 ${message.sender === "user" ? "items-end" : "items-start"}`}>
+                                        <div className={`relative px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm transition-all hover:shadow-md ${message.sender === "ai"
+                                            ? "bg-white/90 backdrop-blur-md text-slate-800 border border-slate-200/50 rounded-bl-none"
+                                            : "bg-[#6051E2] text-white rounded-br-none"
+                                            }`}>
+                                            {message.text || <span className="italic opacity-70">Processing attachment...</span>}
+
+                                            {message.documentUrl && (
                                                 <a
                                                     href={message.documentUrl}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className={`mt-3 inline-flex rounded-md px-3 py-1.5 text-xs font-medium underline-offset-2 hover:underline ${
-                                                        message.sender === "ai"
-                                                            ? "bg-white/70 text-[#6051E2]"
-                                                            : "bg-white/15 text-white"
-                                                    }`}
+                                                    className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-all ${message.sender === "ai"
+                                                        ? "bg-slate-100 text-[#6051E2] hover:bg-slate-200"
+                                                        : "bg-white/10 text-white hover:bg-white/20"
+                                                        }`}
                                                 >
-                                                    {message.documentName || "View attachment"}
+                                                    <FiPaperclip className="h-3 w-3" />
+                                                    <span className="truncate max-w-[150px]">{message.documentName || "Document"}</span>
                                                 </a>
-                                            ) : null}
+                                            )}
                                         </div>
+                                        <span className="text-[10px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity px-1">
+                                            {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
+                                        </span>
                                     </div>
                                 </div>
                             ))
                         )}
 
-                        {(sendMessageMutation.isPending ||
-                            (awaitingReplyMeta &&
-                                (awaitingReplyMeta.projectId == null ||
-                                    awaitingReplyMeta.projectId === "" ||
-                                    String(awaitingReplyMeta.projectId) ===
-                                        String(selectedProjectId)))) && (
-                            <div className="flex items-start gap-3">
-                                <div className="flex flex-shrink-0 flex-col items-center gap-1">
-                                    <span className="text-left text-xs text-slate-500">Project AI</span>
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-700 text-white sm:h-10 sm:w-10">
-                                        <span className="text-xs font-semibold sm:text-sm">A</span>
-                                    </div>
-                                </div>
-                                <div className="mt-5 flex max-w-[75%] flex-col sm:max-w-[70%]">
-                                    <div className="rounded-lg border-0 bg-purple-100 px-4 py-2.5 sm:px-5 sm:py-3">
-                                        <div className="flex items-center gap-1.5">
-                                            <div
-                                                className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
-                                                style={{ animationDelay: "0ms" }}
-                                            ></div>
-                                            <div
-                                                className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
-                                                style={{ animationDelay: "150ms" }}
-                                            ></div>
-                                            <div
-                                                className="h-2 w-2 animate-bounce rounded-full bg-slate-400"
-                                                style={{ animationDelay: "300ms" }}
-                                            ></div>
-                                        </div>
+                        {(sendMessageMutation.isPending || awaitingReplyMeta) && (
+                            <div className="flex items-end gap-3 mr-auto animate-pulse">
+                                <div className="h-9 w-9 rounded-2xl bg-teal-600/20 flex items-center justify-center text-teal-600 font-bold text-[10px]">AI</div>
+                                <div className="bg-white/80 backdrop-blur-md px-5 py-4 rounded-2xl rounded-bl-none shadow-sm border border-slate-100">
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500" style={{ animationDelay: "0ms" }} />
+                                        <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500" style={{ animationDelay: "150ms" }} />
+                                        <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500" style={{ animationDelay: "300ms" }} />
                                     </div>
                                 </div>
                             </div>
                         )}
-
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {selectedProjectId ? (
-                        <div className="pt-4">
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                className="hidden"
-                                onChange={handleFileChange}
-                            />
+                    {/* Footer / Input Area - Floating Style */}
+                    {selectedProjectId && (
+                        <div className="p-4 sm:p-6 bg-white/60 backdrop-blur-xl border-t border-slate-200/50">
+                            <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
 
-                            <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-slate-500 sm:gap-6 sm:text-sm">
+                            <div className="flex items-center gap-4 mb-4">
                                 <button
                                     type="button"
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="flex items-center gap-1.5 transition-colors hover:text-slate-700 cursor-pointer"
+                                    className="p-2 rounded-xl bg-slate-100/80 text-slate-500 hover:bg-[#6051E2]/10 hover:text-[#6051E2] transition-all cursor-pointer group"
+                                    title="Attach File"
                                 >
-                                    <FiPaperclip className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                    <span>Attach</span>
+                                    <FiPaperclip className="h-5 w-5 group-hover:rotate-12 transition-transform" />
                                 </button>
 
                                 <button
                                     type="button"
                                     onClick={handleRefresh}
                                     disabled={isFetching}
-                                    className="flex items-center gap-1.5 transition-colors hover:text-slate-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="p-2 rounded-xl bg-slate-100/80 text-slate-500 hover:bg-blue-100 hover:text-blue-600 transition-all cursor-pointer disabled:opacity-40"
+                                    title="Refresh Conversation"
                                 >
-                                    <FiRefreshCw
-                                        className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${
-                                            isFetching ? "animate-spin" : ""
-                                        }`}
-                                    />
-                                    <span>Refresh</span>
+                                    <FiRefreshCw className={`h-5 w-5 ${isFetching ? "animate-spin" : ""}`} />
                                 </button>
+
+                                {selectedFile && (
+                                    <div className="flex-1 flex items-center gap-2 bg-[#6051E2]/5 border border-[#6051E2]/10 rounded-xl px-3 py-1.5 text-[#6051E2] animate-in zoom-in-95">
+                                        <div className="p-1 bg-[#6051E2]/10 rounded-lg">
+                                            <FiPaperclip className="h-3.5 w-3.5" />
+                                        </div>
+                                        <span className="text-xs font-bold truncate max-w-[200px]">{selectedFile.name}</span>
+                                        <button
+                                            onClick={clearSelectedFile}
+                                            className="ml-auto p-1 rounded-full hover:bg-[#6051E2]/10 transition-colors"
+                                        >
+                                            <FiX className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
-                            {selectedFile ? (
-                                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#6051E2]/20 bg-[#6051E2]/10 px-3 py-1.5 text-xs text-[#6051E2] sm:text-sm">
-                                    <FiPaperclip className="h-3.5 w-3.5" />
-                                    <span className="max-w-[220px] truncate">{selectedFile.name}</span>
-                                    <button
-                                        type="button"
-                                        onClick={clearSelectedFile}
-                                        className="rounded-full p-1 transition-colors hover:bg-[#6051E2]/10 cursor-pointer"
-                                        aria-label="Remove attachment"
-                                        title="Remove attachment"
-                                    >
-                                        <FiX className="h-3.5 w-3.5" />
-                                    </button>
-                                </div>
-                            ) : null}
-
-                            <div className="flex gap-2 sm:gap-3">
+                            <div className="relative group flex items-center">
                                 <Input
                                     ref={inputRef}
                                     type="text"
-                                    placeholder="Ask anything"
+                                    placeholder="Type your question here..."
                                     value={inputValue}
                                     onChange={(e) => setInputValue(e.target.value)}
                                     onKeyDown={handleKeyDown}
                                     disabled={sendMessageMutation.isPending}
-                                    className="h-10 flex-1 rounded-lg border-slate-300 bg-white text-sm placeholder:text-slate-400 focus-visible:border-[#6051E2] focus-visible:ring-[#6051E2] disabled:opacity-50 sm:h-11 sm:text-base"
+                                    className="h-14 flex-1 rounded-2xl border-slate-200 bg-white/90 pl-6 pr-24 text-sm font-medium shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-[#6051E2]/20 focus-visible:border-[#6051E2] group-hover:border-[#6051E2]/40"
                                 />
-                                <Button
+                                <button
                                     onClick={handleSend}
                                     disabled={(!inputValue.trim() && !selectedFile) || sendMessageMutation.isPending}
-                                    className="flex h-10 items-center gap-2 rounded-lg bg-[#6051E2] px-4 text-white hover:bg-[#6051E2]/90 disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:px-6 cursor-pointer"
+                                    className="absolute right-2 h-10 px-5 rounded-xl bg-gradient-to-br from-[#6051E2] to-[#4e3fca] text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-[#6051E2]/20 hover:shadow-lg hover:shadow-[#6051E2]/30 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale cursor-pointer"
                                 >
-                                    <FiArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
-                                    <span className="text-sm font-medium">
-                                        {sendMessageMutation.isPending ? "Sending" : "Send"}
-                                    </span>
-                                </Button>
+                                    <span>{sendMessageMutation.isPending ? "SENDING..." : "SEND"}</span>
+                                    <FiArrowRight className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            {/* AI Disclaimer */}
+                            <div className="mt-4 flex justify-center">
+                                <p className="text-[13px] text-slate-500 font-medium animate-in fade-in animate-duration-500 animate-delay-300 animate-once animate-ease-out  ">
+                                    Project Pilot can make mistakes. Check important info.
+                                </p>
                             </div>
                         </div>
-                    ) : null}
+                    )}
                 </div>
             </div>
+
+            <style jsx global>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(0, 0, 0, 0.05);
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(0, 0, 0, 0.1);
+                }
+            `}</style>
         </div>
     );
+
 }

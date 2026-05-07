@@ -125,6 +125,7 @@ const normalizeRaiddItem = (item, index) => {
         description: item?.description || "Not available",
         rawDate,
         date: formatDate(rawDate),
+        dueDate: formatDate(item?.decisionDueDate || item?.dueDate || item?.due_date),
     };
 };
 
@@ -313,13 +314,16 @@ export default function RAIDD() {
                                         Project Name
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
-                                        Status
+                                        Type
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         Vendor Name
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         Date
+                                    </TableHead>
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
+                                        Due Date
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         View Details
@@ -330,7 +334,8 @@ export default function RAIDD() {
                                 {filteredData.map((item, index) => (
                                     <TableRow
                                         key={item.id}
-                                        className="border-b border-slate-100 hover:bg-slate-50"
+                                        className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                                        onClick={() => router.push(`/raidd/view/${item.id}`)}
                                     >
                                         <TableCell className="px-4 py-3 text-sm text-slate-800 lg:px-6 lg:py-4 lg:text-base">
                                             {index + 1}
@@ -353,10 +358,16 @@ export default function RAIDD() {
                                         <TableCell className="px-4 py-3 text-sm text-slate-600 lg:px-6 lg:py-4 lg:text-base">
                                             {item.date}
                                         </TableCell>
+                                        <TableCell className="px-4 py-3 text-sm text-slate-600 lg:px-6 lg:py-4 lg:text-base">
+                                            {item.dueDate}
+                                        </TableCell>
                                         <TableCell className="px-4 py-3 text-center lg:px-6 lg:py-4">
                                             <button
                                                 className={viewButtonClass}
-                                                onClick={() => router.push(`/raidd/view/${item.id}`)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    router.push(`/raidd/view/${item.id}`);
+                                                }}
                                                 title="View details"
                                                 aria-label="View details"
                                             >
@@ -380,13 +391,16 @@ export default function RAIDD() {
                                         Project Name
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white">
-                                        Status
+                                        Type
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-sm font-semibold text-white">
                                         Vendor Name
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-sm font-semibold text-white">
                                         Date
+                                    </TableHead>
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white">
+                                        Due Date
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white">
                                         View
@@ -397,7 +411,8 @@ export default function RAIDD() {
                                 {filteredData.map((item, index) => (
                                     <TableRow
                                         key={item.id}
-                                        className="border-b border-slate-100 hover:bg-slate-50"
+                                        className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                                        onClick={() => router.push(`/raidd/view/${item.id}`)}
                                     >
                                         <TableCell className="px-4 py-3 text-sm text-slate-800">
                                             {index + 1}
@@ -420,10 +435,16 @@ export default function RAIDD() {
                                         <TableCell className="px-4 py-3 text-sm text-slate-600">
                                             {item.date}
                                         </TableCell>
+                                        <TableCell className="px-4 py-3 text-sm text-slate-600">
+                                            {item.dueDate}
+                                        </TableCell>
                                         <TableCell className="px-4 py-3 text-center">
                                             <button
                                                 className={viewButtonClass}
-                                                onClick={() => router.push(`/raidd/view/${item.id}`)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    router.push(`/raidd/view/${item.id}`);
+                                                }}
                                                 title="View details"
                                                 aria-label="View details"
                                             >
@@ -467,6 +488,12 @@ export default function RAIDD() {
                                         <span className="text-slate-500">Date</span>
                                         <span className="text-right text-slate-700">
                                             {item.date}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between gap-4">
+                                        <span className="text-slate-500">Due Date</span>
+                                        <span className="text-right text-slate-700">
+                                            {item.dueDate}
                                         </span>
                                     </div>
                                 </div>

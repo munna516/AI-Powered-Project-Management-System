@@ -59,14 +59,22 @@ const getRawList = (response) =>
 
 const normalizeMilestone = (milestone, index) => ({
   id: milestone?.id || index,
-  phase: milestone?.phase || milestone?.name || `Phase ${index + 1}`,
+  phase:
+    milestone?.title || milestone?.phase || milestone?.name || `Phase ${index + 1}`,
   title: milestone?.title || "",
-  date: formatDateTime(milestone?.date || milestone?.deadline || milestone?.createdAt),
-  rawDate: milestone?.date
-    ? String(milestone.date).slice(0, 10)
-    : milestone?.deadline
-      ? String(milestone.deadline).slice(0, 10)
-      : "",
+  date: formatDateTime(
+    milestone?.milestoneDate ||
+      milestone?.date ||
+      milestone?.deadline ||
+      milestone?.createdAt
+  ),
+  rawDate: milestone?.milestoneDate
+    ? String(milestone.milestoneDate).slice(0, 10)
+    : milestone?.date
+      ? String(milestone.date).slice(0, 10)
+      : milestone?.deadline
+        ? String(milestone.deadline).slice(0, 10)
+        : "",
   description: milestone?.description || "N/A",
   status:
     String(milestone?.status || "").toLowerCase() === "completed" ||
@@ -134,7 +142,7 @@ export default function MilestonesSection({ projectId }) {
   const updateMilestoneMutation = useMutation({
     mutationFn: ({ milestoneId, payload }) =>
       apiPatch(
-        `/api/project-manager/project-milestone/project/${milestoneId}`,
+        `/api/project-manager/project-milestone/${milestoneId}`,
         payload
       ),
     onSuccess: async () => {
@@ -150,7 +158,7 @@ export default function MilestonesSection({ projectId }) {
 
   const deleteMilestoneMutation = useMutation({
     mutationFn: (milestoneId) =>
-      apiDelete(`/api/project-manager/project-milestone/project/${milestoneId}`),
+      apiDelete(`/api/project-manager/project-milestone/${milestoneId}`),
     onSuccess: async () => {
       await refreshMilestones();
       toast.success("Milestone deleted successfully!");
@@ -187,11 +195,9 @@ export default function MilestonesSection({ projectId }) {
 
     const payload = {
       projectId,
-      phase: milestoneForm.phase.trim(),
-      name: milestoneForm.phase.trim(),
       title: milestoneForm.phase.trim(),
-      date,
       description: milestoneForm.description.trim(),
+      milestoneDate: date,
       status: milestoneForm.status === "Complete" ? "COMPLETED" : "UPCOMING",
     };
 
@@ -249,7 +255,7 @@ export default function MilestonesSection({ projectId }) {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className={labelClass}>Phase</label>
+              <label className={labelClass}>Title</label>
               <input
                 type="text"
                 value={milestoneForm.phase}

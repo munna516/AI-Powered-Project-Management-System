@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { FiMail, FiStar, FiAlertTriangle } from "react-icons/fi";
+import { FiMail, FiStar, FiAlertTriangle, FiFile } from "react-icons/fi";
 import { FaLinkedin } from "react-icons/fa";
 import { HiOutlineChatBubbleLeftRight } from "react-icons/hi2";
 import PageHeader from "@/components/PageHeader/PageHeader";
@@ -69,10 +69,6 @@ const EmailIcon = ({ category, type, iconLetter }) => {
 // Source filter tabs
 const sourceTabs = [
     { id: "all", label: "All" },
-    { id: "promotions", label: "Promotions" },
-    { id: "social", label: "Social" },
-    { id: "personal", label: "Personal" },
-    { id: "updated", label: "Updated" },
 ];
 
 const EMAILS_QUERY_KEY = ["unified-inbox"];
@@ -111,6 +107,24 @@ const formatTimestamp = (dateValue) => {
     }).format(date);
 };
 
+const extractEmailArray = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (!payload || typeof payload !== "object") return [];
+
+    const candidates = [
+        payload.data,
+        payload.data?.data,
+        payload.emails,
+        payload.items,
+        payload.results,
+    ];
+    for (const candidate of candidates) {
+        if (Array.isArray(candidate)) return candidate;
+    }
+
+    return [];
+};
+
 export default function EmailManagement() {
     const [searchValue, setSearchValue] = useState("");
     const [selectedSource, setSelectedSource] = useState("all");
@@ -123,11 +137,11 @@ export default function EmailManagement() {
     const router = useRouter();
     const { data: emailsResponse, isLoading, error } = useQuery({
         queryKey: EMAILS_QUERY_KEY,
-        queryFn: () => apiGet("/api/project-manager/outlook/unified-inbox"),
+        queryFn: () => apiGet("/api/project-manager/outlook/unified-inbox", { params: { category: "personal" } }),
     });
 
     const emails = useMemo(() => {
-        const rawEmails = emailsResponse?.data || [];
+        const rawEmails = extractEmailArray(emailsResponse);
         return rawEmails.map((email) => ({
             ...email,
             category: normalizeCategory(email.category),
@@ -186,14 +200,9 @@ export default function EmailManagement() {
         return filtered;
     }, [searchValue, emails, selectedSource, dateFilterState]);
 
-    const promotionsCount = useMemo(
-        () => emails.filter((email) => email.category === "promotions").length,
-        [emails]
-    );
-    const socialCount = useMemo(
-        () => emails.filter((email) => email.category === "social").length,
-        [emails]
-    );
+    const stats = useMemo(() => {
+        return emailsResponse?.data?.overallStats || emailsResponse?.overallStats || {};
+    }, [emailsResponse]);
 
     const toggleStar = (id) => {
         setStarredIds((prev) =>
@@ -218,17 +227,17 @@ export default function EmailManagement() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 sm:gap-4">
                 {/* Task Extracted */}
                 <Card className="bg-slate-50 border-slate-200 hover:shadow-md transition-shadow">
-                    <CardContent className="p-4 sm:p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10     h-10 bg-green-50 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <CardContent className="p-3 sm:p-4">
+                        <div className="flex flex-col items-center text-center gap-2">
+                            <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center shadow-sm">
                                 <CiSquareCheck className="h-6 w-6 text-green-500" />
                             </div>
                             <div>
-                                <p className="text-sm text-slate-600 mb-1">Task Extracted</p>
-                                <p className="text-2xl sm:text-3xl font-bold text-slate-900">{emails.length}</p>
+                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Tasks</p>
+                                <p className="text-xl font-bold text-slate-900 leading-none">{stats.totalTasks || 0}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -236,14 +245,74 @@ export default function EmailManagement() {
 
                 {/* Issues Found */}
                 <Card className="bg-slate-50 border-slate-200 hover:shadow-md transition-shadow">
-                    <CardContent className="p-4 sm:p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-yellow-50 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
-                                <FiAlertTriangle className="h-6 w-6 text-yellow-500" />
+                    <CardContent className="p-3 sm:p-4">
+                        <div className="flex flex-col items-center text-center gap-2">
+                            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center shadow-sm">
+                                <FiAlertTriangle className="h-6 w-6 text-amber-500" />
                             </div>
                             <div>
-                                <p className="text-sm text-slate-600 mb-1">Issues Found</p>
-                                <p className="text-2xl sm:text-3xl font-bold text-slate-900">{promotionsCount}</p>
+                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Issues</p>
+                                <p className="text-xl font-bold text-slate-900 leading-none">{stats.totalIssues || 0}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Risks */}
+                <Card className="bg-slate-50 border-slate-200 hover:shadow-md transition-shadow">
+                    <CardContent className="p-3 sm:p-4">
+                        <div className="flex flex-col items-center text-center gap-2">
+                            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center shadow-sm">
+                                <FiAlertTriangle className="h-6 w-6 text-red-500" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Risks</p>
+                                <p className="text-xl font-bold text-slate-900 leading-none">{stats.totalRisks || 0}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Assumptions */}
+                <Card className="bg-slate-50 border-slate-200 hover:shadow-md transition-shadow">
+                    <CardContent className="p-3 sm:p-4">
+                        <div className="flex flex-col items-center text-center gap-2">
+                            <div className="w-10 h-10 bg-sky-50 rounded-lg flex items-center justify-center shadow-sm">
+                                <FiFile className="h-6 w-6 text-sky-500" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Assumptions</p>
+                                <p className="text-xl font-bold text-slate-900 leading-none">{stats.totalAssumptions || 0}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Decisions */}
+                <Card className="bg-slate-50 border-slate-200 hover:shadow-md transition-shadow">
+                    <CardContent className="p-3 sm:p-4">
+                        <div className="flex flex-col items-center text-center gap-2">
+                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center shadow-sm">
+                                <FiFile className="h-6 w-6 text-blue-500" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Decisions</p>
+                                <p className="text-xl font-bold text-slate-900 leading-none">{stats.totalDecisions || 0}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Dependencies */}
+                <Card className="bg-slate-50 border-slate-200 hover:shadow-md transition-shadow">
+                    <CardContent className="p-3 sm:p-4">
+                        <div className="flex flex-col items-center text-center gap-2">
+                            <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center shadow-sm">
+                                <FiFile className="h-6 w-6 text-purple-500" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Dependencies</p>
+                                <p className="text-xl font-bold text-slate-900 leading-none">{stats.totalDependencies || 0}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -251,29 +320,14 @@ export default function EmailManagement() {
 
                 {/* AI Processed */}
                 <Card className="bg-slate-50 border-slate-200 hover:shadow-md transition-shadow">
-                    <CardContent className="p-4 sm:p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
-                                <PiShootingStar className="h-6 w-6 text-blue-500" />
+                    <CardContent className="p-3 sm:p-4">
+                        <div className="flex flex-col items-center text-center gap-2">
+                            <div className="w-10 h-10 bg-[#6051E2]/10 rounded-lg flex items-center justify-center shadow-sm">
+                                <PiShootingStar className="h-6 w-6 text-[#6051E2]" />
                             </div>
                             <div>
-                                <p className="text-sm text-slate-600 mb-1">AI Processed</p>
-                                <p className="text-2xl sm:text-3xl font-bold text-slate-900">{socialCount}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Unread Email */}
-                <Card className="bg-slate-50 border-slate-200 hover:shadow-md transition-shadow">
-                    <CardContent className="p-4 sm:p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
-                                <LuMessageSquareMore className="h-6 w-6 text-blue-500" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-600 mb-1">Unread Email</p>
-                                <p className="text-2xl sm:text-3xl font-bold text-slate-900">{filteredEmails.length}</p>
+                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">AI Processed</p>
+                                <p className="text-xl font-bold text-slate-900 leading-none">{stats.totalAiPossessed || 0}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -352,15 +406,28 @@ export default function EmailManagement() {
                                             <div className="flex items-start justify-between gap-4 mb-2">
                                                 <div className="flex-1 min-w-0">
                                                     <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-1 truncate">
-                                                        {email.title}
+                                                        Email Subject: {email.title}
                                                     </h3>
                                                     <p className="text-sm sm:text-base text-slate-600 line-clamp-2">
-                                                        {email.description.split(" ").slice(0, 20).join(" ")}...
+                                                        {String(email.description || "")
+                                                            .split(" ")
+                                                            .slice(0, 20)
+                                                            .join(" ")}...
                                                     </p>
                                                 </div>
 
-                                                {/* Right Side - Timestamp, Badge, Star */}
-                                                <div className="flex items-center gap-3 flex-shrink-0">
+                                                {/* Right Side - CTA, Timestamp, Badge */}
+                                                <div className="flex items-center gap-6 flex-shrink-0">
+                                                    {/* Highlighted Call to action text */}
+                                                    <div className="hidden lg:flex flex-col items-end leading-tight">
+                                                        <span className="text-[10px] font-bold text-[#6051E2] uppercase tracking-wider">
+                                                            Click to view insights
+                                                        </span>
+                                                        <span className="text-[10px] font-bold text-[#6051E2] uppercase tracking-wider">
+                                                            & generate AI reply
+                                                        </span>
+                                                    </div>
+
                                                     {/* New Badge */}
                                                     {email.category !== "all" && (
                                                         <span

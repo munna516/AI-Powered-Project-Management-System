@@ -133,12 +133,12 @@ export default function AddVendor() {
         const selectedProjectId = Array.isArray(vendorDetails.projectIds)
             ? vendorDetails.projectIds[0]
             : vendorDetails.projectIds ||
-              vendorDetails.projectId ||
-              vendorDetails.project?.id ||
-              vendorDetails.projects?.[0]?.id ||
-              vendorDetails.categoryId ||
-              queryProjectId ||
-              "";
+            vendorDetails.projectId ||
+            vendorDetails.project?.id ||
+            vendorDetails.projects?.[0]?.id ||
+            vendorDetails.categoryId ||
+            queryProjectId ||
+            "";
 
         const fallbackProjectByName = projectOptions.find(
             (project) =>
@@ -399,6 +399,8 @@ export default function AddVendor() {
         }
         if (!formData.numberOfProjects.trim()) {
             newErrors.numberOfProjects = "Number of projects is required";
+        } else if (isNaN(Number(formData.numberOfProjects))) {
+            newErrors.numberOfProjects = "Please enter a valid number";
         }
         if (!photo) {
             newErrors.photo = "Photo is required";
@@ -424,18 +426,14 @@ export default function AddVendor() {
         }
         if (!formData.contactProjects.trim()) {
             newErrors.contactProjects = "Number of projects is required";
+        } else if (isNaN(Number(formData.contactProjects))) {
+            newErrors.contactProjects = "Please enter a valid number";
         }
         if (!formData.contactDesignation.trim()) {
             newErrors.contactDesignation = "Designation is required";
         }
 
-        // File uploads
-        if (documents.length === 0) {
-            newErrors.documents = "Please upload at least one document";
-        }
-        if (slaFiles.length === 0) {
-            newErrors.slaFiles = "Please upload at least one SLA file";
-        }
+        // File uploads are now optional
 
         // Meeting links validation
         const validLinks = meetingLinks.filter(link => link.trim() !== "");
@@ -465,8 +463,7 @@ export default function AddVendor() {
             const payload = new FormData();
             payload.append("name", formData.vendorName);
             payload.append("email", formData.email);
-            payload.append("numberOfProjects", formData.numberOfProjects);
-            payload.append("projectIds", String(formData.projectId));
+            payload.append("numberOfProjects", Number(formData.numberOfProjects) || 0);
             payload.append("meetingLinks", JSON.stringify(meetingLinksPayload));
             payload.append("phone", formData.phoneNumber);
             payload.append("designation", formData.designation);
@@ -474,7 +471,7 @@ export default function AddVendor() {
             payload.append("contactRole", formData.contactRole);
             payload.append("contactEmail", formData.contactEmail);
             payload.append("contactPhone", formData.contactPhone);
-            payload.append("contactProjects", formData.contactProjects);
+            payload.append("contactProjects", Number(formData.contactProjects) || 0);
             payload.append("contactDesignation", formData.contactDesignation);
 
             if (photo?.file) {
@@ -507,8 +504,8 @@ export default function AddVendor() {
         router.push("/vendors");
     };
 
-   
-    
+
+
     if (isProjectsLoading || isVendorLoading) {
         return <Loading />;
     }
@@ -533,7 +530,7 @@ export default function AddVendor() {
                     {/* Vendor Name */}
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-slate-700">
-                            Vendor name <span className="text-red-500">*</span>
+                            Vendor name
                         </label>
                         <Input
                             type="text"
@@ -608,8 +605,9 @@ export default function AddVendor() {
                             Number of projects <span className="text-red-500">*</span>
                         </label>
                         <Input
-                            type="text"
+                            type="number"
                             name="numberOfProjects"
+                            min="0"
                             value={formData.numberOfProjects}
                             onChange={handleInputChange}
                             placeholder="03"
@@ -780,8 +778,9 @@ export default function AddVendor() {
                                 Number of projects <span className="text-red-500">*</span>
                             </label>
                             <Input
-                                type="text"
+                                type="number"
                                 name="contactProjects"
+                                min="0"
                                 value={formData.contactProjects}
                                 onChange={handleInputChange}
                                 placeholder="03"
@@ -870,7 +869,7 @@ export default function AddVendor() {
                 {/* Upload  Document */}
                 <div className="space-y-4">
                     <h2 className="text-lg font-semibold text-slate-900">
-                        Upload meeting or Document <span className="text-red-500">*</span>
+                        Upload meeting or Document
                     </h2>
                     <input
                         type="file"
@@ -936,7 +935,7 @@ export default function AddVendor() {
                 {/* Upload Service Level Agreements */}
                 <div className="space-y-4">
                     <h2 className="text-lg font-semibold text-slate-900">
-                        Upload service level agreements <span className="text-red-500">*</span>
+                        Upload service level agreements
                     </h2>
                     <input
                         type="file"

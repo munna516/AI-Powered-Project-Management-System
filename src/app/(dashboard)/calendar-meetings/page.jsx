@@ -224,35 +224,35 @@ export default function CalendarMeetings() {
     const rawEvents = Array.isArray(eventsResponse?.data) ? eventsResponse.data : []
     return rawEvents
       .map((ev, idx) => {
-      const start = ev?.start ? new Date(ev.start) : null
-      const end = ev?.end ? new Date(ev.end) : null
-      if (!start || Number.isNaN(start.getTime())) return null
-      const durationMinutes = (() => {
-        if (!start || !end) return 60
-        const diff = Math.round((end.getTime() - start.getTime()) / 60000)
-        return Number.isFinite(diff) && diff > 0 ? diff : 60
-      })()
+        const start = ev?.start ? new Date(ev.start) : null
+        const end = ev?.end ? new Date(ev.end) : null
+        if (!start || Number.isNaN(start.getTime())) return null
+        const durationMinutes = (() => {
+          if (!start || !end) return 60
+          const diff = Math.round((end.getTime() - start.getTime()) / 60000)
+          return Number.isFinite(diff) && diff > 0 ? diff : 60
+        })()
 
-      const dateStr = start ? formatDateForMeeting(start) : ""
-      const timeStr = start ? formatTimeForMeeting(start) : ""
+        const dateStr = start ? formatDateForMeeting(start) : ""
+        const timeStr = start ? formatTimeForMeeting(start) : ""
 
-      const theme = MEETING_COLORS[idx % MEETING_COLORS.length]
+        const theme = MEETING_COLORS[idx % MEETING_COLORS.length]
 
-      const rawAiSummary = ev?.aiSummary ?? ev?.description ?? fallbackAiSummary
-      const aiSummary =
-        Array.isArray(rawAiSummary) ? rawAiSummary.find(Boolean) || fallbackAiSummary : rawAiSummary || fallbackAiSummary
+        const rawAiSummary = ev?.aiSummary ?? ev?.description ?? fallbackAiSummary
+        const aiSummary =
+          Array.isArray(rawAiSummary) ? rawAiSummary.find(Boolean) || fallbackAiSummary : rawAiSummary || fallbackAiSummary
 
-      return {
-        id: String(ev?.id ?? idx),
-        title: ev?.summary || "Meeting",
-        time: timeStr,
-        date: dateStr,
-        duration: durationMinutes,
-        color: theme.color,
-        dotColor: theme.dotColor,
-        aiSummary,
-        joinUrl: ev?.htmlLink || ev?.url || "",
-      }
+        return {
+          id: String(ev?.id ?? idx),
+          title: ev?.summary || "Meeting",
+          time: timeStr,
+          date: dateStr,
+          duration: durationMinutes,
+          color: theme.color,
+          dotColor: theme.dotColor,
+          aiSummary,
+          joinUrl: ev?.htmlLink || ev?.url || "",
+        }
       })
       .filter(Boolean)
   }, [eventsResponse])
@@ -376,7 +376,7 @@ export default function CalendarMeetings() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Calendar & Meetings</h1>
             <p className="text-sm text-gray-600 mt-1">
-              Manage your schedule across Zoom, Meet, and Teams.
+              Manage your schedule across Zoom
             </p>
           </div>
           <Button
@@ -473,7 +473,7 @@ export default function CalendarMeetings() {
         </Dialog>
 
         {/* AI Alert */}
-        <div className="mb-4 flex items-center gap-2 rounded-lg bg-yellow-50 border border-yellow-200 p-3">
+        <div className="mb-4 hidden flex items-center gap-2 rounded-lg bg-yellow-50 border border-yellow-200 p-3">
           <Zap className="h-4 w-4 text-yellow-600" />
           <span className="text-sm text-yellow-800">
             AI detected 2 Overlapping meetings On Thursday.
@@ -639,9 +639,9 @@ export default function CalendarMeetings() {
                                       ? "12 PM"
                                       : hour === 0
                                         ? "12 AM"
-                                      : hour > 12
-                                        ? `${hour - 12} PM`
-                                        : `${hour} AM`}
+                                        : hour > 12
+                                          ? `${hour - 12} PM`
+                                          : `${hour} AM`}
                                   </span>
                                 </div>
                               )
@@ -721,23 +721,23 @@ export default function CalendarMeetings() {
                                             </div>
                                           </div>
                                           <div className="pt-2 border-t border-purple-200">
-                                          <div className="text-xs font-semibold text-purple-700 mb-1">
-                                            Join meeting:
+                                            <div className="text-xs font-semibold text-purple-700 mb-1">
+                                              Join meeting:
+                                            </div>
+                                            {meeting.joinUrl ? (
+                                              <a
+                                                href={meeting.joinUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-xs text-blue-600 hover:underline leading-relaxed"
+                                              >
+                                                Click here
+                                                <span className="text-xs text-gray-600"> ({meeting.title})</span>
+                                              </a>
+                                            ) : (
+                                              <span className="text-xs text-gray-500">URL not available</span>
+                                            )}
                                           </div>
-                                          {meeting.joinUrl ? (
-                                            <a
-                                              href={meeting.joinUrl}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="text-xs text-blue-600 hover:underline leading-relaxed"
-                                            >
-                                              Click here
-                                              <span className="text-xs text-gray-600"> ({meeting.title})</span>
-                                            </a>
-                                          ) : (
-                                            <span className="text-xs text-gray-500">URL not available</span>
-                                          )}
-                                        </div>
                                         </div>
                                       </TooltipContent>
                                     </Tooltip>

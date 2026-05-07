@@ -76,6 +76,8 @@ export default function DocumentSection({
     file: null,
   });
   const [editingDocumentId, setEditingDocumentId] = useState(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState(null);
 
   const inputBaseClass =
     "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#6051E2]";
@@ -293,6 +295,65 @@ export default function DocumentSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+ 
+      {/* View Document Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-left font-semibold text-[#6051E2]">
+              Document Details
+            </DialogTitle>
+          </DialogHeader>
+          {selectedDocument && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">Name</span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedDocument.name}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">Date</span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedDocument.date}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">
+                  Document Link
+                </span>
+                <div className="col-span-2">
+                  <Link
+                    href={selectedDocument.url}
+                    target="_blank"
+                    className="text-sm text-blue-600 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Click to view
+                  </Link>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">
+                  Summary
+                </span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedDocument.summary || "N/A"}
+                </span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setViewDialogOpen(false)}
+              className="w-full cursor-pointer sm:w-auto"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
@@ -325,7 +386,11 @@ export default function DocumentSection({
                   documents.map((doc) => (
                     <TableRow
                       key={doc.id}
-                      className="border-b border-slate-100 hover:bg-slate-50"
+                      className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50"
+                      onClick={() => {
+                        setSelectedDocument(doc);
+                        setViewDialogOpen(true);
+                      }}
                     >
                       <TableCell className="px-4 py-3 text-slate-800">
                         {doc.date}
@@ -338,6 +403,7 @@ export default function DocumentSection({
                           href={doc.url}
                           target="_blank"
                           className="cursor-pointer text-blue-600 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           Click to view
                         </Link>
@@ -349,6 +415,7 @@ export default function DocumentSection({
                             className="cursor-pointer text-slate-500 transition-colors hover:text-blue-600"
                             title="View document summary"
                             aria-label="View document summary"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <FiEye className="h-4 w-4" />
                           </Link>
@@ -363,7 +430,10 @@ export default function DocumentSection({
                           </button> */}
                           <button
                             type="button"
-                            onClick={() => handleDelete(doc.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(doc.id);
+                            }}
                             className="cursor-pointer text-slate-500 transition-colors hover:text-red-600"
                             title="Delete document"
                             aria-label="Delete document"

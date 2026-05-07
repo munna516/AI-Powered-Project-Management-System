@@ -90,6 +90,7 @@ export default function CreateProject() {
 
     const [formData, setFormData] = useState({
         vendorName: "",
+        vendorId: "",
         projectName: "",
         projectDescription: "",
         projectOwner: "",
@@ -131,6 +132,24 @@ export default function CreateProject() {
 
         return rawTeams.map((team, index) => normalizeTeam(team, index));
     }, [teamsResponse]);
+
+    const { data: vendorsResponse, isLoading: isVendorsLoading } = useQuery({
+        queryKey: ["all-vendors"],
+        queryFn: () => apiGet("/api/project-manager/vendor-management/all"),
+    });
+
+    const vendorOptions = useMemo(() => {
+        const rawVendors = Array.isArray(vendorsResponse?.data)
+            ? vendorsResponse.data
+            : Array.isArray(vendorsResponse?.data?.data)
+                ? vendorsResponse.data.data
+                : [];
+
+        return rawVendors.map((vendor) => ({
+            id: String(vendor.id),
+            name: vendor.name || "-",
+        }));
+    }, [vendorsResponse]);
 
     const {
         data: projectDetails,
@@ -192,6 +211,7 @@ export default function CreateProject() {
         setFormData((prev) => ({
             ...prev,
             vendorName: projectDetails.vendorName || "",
+            vendorId: projectDetails.vendorId || "",
             projectName: projectDetails.name || "",
             projectDescription: projectDetails.description || "",
             projectOwner: String(
@@ -294,7 +314,7 @@ export default function CreateProject() {
 
             const nextErrors = {};
 
-            if (!formData.vendorName.trim()) nextErrors.vendorName = "Vendor name is required";
+            if (!formData.vendorId) nextErrors.vendorId = "Vendor is required";
             if (!formData.projectName.trim()) nextErrors.projectName = "Project name is required";
             if (!formData.projectOwner) nextErrors.projectOwner = "Project manager is required";
             if (!formData.assignedTeam) nextErrors.assignedTeam = "Assigned team is required";
@@ -310,7 +330,8 @@ export default function CreateProject() {
             const basePayload = {
                 name: formData.projectName.trim(),
                 description: formData.projectDescription.trim(),
-                vendorName: formData.vendorName.trim(),
+                vendorId: formData.vendorId,
+                vendorName: formData.vendorName,
                 startDate: new Date(formData.startDate).toISOString(),
                 assignTeamId:
                     formData.assignedTeam || getProjectAssignedTeamId(projectDetails),
@@ -332,6 +353,7 @@ export default function CreateProject() {
                 const payload = new FormData();
                 payload.append("name", basePayload.name);
                 payload.append("description", basePayload.description);
+                payload.append("vendorId", basePayload.vendorId);
                 payload.append("vendorName", basePayload.vendorName);
                 payload.append("startDate", basePayload.startDate);
                 payload.append("assignTeamId", basePayload.assignTeamId);
@@ -400,14 +422,42 @@ export default function CreateProject() {
                                     <label className="text-sm font-medium text-slate-700">
                                         Vendor Name
                                     </label>
-                                    <Input
-                                        name="vendorName"
-                                        value={formData.vendorName}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g., G4 Marketing Campaign"
-                                    />
-                                    {errors.vendorName && (
-                                        <p className="text-xs text-red-500">{errors.vendorName}</p>
+                                    <Select
+                                        value={formData.vendorId}
+                                        onValueChange={(value) => {
+                                            const selectedVendor = vendorOptions.find(v => v.id === value);
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                vendorId: value,
+                                                vendorName: selectedVendor?.name || "",
+                                            }));
+                                            if (errors.vendorId) {
+                                                setErrors(prev => ({ ...prev, vendorId: "" }));
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue
+                                                placeholder={
+                                                    isVendorsLoading
+                                                        ? "Loading vendors..."
+                                                        : "Select vendor"
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {vendorOptions.map((vendor) => (
+                                                <SelectItem
+                                                    key={vendor.id}
+                                                    value={vendor.id}
+                                                >
+                                                    {vendor.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.vendorId && (
+                                        <p className="text-xs text-red-500">{errors.vendorId}</p>
                                     )}
                                 </div>
                                 <div className="space-y-2">

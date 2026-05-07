@@ -53,6 +53,7 @@ const defaultSidebarItems = [
   { name: "Lesson Learned", icon: <FiBook />, href: "/lessons" },
   { name: "Vendors", icon: <HiOutlineShoppingBag />, href: "/vendors" },
   { name: "Email Management", icon: <MdEmail />, href: "/email-management" },
+  { name: "All Notification", icon: <FiBell />, href: "/all-notifications" },
   { name: "Data Source", icon: <FaDatabase />, href: "/data-source" },
   { name: "Meeting Management", icon: <BsDatabaseFillGear />, href: "/meeting-management" },
   { name: "Calendar & Meetings", icon: <FaCalendarAlt />, href: "/calendar-meetings" },
