@@ -44,6 +44,7 @@ const initialApprovalState = {
   raiddCategory: "",
   detectedRaiddCategories: [],
   isCategoryFixed: false,
+  isBulk: false,
 };
 
 const normalizeRaiddCategoryLabel = (value) => {
@@ -69,7 +70,7 @@ const normalizeRaiddCategoryLabel = (value) => {
   }
 };
 
-const deriveRaiddAnalysisFromFullAiResponse = (fullAiResponse) => {
+const deriveRaiddAnalysisFromData = (raiddData) => {
   const keyToLabel = {
     risks: "Risk",
     issues: "Issue",
@@ -95,17 +96,10 @@ const deriveRaiddAnalysisFromFullAiResponse = (fullAiResponse) => {
     }
   };
 
-  const ingestRaiddBlock = (raidd) => {
-    if (!raidd || typeof raidd !== "object") return;
+  if (raiddData && typeof raiddData === "object") {
     Object.entries(keyToLabel).forEach(([key, label]) => {
-      pushRaiddValue(label, raidd[key]);
+      pushRaiddValue(label, raiddData[key]);
     });
-  };
-
-  if (Array.isArray(fullAiResponse)) {
-    fullAiResponse.forEach((aiItem) => ingestRaiddBlock(aiItem?.raiddAnalysis));
-  } else if (fullAiResponse && typeof fullAiResponse === "object") {
-    ingestRaiddBlock(fullAiResponse.raiddAnalysis);
   }
 
   const dedupedByLabel = Object.fromEntries(
@@ -183,16 +177,19 @@ const getRaiddBadgeClass = (value) => {
 };
 
 const normalizeDetection = (item, index) => {
-  const derived = deriveRaiddAnalysisFromFullAiResponse(item?.fullAiResponse);
-  const rootRaiddCategories = Array.isArray(item?.raiddAnalysis)
-    ? item.raiddAnalysis.map(normalizeRaiddCategoryLabel).filter(Boolean)
-    : [];
-  const raiddCategories = rootRaiddCategories.length > 0 ? rootRaiddCategories : derived.raiddCategories;
+  // Completely ignore fullAiResponse as per user request
+  // Use raiddData as the primary source for analysis and details
+  const derived = deriveRaiddAnalysisFromData(item?.raiddData);
+
+  // Use the categories present in raiddData for the badges
+  // This ensures that every badge at the top has corresponding details in the expanded view
+  const raiddCategories = derived.raiddCategories;
+
   return {
     id: String(item?.id || index),
     type: normalizeSourceType(item?.sourceType),
     title: item?.title || "Not available",
-    details: item?.summary || "",
+    details: item?.summary || item?.raiddMessage || "",
     raiddAnalysis: raiddCategories,
     raiddDetailsByCategory: derived.raiddDetailsByCategory,
     dateTime: item?.createdAt || item?.updatedAt || null,
@@ -219,6 +216,91 @@ const formatDateTime = (dateTime) => {
   })}`;
 };
 
+const DetectionDetails = ({ id, initialItem, onOpenApproveModal }) => {
+  const { data: detailsResponse, isLoading, isError } = useQuery({
+    queryKey: ["ai-detection", id],
+    queryFn: () => apiGet(`/api/project-manager/ai-detection/${id}`),
+    enabled: !!id,
+  });
+
+  const fullItem = useMemo(() => {
+    const raw = detailsResponse?.data || detailsResponse?.data?.data;
+    if (!raw) return initialItem;
+    return normalizeDetection(raw);
+  }, [detailsResponse, initialItem]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center p-8 bg-slate-50/30 border-t border-slate-50">
+        <Loading />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-4 text-center text-sm text-red-500 bg-slate-50/30 border-t border-slate-50">
+        Failed to load details.
+      </div>
+    );
+  }
+
+  const hasRaiddBullets =
+    Array.isArray(fullItem.raiddAnalysis) &&
+    fullItem.raiddAnalysis.some(
+      (category) => (fullItem.raiddDetailsByCategory?.[category] || []).length > 0
+    );
+
+  return (
+    <div className="border-t border-slate-50 bg-slate-50/30 p-4 sm:p-6 space-y-6">
+      {fullItem.details && !hasRaiddBullets && (
+        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+          <p className="text-sm leading-relaxed text-slate-600 font-medium">
+            {fullItem.details}
+          </p>
+        </div>
+      )}
+
+      {Array.isArray(fullItem.raiddAnalysis) && fullItem.raiddAnalysis.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {fullItem.raiddAnalysis.map((category) => {
+            const detectedItems = fullItem.raiddDetailsByCategory?.[category] || [];
+            if (!detectedItems.length) return null;
+
+            return (
+              <div key={category} className="group flex flex-col bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                <div className="p-4 border-b border-slate-50 flex items-center justify-between">
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getRaiddBadgeClass(category)}`}>
+                    {category}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => onOpenApproveModal(fullItem.id, category)}
+                    className="h-8 px-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all font-bold text-[10px] uppercase cursor-pointer shadow-sm"
+                  >
+                    Approve
+                  </Button>
+                </div>
+                <div className="p-4 flex-1">
+                  <ul className="space-y-3">
+                    {detectedItems.map((text, idx) => (
+                      <li key={`${category}-${idx}`} className="flex gap-2 text-xs leading-relaxed text-slate-600 font-medium">
+                        <div className="h-1.5 w-1.5 rounded-full bg-slate-200 mt-1.5 shrink-0" />
+                        <span>{text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function AiDetection() {
   const [activeTab, setActiveTab] = useState("email");
   const [searchValue, setSearchValue] = useState("");
@@ -226,6 +308,7 @@ export default function AiDetection() {
   const [hiddenItemIds, setHiddenItemIds] = useState(new Set([]));
   const [approveModalState, setApproveModalState] = useState(initialApprovalState);
   const [deletingId, setDeletingId] = useState("");
+  const [isApproving, setIsApproving] = useState(false);
   const [dateFilterState, setDateFilterState] = useState({
     filter: "all",
     startDate: null,
@@ -319,8 +402,8 @@ export default function AiDetection() {
   });
 
   const approveDetectionMutation = useMutation({
-    mutationFn: ({ projectId, type }) =>
-      apiPost("/api/project-manager/raidd/create", { projectId, type }),
+    mutationFn: (payload) =>
+      apiPost("/api/project-manager/raidd/create", payload),
   });
 
   const handleRemove = async (id) => {
@@ -367,21 +450,29 @@ export default function AiDetection() {
     });
   };
 
-  const handleOpenApproveModal = (id, specificCategory = null) => {
+  const handleOpenApproveModal = (id, specificCategory = null, isBulk = false) => {
     const selectedItem = communications.find((item) => String(item.id) === String(id));
 
     const detectedCategories = Array.isArray(selectedItem?.raiddAnalysis)
       ? selectedItem.raiddAnalysis
       : [];
 
+    let raiddCategory = "";
+    if (isBulk) {
+      raiddCategory = detectedCategories.map(getRaiddOptionValue);
+    } else {
+      raiddCategory = specificCategory
+        ? getRaiddOptionValue(specificCategory)
+        : getRaiddOptionValue(detectedCategories[0]);
+    }
+
     setApproveModalState({
       itemId: String(id),
       projectId: "",
-      raiddCategory: specificCategory
-        ? getRaiddOptionValue(specificCategory)
-        : getRaiddOptionValue(detectedCategories[0]),
+      raiddCategory,
       detectedRaiddCategories: detectedCategories,
-      isCategoryFixed: !!specificCategory,
+      isCategoryFixed: !!specificCategory || isBulk,
+      isBulk,
     });
   };
 
@@ -389,41 +480,47 @@ export default function AiDetection() {
     setApproveModalState(initialApprovalState);
   };
 
-  const handleApproveDetection = () => {
+  const handleApproveDetection = async () => {
     if (!approveModalState.projectId) {
       toast.error("Please select a project");
       return;
     }
 
-    if (!approveModalState.raiddCategory) {
+    if (
+      !approveModalState.raiddCategory ||
+      (Array.isArray(approveModalState.raiddCategory) && approveModalState.raiddCategory.length === 0)
+    ) {
       toast.error("Please select a RAIDD category");
       return;
     }
 
-    approveDetectionMutation.mutate(
-      {
+    const categories = Array.isArray(approveModalState.raiddCategory)
+      ? approveModalState.raiddCategory
+      : [approveModalState.raiddCategory];
+
+    setIsApproving(true);
+    try {
+      // Send categories as an array if bulk, otherwise as a single string
+      const payload = {
         projectId: approveModalState.projectId,
-        type: String(approveModalState.raiddCategory || "").toLowerCase(),
-      },
-      {
-        onSuccess: async () => {
-          // If we approved a specific category, we don't necessarily want to hide the whole detection
-          // unless all categories are handled. For now, following original behavior.
-          setHiddenItemIds((prev) => new Set(prev).add(String(approveModalState.itemId)));
-          setExpandedItems((prev) => {
-            const next = new Set(prev);
-            next.delete(approveModalState.itemId);
-            return next;
-          });
-          toast.success("Detection approved successfully");
-          await deleteDetectionMutation.mutateAsync(approveModalState.itemId);
-          handleCloseApproveModal();
-        },
-        onError: (err) => {
-          toast.error(err?.message || "Failed to approve detection.");
-        },
-      }
-    );
+        aiDetectionId: approveModalState.itemId,
+        type: approveModalState.isBulk
+          ? categories.map(cat => String(cat).toUpperCase())
+          : String(categories[0]).toUpperCase()
+      };
+
+      await approveDetectionMutation.mutateAsync(payload);
+
+      toast.success("Detection approved successfully");
+
+      await queryClient.invalidateQueries({ queryKey: ["ai-detections"] });
+      await queryClient.invalidateQueries({ queryKey: ["ai-detection", approveModalState.itemId] });
+      handleCloseApproveModal();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to approve detection.");
+    } finally {
+      setIsApproving(false);
+    }
   };
 
   if (isDetectionsLoading) {
@@ -489,10 +586,22 @@ export default function AiDetection() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Approve Detection</DialogTitle>
+            <DialogTitle>
+              {approveModalState.isBulk ? "Approve All Detections" : "Approve Detection"}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
+            {approveModalState.isBulk && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                  <FiCheck className="h-4 w-4 text-emerald-600" />
+                </div>
+                <p className="text-xs text-emerald-700 font-bold leading-tight">
+                  Approving all detected categories: {approveModalState.detectedRaiddCategories.join(", ")}
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700">
                 Select Project
@@ -567,9 +676,9 @@ export default function AiDetection() {
               type="button"
               className="flex-1 h-11 rounded-xl bg-[#6051E2] text-white font-bold shadow-lg shadow-[#6051E2]/20 hover:bg-[#6051E2]/90 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
               onClick={handleApproveDetection}
-              disabled={approveDetectionMutation.isPending}
+              disabled={isApproving}
             >
-              {approveDetectionMutation.isPending ? "Approving..." : "Approve"}
+              {isApproving ? "Approving..." : "Approve"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -656,7 +765,7 @@ export default function AiDetection() {
 
                         <Button
                           type="button"
-                          onClick={() => handleOpenApproveModal(item.id)}
+                          onClick={() => handleOpenApproveModal(item.id, null, true)}
                           className="h-10 px-4 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
                         >
                           <FiCheck className="h-3.5 w-3.5" />
@@ -667,52 +776,11 @@ export default function AiDetection() {
                   </div>
 
                   {isExpanded && (
-                    <div className="border-t border-slate-50 bg-slate-50/30 p-4 sm:p-6 space-y-6">
-                      {item.details && !hasRaiddBullets && (
-                        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                          <p className="text-sm leading-relaxed text-slate-600 font-medium">
-                            {item.details}
-                          </p>
-                        </div>
-                      )}
-
-                      {Array.isArray(item.raiddAnalysis) && item.raiddAnalysis.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {item.raiddAnalysis.map((category) => {
-                            const detectedItems = item.raiddDetailsByCategory?.[category] || [];
-                            if (!detectedItems.length) return null;
-
-                            return (
-                              <div key={category} className="group flex flex-col bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
-                                <div className="p-4 border-b border-slate-50 flex items-center justify-between">
-                                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getRaiddBadgeClass(category)}`}>
-                                    {category}
-                                  </span>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    onClick={() => handleOpenApproveModal(item.id, category)}
-                                    className="h-8 px-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all font-bold text-[10px] uppercase cursor-pointer shadow-sm"
-                                  >
-                                    Approve
-                                  </Button>
-                                </div>
-                                <div className="p-4 flex-1">
-                                  <ul className="space-y-3">
-                                    {detectedItems.map((text, idx) => (
-                                      <li key={`${category}-${idx}`} className="flex gap-2 text-xs leading-relaxed text-slate-600 font-medium">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-slate-200 mt-1.5 shrink-0" />
-                                        <span>{text}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    <DetectionDetails
+                      id={item.id}
+                      initialItem={item}
+                      onOpenApproveModal={handleOpenApproveModal}
+                    />
                   )}
                 </CardContent>
               </Card>

@@ -228,12 +228,35 @@ export default function ViewRAIDD() {
                                 <div className="flex items-start gap-2">
                                     <HiOutlineSparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                                     <div>
-                                        <p className="mb-1 text-xs font-medium text-slate-700">
-                                            DESCRIPTION
+                                        <p className="mb-1 text-xs font-medium text-slate-700 uppercase">
+                                            Description
                                         </p>
-                                        <p className="text-xs leading-relaxed text-slate-600 sm:text-sm">
-                                            {raiddData.description}
-                                        </p>
+                                        <div className="text-xs leading-relaxed text-slate-600 sm:text-sm">
+                                            {typeof raiddData.description === "object" && raiddData.description !== null ? (
+                                                <div className="space-y-3">
+                                                    {Object.entries(raiddData.description).map(([key, value]) => {
+                                                        const items = Array.isArray(value) ? value : [value];
+                                                        if (items.length === 0) return null;
+                                                        return (
+                                                            <div key={key} className="space-y-1">
+                                                                <p className="text-[10px] font-bold uppercase tracking-wider text-primary/80">
+                                                                    {key}
+                                                                </p>
+                                                                <ul className="space-y-1 list-disc pl-4">
+                                                                    {items.map((item, idx) => (
+                                                                        <li key={idx} className="text-slate-600">
+                                                                            {String(item)}
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <p>{raiddData.description}</p>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

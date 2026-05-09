@@ -104,13 +104,6 @@ export default function Vendors() {
             vendorId: String(vendor.id),
         });
 
-        if (vendor.projectId) {
-            params.set("projectId", String(vendor.projectId));
-        }
-        if (vendor.projectName) {
-            params.set("projectName", vendor.projectName);
-        }
-
         router.push(`/vendors/add-vendor?${params.toString()}`);
     };
 
@@ -227,9 +220,7 @@ export default function Vendors() {
                                         <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-sm lg:text-base">
                                             Mail
                                         </TableHead>
-                                        <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
-                                            Status (SLAs)
-                                        </TableHead>
+
                                         <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
                                             Total project
                                         </TableHead>
@@ -257,15 +248,7 @@ export default function Vendors() {
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-sm lg:text-base">
                                                 {vendor.email}
                                             </TableCell>
-                                            <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
-                                                <span
-                                                    className={`px-2 py-1 lg:px-3 lg:py-1 rounded-full text-xs font-medium ${getStatusStyle(
-                                                        vendor.status
-                                                    )}`}
-                                                >
-                                                    {vendor.status}
-                                                </span>
-                                            </TableCell>
+
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-center text-sm lg:text-base">
                                                 {vendor.totalProjects}
                                             </TableCell>
@@ -322,9 +305,7 @@ export default function Vendors() {
                                         <TableHead className="py-3 px-4 text-white font-semibold text-sm">
                                             Designation
                                         </TableHead>
-                                        <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
-                                            Status
-                                        </TableHead>
+
                                         <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
                                             Projects
                                         </TableHead>
@@ -352,15 +333,7 @@ export default function Vendors() {
                                             <TableCell className="py-3 px-4 text-slate-600 text-sm">
                                                 {vendor.designation}
                                             </TableCell>
-                                            <TableCell className="py-3 px-4 text-center">
-                                                <span
-                                                    className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusStyle(
-                                                        vendor.status
-                                                    )}`}
-                                                >
-                                                    {vendor.status}
-                                                </span>
-                                            </TableCell>
+
                                             <TableCell className="py-3 px-4 text-slate-600 text-center text-sm">
                                                 {vendor.totalProjects}
                                             </TableCell>
@@ -418,13 +391,7 @@ export default function Vendors() {
                                         <h3 className="font-semibold text-slate-800 text-base">
                                             {vendor.name}
                                         </h3>
-                                        <span
-                                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(
-                                                vendor.status
-                                            )}`}
-                                        >
-                                            {vendor.status}
-                                        </span>
+
                                     </div>
                                     <div className="space-y-2 text-sm">
                                         <div className="flex justify-between">

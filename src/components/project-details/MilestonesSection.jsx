@@ -24,7 +24,13 @@ import {
 } from "@/components/ui/select";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 
-const milestoneStatusOptions = ["Upcoming", "Complete"];
+const milestoneStatusOptions = [
+  "UPCOMING",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "DELAYED",
+  "CANCELLED",
+];
 
 const inputBaseClass =
   "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#6051E2]";
@@ -76,11 +82,14 @@ const normalizeMilestone = (milestone, index) => ({
         ? String(milestone.deadline).slice(0, 10)
         : "",
   description: milestone?.description || "N/A",
-  status:
-    String(milestone?.status || "").toLowerCase() === "completed" ||
-    String(milestone?.status || "").toLowerCase() === "complete"
-      ? "complete"
-      : "upcoming",
+  status: (() => {
+    const s = String(milestone?.status || "").toUpperCase();
+    if (s === "COMPLETE" || s === "COMPLETED") return "COMPLETED";
+    if (s === "IN_PROGRESS") return "IN_PROGRESS";
+    if (s === "DELAYED") return "DELAYED";
+    if (s === "CANCELLED") return "CANCELLED";
+    return "UPCOMING";
+  })(),
 });
 
 export default function MilestonesSection({ projectId }) {
@@ -198,7 +207,7 @@ export default function MilestonesSection({ projectId }) {
       title: milestoneForm.phase.trim(),
       description: milestoneForm.description.trim(),
       milestoneDate: date,
-      status: milestoneForm.status === "Complete" ? "COMPLETED" : "UPCOMING",
+      status: milestoneForm.status,
     };
 
     if (editingMilestoneId) {
@@ -218,7 +227,7 @@ export default function MilestonesSection({ projectId }) {
       phase: milestone.phase.replace("Phase: ", "Phase ").trim(),
       date: milestone.rawDate || "",
       description: milestone.description === "N/A" ? "" : milestone.description,
-      status: milestone.status === "complete" ? "Complete" : "Upcoming",
+      status: milestone.status,
     });
     setMilestoneModalOpen(true);
   };
@@ -309,7 +318,7 @@ export default function MilestonesSection({ projectId }) {
                 <SelectContent>
                   {milestoneStatusOptions.map((status) => (
                     <SelectItem key={status} value={status}>
-                      {status}
+                      {status.split("_").map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ")}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -383,15 +392,31 @@ export default function MilestonesSection({ projectId }) {
                     <div className="absolute left-32 z-10 hidden -translate-x-1/2 -translate-y-1 transform md:block">
                       <div
                         className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${
-                          milestone.status === "complete"
+                          milestone.status === "COMPLETED"
                             ? "border-green-500 bg-green-500"
+                            : milestone.status === "IN_PROGRESS"
+                            ? "border-blue-500 bg-blue-500"
+                            : milestone.status === "DELAYED"
+                            ? "border-red-500 bg-red-500"
+                            : milestone.status === "CANCELLED"
+                            ? "border-slate-500 bg-slate-500"
                             : "border-orange-400 bg-white"
                         }`}
                       >
-                        {milestone.status === "complete" ? (
+                        {milestone.status === "COMPLETED" ? (
                           <CheckCircle2 className="h-4 w-4 text-white" />
                         ) : (
-                          <Circle className="h-4 w-4 fill-orange-400 text-orange-400" />
+                          <Circle
+                            className={`h-4 w-4 ${
+                              milestone.status === "IN_PROGRESS"
+                                ? "fill-blue-500 text-blue-500"
+                                : milestone.status === "DELAYED"
+                                ? "fill-red-500 text-red-500"
+                                : milestone.status === "CANCELLED"
+                                ? "fill-slate-500 text-slate-500"
+                                : "fill-orange-400 text-orange-400"
+                            }`}
+                          />
                         )}
                       </div>
                     </div>
@@ -428,12 +453,18 @@ export default function MilestonesSection({ projectId }) {
                       <Button
                         size="sm"
                         className={`cursor-pointer rounded-full border ${
-                          milestone.status === "complete"
+                          milestone.status === "COMPLETED"
                             ? "border-green-300 bg-green-100 text-green-800 hover:bg-green-200"
+                            : milestone.status === "IN_PROGRESS"
+                            ? "border-blue-300 bg-blue-100 text-blue-800 hover:bg-blue-200"
+                            : milestone.status === "DELAYED"
+                            ? "border-red-300 bg-red-100 text-red-800 hover:bg-red-200"
+                            : milestone.status === "CANCELLED"
+                            ? "border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200"
                             : "border-orange-300 bg-orange-100 text-orange-800 hover:bg-orange-200"
                         }`}
                       >
-                        {milestone.status === "complete" ? "Complete" : "Upcoming"}
+                        {milestone.status.split("_").map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ")}
                       </Button>
                     </div>
                   </div>

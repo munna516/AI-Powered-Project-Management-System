@@ -17,23 +17,16 @@ export default function AddVendor() {
     const slaInputRef = useRef(null);
     const initializedVendorRef = useRef("");
     const [vendorId, setVendorId] = useState("");
-    const [queryProjectId, setQueryProjectId] = useState("");
-    const [queryProjectName, setQueryProjectName] = useState("");
 
     useEffect(() => {
         if (typeof window === "undefined") return;
         const params = new URLSearchParams(window.location.search);
         setVendorId(params.get("vendorId") || "");
-        setQueryProjectId(params.get("projectId") || "");
-        setQueryProjectName(params.get("projectName") || "");
     }, []);
 
     const isEditMode = Boolean(vendorId);
 
-    const { data: projects, isLoading: isProjectsLoading } = useQuery({
-        queryKey: ["projects"],
-        queryFn: () => apiGet("/api/project-manager/project-management/my-projects"),
-    });
+
 
     const {
         data: vendorDetails,
@@ -63,7 +56,6 @@ export default function AddVendor() {
         email: "",
         phoneNumber: "",
         numberOfProjects: "",
-        projectId: "",
         contactPerson: "",
         contactRole: "",
         contactEmail: "",
@@ -80,28 +72,7 @@ export default function AddVendor() {
     const [isDraggingDocuments, setIsDraggingDocuments] = useState(false);
     const [isDraggingSla, setIsDraggingSla] = useState(false);
 
-    const projectOptions = useMemo(() => (
-        (
-            Array.isArray(projects?.data)
-                ? projects.data
-                : Array.isArray(projects?.data?.data)
-                    ? projects.data.data
-                    : Array.isArray(projects?.data?.projects)
-                        ? projects.data.projects
-                        : Array.isArray(projects?.projects)
-                            ? projects.projects
-                            : []
-        )
-            .map((project, index) => ({
-                id: String(project?.id ?? project?._id ?? project?.projectId ?? ""),
-                name:
-                    project?.projectName ||
-                    project?.name ||
-                    project?.title ||
-                    `Project ${index + 1}`,
-            }))
-            .filter((project) => project.id)
-    ), [projects]);
+
 
     const createVendorMutation = useMutation({
         mutationFn: async (payload) => apiPost("/api/project-manager/vendor-management/create", payload),
@@ -130,45 +101,12 @@ export default function AddVendor() {
         if (!vendorDetails) return;
         if (initializedVendorRef.current === String(vendorDetails.id)) return;
 
-        const selectedProjectId = Array.isArray(vendorDetails.projectIds)
-            ? vendorDetails.projectIds[0]
-            : vendorDetails.projectIds ||
-            vendorDetails.projectId ||
-            vendorDetails.project?.id ||
-            vendorDetails.projects?.[0]?.id ||
-            vendorDetails.categoryId ||
-            queryProjectId ||
-            "";
-
-        const fallbackProjectByName = projectOptions.find(
-            (project) =>
-                project.name === vendorDetails.category ||
-                project.name === vendorDetails.projectName ||
-                project.name === vendorDetails.project?.name ||
-                project.name === vendorDetails.project?.title ||
-                project.name === vendorDetails.projects?.[0]?.name ||
-                project.name === vendorDetails.projects?.[0]?.title ||
-                project.name === queryProjectName
-        );
-
-        // Wait for project options when vendor data has no direct project id
-        if (!selectedProjectId && !fallbackProjectByName && projectOptions.length === 0) {
-            return;
-        }
-
-        const resolvedProjectId = String(
-            selectedProjectId ||
-            fallbackProjectByName?.id ||
-            ""
-        );
-
         setFormData({
             vendorName: vendorDetails.name || "",
             designation: vendorDetails.designation || "",
             email: vendorDetails.email || "",
             phoneNumber: vendorDetails.phone || "",
             numberOfProjects: String(vendorDetails.numberOfProjects ?? ""),
-            projectId: resolvedProjectId,
             contactPerson: vendorDetails.contactPerson || "",
             contactRole: vendorDetails.contactRole || "",
             contactEmail: vendorDetails.contactEmail || "",
@@ -219,7 +157,7 @@ export default function AddVendor() {
                 : [""]
         );
         initializedVendorRef.current = String(vendorDetails.id);
-    }, [vendorDetails, projectOptions, queryProjectId, queryProjectName]);
+    }, [vendorDetails]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -405,9 +343,7 @@ export default function AddVendor() {
         if (!photo) {
             newErrors.photo = "Photo is required";
         }
-        if (!formData.projectId) {
-            newErrors.projectId = "Category is required";
-        }
+
 
         // Key Point of Contact
         if (!formData.contactPerson.trim()) {
@@ -506,7 +442,7 @@ export default function AddVendor() {
 
 
 
-    if (isProjectsLoading || isVendorLoading) {
+    if (isVendorLoading) {
         return <Loading />;
     }
 
@@ -657,35 +593,7 @@ export default function AddVendor() {
                         )}
                     </div>
 
-                    {/* Category */}
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-slate-700">
-                            Category <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            name="projectId"
-                            value={formData.projectId}
-                            onChange={handleInputChange}
-                            disabled={isProjectsLoading || projectOptions.length === 0}
-                            className={`h-10 w-full rounded-md border px-3 py-2 text-sm outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50 bg-white ${errors.projectId ? "border-red-500 focus-visible:ring-red-500" : "border-primary"} ${isProjectsLoading || projectOptions.length === 0 ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
-                        >
-                            <option value="">
-                                {isProjectsLoading
-                                    ? "Loading projects..."
-                                    : projectOptions.length === 0
-                                        ? "No projects available"
-                                        : "Select project category"}
-                            </option>
-                            {projectOptions.map((project) => (
-                                <option key={project.id} value={project.id} className="cursor-pointer">
-                                    {project.name}
-                                </option>
-                            ))}
-                        </select>
-                        {errors.projectId && (
-                            <p className="text-xs text-red-500 cursor-pointer">{errors.projectId}</p>
-                        )}
-                    </div>
+
                 </div>
 
                 {/* Key Point of Contact */}

@@ -122,7 +122,9 @@ const normalizeRaiddItem = (item, index) => {
         vendorName: item?.project?.vendorName || item?.project?.vendor?.name || "Not available",
         status: formatLabel(item?.status),
         title: item?.title || "Not available",
-        description: item?.description || "Not available",
+        description: typeof item?.description === "object" && item?.description !== null
+            ? Object.values(item.description).flat().join(" ")
+            : item?.description || "Not available",
         rawDate,
         date: formatDate(rawDate),
         dueDate: formatDate(item?.decisionDueDate || item?.dueDate || item?.due_date),
