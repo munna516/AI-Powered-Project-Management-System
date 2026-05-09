@@ -111,6 +111,7 @@ const getRawList = (response) =>
 const normalizeTask = (task, index) => ({
   id: task?.id || index,
   taskName: task?.title || task?.taskName || task?.name || "N/A",
+  description: task?.description || "",
   startDate: formatDate(task?.startDate),
   endDate: formatDate(task?.endDate),
   priority: toTitleCase(task?.priority),
@@ -127,12 +128,15 @@ export default function TaskSection({
   const queryClient = useQueryClient();
   const [taskForm, setTaskForm] = useState({
     taskName: "",
+    taskDescription: "",
     startDate: "",
     endDate: "",
     priority: "",
     status: "",
   });
   const [editingTaskId, setEditingTaskId] = useState(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
 
   const inputBaseClass =
     "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#6051E2]";
@@ -141,6 +145,7 @@ export default function TaskSection({
   const resetTaskForm = () => {
     setTaskForm({
       taskName: "",
+      taskDescription: "",
       startDate: "",
       endDate: "",
       priority: "",
@@ -244,6 +249,7 @@ export default function TaskSection({
     const payload = {
       projectId,
       title,
+      description: taskForm.taskDescription?.trim() || "",
       status: statusValueMap[taskForm.status] || taskForm.status,
       startDate,
       endDate,
@@ -262,6 +268,7 @@ export default function TaskSection({
     setEditingTaskId(task.id);
     setTaskForm({
       taskName: task.taskName === "N/A" ? "" : task.taskName,
+      taskDescription: task.description || "",
       startDate: task.rawStartDate || "",
       endDate: task.rawEndDate || "",
       priority: task.priority === "N/A" ? "" : task.priority,
@@ -311,6 +318,18 @@ export default function TaskSection({
                 }
                 placeholder="e.g. User research"
                 className={inputBaseClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Task Description</label>
+              <textarea
+                value={taskForm.taskDescription}
+                onChange={(e) =>
+                  setTaskForm((p) => ({ ...p, taskDescription: e.target.value }))
+                }
+                placeholder="e.g. Conduct user interviews to gather requirements..."
+                className={`${inputBaseClass} resize-y`}
+                rows={3}
               />
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -412,6 +431,82 @@ export default function TaskSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+ 
+      {/* View Task Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-left font-semibold text-[#6051E2]">
+              Task Details
+            </DialogTitle>
+          </DialogHeader>
+          {selectedTask && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">Name</span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedTask.taskName}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">
+                  Description
+                </span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedTask.description || "N/A"}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">
+                  Start Date
+                </span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedTask.startDate}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">End Date</span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedTask.endDate}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">Priority</span>
+                <div className="col-span-2">
+                  <span
+                    className={`rounded-full border px-3 py-1 text-xs font-medium ${getPriorityColor(
+                      selectedTask.priority
+                    )}`}
+                  >
+                    {selectedTask.priority}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">Status</span>
+                <div className="col-span-2">
+                  <span
+                    className={`rounded-full border px-3 py-1 text-xs font-medium ${getStatusColor(
+                      selectedTask.status
+                    )}`}
+                  >
+                    {selectedTask.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setViewDialogOpen(false)}
+              className="w-full cursor-pointer sm:w-auto"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
@@ -450,7 +545,11 @@ export default function TaskSection({
                   tasks.map((task) => (
                     <TableRow
                       key={task.id}
-                      className="border-b border-slate-100 hover:bg-slate-50"
+                      className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50"
+                      onClick={() => {
+                        setSelectedTask(task);
+                        setViewDialogOpen(true);
+                      }}
                     >
                       <TableCell className="px-4 py-3 text-slate-800">
                         {task.taskName}
@@ -483,7 +582,10 @@ export default function TaskSection({
                         <div className="flex items-center justify-end gap-3">
                           <button
                             type="button"
-                            onClick={() => handleEdit(task)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(task);
+                            }}
                             className="cursor-pointer text-slate-500 transition-colors hover:text-[#6051E2]"
                             title="Edit task"
                             aria-label="Edit task"
@@ -492,7 +594,10 @@ export default function TaskSection({
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(task.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(task.id);
+                            }}
                             className="cursor-pointer text-slate-500 transition-colors hover:text-red-600"
                             title="Delete task"
                             aria-label="Delete task"

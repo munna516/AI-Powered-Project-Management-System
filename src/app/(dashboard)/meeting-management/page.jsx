@@ -178,7 +178,7 @@ export default function MeetingManagement() {
   const sourceTabs = [
     { id: "all", label: "All sources" },
     { id: "zoom", label: "Zoom" },
-    { id: "google-meet", label: "Google meet" },
+    // { id: "google-meet", label: "Google meet" },
   ];
 
   const formatMeetingDate = (value) => {

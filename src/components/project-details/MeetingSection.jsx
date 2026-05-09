@@ -62,6 +62,8 @@ export default function MeetingSection({
     file: null,
   });
   const [editingMeetingId, setEditingMeetingId] = useState(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedMeeting, setSelectedMeeting] = useState(null);
 
   const inputBaseClass =
     "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#6051E2]";
@@ -268,6 +270,59 @@ export default function MeetingSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+ 
+      {/* View Meeting Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-left font-semibold text-[#6051E2]">
+              Meeting Details
+            </DialogTitle>
+          </DialogHeader>
+          {selectedMeeting && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">Date</span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedMeeting.date}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">
+                  Platform
+                </span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedMeeting.platform}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">
+                  Recordings link
+                </span>
+                <div className="col-span-2">
+                  <Link
+                    href={selectedMeeting.link}
+                    target="_blank"
+                    className="text-sm text-blue-600 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Click to view
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setViewDialogOpen(false)}
+              className="w-full cursor-pointer sm:w-auto"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
@@ -300,7 +355,11 @@ export default function MeetingSection({
                   meetings.map((meeting) => (
                     <TableRow
                       key={meeting.id}
-                      className="border-b border-slate-100 hover:bg-slate-50"
+                      className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50"
+                      onClick={() => {
+                        setSelectedMeeting(meeting);
+                        setViewDialogOpen(true);
+                      }}
                     >
                       <TableCell className="px-4 py-3 text-slate-800">
                         {meeting.date}
@@ -313,6 +372,7 @@ export default function MeetingSection({
                           href={meeting.link}
                           target="_blank"
                           className="cursor-pointer text-blue-600 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           Click to view
                         </Link>
@@ -324,6 +384,7 @@ export default function MeetingSection({
                             className="cursor-pointer text-slate-500 transition-colors hover:text-blue-600"
                             title="View meeting summary"
                             aria-label="View meeting summary"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <FiEye className="h-4 w-4" />
                           </Link>
@@ -338,7 +399,10 @@ export default function MeetingSection({
                           </button> */}
                           <button
                             type="button"
-                            onClick={() => handleDelete(meeting.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(meeting.id);
+                            }}
                             className="cursor-pointer text-slate-500 transition-colors hover:text-red-600"
                             title="Delete meeting"
                             aria-label="Delete meeting"

@@ -83,6 +83,7 @@ export default function Dashboard() {
         keepPreviousData: true,
         staleTime: 30_000,
     });
+    console.log(data);
 
     const stats = data?.stats;
     const projectsData = Array.isArray(data?.projects?.data) ? data.projects.data : [];
@@ -100,6 +101,8 @@ export default function Dashboard() {
         for (let y = currentYear - 3; y <= currentYear + 1; y += 1) years.push(y);
         return years;
     }, [currentYear]);
+
+    console.log(projectsData);
 
     return (
         <div className="space-y-6">
@@ -250,15 +253,6 @@ export default function Dashboard() {
 
             {/* All Projects List */}
             <div className="mt-10">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                    <h2 className="text-lg md:text-xl font-bold text-slate-900">All Projects List</h2>
-                    <button
-                        onClick={() => router.push("/projects/all-projects-list")}
-                        className="text-primary hover:underline text-sm sm:text-base font-medium cursor-pointer mt-2 sm:mt-0"
-                    >
-                        view all
-                    </button>
-                </div>
 
                 <Card className="overflow-hidden">
                     <CardContent className="p-0">
@@ -294,9 +288,10 @@ export default function Dashboard() {
                                     {projectsData.map((project, index) => (
                                         <TableRow
                                             key={index}
-                                            className="border-b border-slate-100 hover:bg-slate-50"
+                                            className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                                            onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
                                         >
-                                            <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm lg:text-base">
+                                            <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm whitespace-normal break-all font-mono">
                                                 {project.projectId}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm lg:text-base">
@@ -331,7 +326,10 @@ export default function Dashboard() {
                                             {/* <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
                                                 <button
                                                     className="text-primary hover:underline text-xs lg:text-sm font-medium cursor-pointer"
-                                                    onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.push(`/projects/project-details/${project.projectId}`);
+                                                    }}
                                                 >
                                                     view
                                                 </button>
@@ -375,9 +373,10 @@ export default function Dashboard() {
                                     {projectsData.map((project, index) => (
                                         <TableRow
                                             key={index}
-                                            className="border-b border-slate-100 hover:bg-slate-50"
+                                            className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                                            onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
                                         >
-                                            <TableCell className="py-3 px-4 text-slate-800 text-sm">
+                                            <TableCell className="py-3 px-4 text-slate-800 text-sm whitespace-normal break-all font-mono">
                                                 {project.projectId}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 text-slate-800 text-sm">
@@ -406,7 +405,10 @@ export default function Dashboard() {
                                             <TableCell className="py-3 px-4 text-center">
                                                 <button
                                                     className="text-primary hover:underline text-xs font-medium cursor-pointer"
-                                                    onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.push(`/projects/project-details/${project.projectId}`);
+                                                    }}
                                                 >
                                                     view
                                                 </button>
@@ -427,13 +429,17 @@ export default function Dashboard() {
                         {/* Mobile Cards */}
                         <div className="md:hidden divide-y divide-slate-100">
                             {projectsData.map((project, index) => (
-                                <div key={index} className="p-4 space-y-3">
+                                <div
+                                    key={index}
+                                    className="p-4 space-y-3 cursor-pointer hover:bg-slate-50"
+                                    onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
+                                >
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <h3 className="font-semibold text-slate-800 text-base">
                                                 {project.projectName}
                                             </h3>
-                                            <p className="text-xs text-slate-500 mt-1">
+                                            <p className="text-xs text-slate-500 mt-1 whitespace-normal break-all font-mono">
                                                 ID: {project.projectId}
                                             </p>
                                         </div>
@@ -475,7 +481,10 @@ export default function Dashboard() {
                                     </div>
                                     <button
                                         className="w-full text-center text-primary hover:underline text-sm font-medium cursor-pointer pt-2"
-                                        onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            router.push(`/projects/project-details/${project.projectId}`);
+                                        }}
                                     >
                                         View
                                     </button>

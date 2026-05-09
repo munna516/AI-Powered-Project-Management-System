@@ -13,8 +13,18 @@ import {
     FiFileText,
     FiMail,
     FiPhone,
+    FiEye,
 } from "react-icons/fi";
 import { HiOutlineSparkles } from "react-icons/hi2";
+import { Button } from "@/components/ui/button";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 
 const fallback = "Not available";
 
@@ -66,8 +76,9 @@ const normalizeMeetingLink = (link, index) => ({
 
 const normalizeProject = (project, index) => ({
     id: String(project?.id || index),
-    name: project?.name || `Project ${index + 1}`,
+    name: project?.name || project?.projectName || `Project ${index + 1}`,
     vendorName: project?.vendorName || fallback,
+    projectAiSummary: Array.isArray(project?.projectAiSummary) ? project.projectAiSummary : [],
 });
 
 /**
@@ -339,35 +350,17 @@ export default function ViewVendor() {
                 <p className="text-sm text-slate-500">{vendor.designation}</p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <Card className="p-4">
-                    <CardContent className="p-0">
-                        <p className="mb-2 text-xs text-slate-500">SLA Status</p>
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${slaStatus.className}`}>
-                            <FiCheckCircle className="h-3 w-3" />
-                            {slaStatus.label}
-                        </span>
-                    </CardContent>
-                </Card>
-
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Card className="border-amber-100 bg-amber-50 p-4">
                     <CardContent className="p-0">
                         <p className="mb-2 text-xs text-slate-500">Total Projects</p>
                         <p className="text-2xl font-bold text-slate-900">{vendor.numberOfProjects}</p>
                     </CardContent>
                 </Card>
-
                 <Card className="p-4">
                     <CardContent className="p-0">
                         <p className="mb-2 text-xs text-slate-500">Email Address</p>
                         <p className="truncate text-sm text-slate-700">{vendor.email}</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="p-4">
-                    <CardContent className="p-0">
-                        <p className="mb-2 text-xs text-slate-500">Performance Score</p>
-                        <p className="text-2xl font-bold text-slate-900">{vendor.ai.performanceScore}%</p>
                     </CardContent>
                 </Card>
             </div>
@@ -428,68 +421,94 @@ export default function ViewVendor() {
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                        <Card className="p-4">
-                            <CardContent className="space-y-4 p-0">
-                                <h3 className="font-semibold text-slate-900">Associated Projects</h3>
-                                {vendor.projects.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {vendor.projects.map((project) => (
-                                            <div key={project.id} className="rounded-lg bg-slate-50 p-3">
-                                                <p className="font-medium text-slate-900">{project.name}</p>
-                                                <p className="mt-1 text-xs text-slate-500">
-                                                    Vendor: {project.vendorName}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-slate-500">No associated projects found.</p>
-                                )}
-                            </CardContent>
-                        </Card>
+                    <Card className="p-4">
+                        <CardContent className="space-y-4 p-0">
+                            <h3 className="font-semibold text-slate-900">Associated Projects</h3>
+                            {vendor.projects.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader className="bg-[#6051E2]">
+                                            <TableRow className="hover:bg-[#6051E2]/90 border-none">
+                                                <TableHead className="text-white font-bold">Project ID</TableHead>
+                                                <TableHead className="text-white font-bold">Project Name</TableHead>
+                                                <TableHead className="text-white font-bold">Vendor Name</TableHead>
+                                                <TableHead className="text-white font-bold text-center">Action</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {vendor.projects.map((project, idx) => (
+                                                <TableRow key={project.id} className="hover:bg-slate-50 transition-colors">
+                                                    <TableCell className="text-xs font-mono text-slate-600 font-medium">
+                                                        {project.id}
+                                                    </TableCell>
+                                                    <TableCell className="font-semibold text-slate-900">
+                                                        {project.name}
+                                                    </TableCell>
+                                                    <TableCell className="text-slate-600">
+                                                        {project.vendorName}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => router.push(`/projects/project-details/${project.id}`)}
+                                                            className="border-[#6051E2]/20 text-[#6051E2] hover:bg-[#6051E2] hover:text-white transition-all font-bold text-[10px] uppercase tracking-wider h-8 cursor-pointer"
+                                                        >
+                                                            <FiEye className="mr-1.5 h-3 w-3" />
+                                                            View Details
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-slate-500">No associated projects found.</p>
+                            )}
+                        </CardContent>
+                    </Card>
 
-                        <Card className="p-4">
-                            <CardContent className="space-y-4 p-0">
-                                <h3 className="font-semibold text-slate-900">Meeting Links</h3>
-                                {vendor.meetingLinks.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {vendor.meetingLinks.map((meeting) => (
-                                            <div
-                                                key={meeting.id}
-                                                className="flex items-start justify-between gap-3 rounded-lg bg-slate-50 p-3"
-                                            >
-                                                <div className="min-w-0">
-                                                    <p className="font-medium text-slate-900">{meeting.title}</p>
-                                                    <a
-                                                        href={meeting.url}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="break-all text-xs text-primary hover:underline"
-                                                    >
-                                                        {meeting.url || fallback}
-                                                    </a>
-                                                </div>
-                                                {meeting.url ? (
-                                                    <a
-                                                        href={meeting.url}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="text-slate-500 transition hover:text-primary"
-                                                        aria-label="Open meeting link"
-                                                    >
-                                                        <FiExternalLink className="h-4 w-4" />
-                                                    </a>
-                                                ) : null}
+                    <Card className="p-4">
+                        <CardContent className="space-y-4 p-0">
+                            <h3 className="font-semibold text-slate-900">Meeting Links</h3>
+                            {vendor.meetingLinks.length > 0 ? (
+                                <div className="space-y-3">
+                                    {vendor.meetingLinks.map((meeting) => (
+                                        <div
+                                            key={meeting.id}
+                                            className="flex items-start justify-between gap-3 rounded-lg bg-slate-50 p-3"
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="font-medium text-slate-900">{meeting.title}</p>
+                                                <a
+                                                    href={meeting.url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="break-all text-xs text-primary hover:underline"
+                                                >
+                                                    {meeting.url || fallback}
+                                                </a>
                                             </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-slate-500">No meeting links available.</p>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
+                                            {meeting.url ? (
+                                                <a
+                                                    href={meeting.url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-slate-500 transition hover:text-primary"
+                                                    aria-label="Open meeting link"
+                                                >
+                                                    <FiExternalLink className="h-4 w-4" />
+                                                </a>
+                                            ) : null}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-slate-500">No meeting links available.</p>
+                            )}
+                        </CardContent>
+                    </Card>
                 </div>
 
                 <div className="space-y-4">

@@ -104,13 +104,6 @@ export default function Vendors() {
             vendorId: String(vendor.id),
         });
 
-        if (vendor.projectId) {
-            params.set("projectId", String(vendor.projectId));
-        }
-        if (vendor.projectName) {
-            params.set("projectName", vendor.projectName);
-        }
-
         router.push(`/vendors/add-vendor?${params.toString()}`);
     };
 
@@ -227,9 +220,7 @@ export default function Vendors() {
                                         <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-sm lg:text-base">
                                             Mail
                                         </TableHead>
-                                        <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
-                                            Status (SLAs)
-                                        </TableHead>
+
                                         <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-center text-sm lg:text-base">
                                             Total project
                                         </TableHead>
@@ -245,7 +236,8 @@ export default function Vendors() {
                                     {filteredVendors.map((vendor) => (
                                         <TableRow
                                             key={vendor.id}
-                                            className="border-b border-slate-100 hover:bg-slate-50"
+                                            className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50"
+                                            onClick={() => router.push(`/vendors/view/${vendor.id}`)}
                                         >
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm lg:text-base">
                                                 {vendor.name}
@@ -256,32 +248,19 @@ export default function Vendors() {
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-sm lg:text-base">
                                                 {vendor.email}
                                             </TableCell>
-                                            <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
-                                                <span
-                                                    className={`px-2 py-1 lg:px-3 lg:py-1 rounded-full text-xs font-medium ${getStatusStyle(
-                                                        vendor.status
-                                                    )}`}
-                                                >
-                                                    {vendor.status}
-                                                </span>
-                                            </TableCell>
+
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-center text-sm lg:text-base">
                                                 {vendor.totalProjects}
                                             </TableCell>
-                                            {/* <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-center">
-                                                <button
-                                                    className="text-primary hover:underline text-xs lg:text-sm font-medium cursor-pointer"
-                                                    onClick={() => router.push(`/vendors/view/${vendor.id}`)}
-                                                >
-                                                    view
-                                                </button>
-                                            </TableCell> */}
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6">
                                                 <div className="flex items-center justify-center gap-3">
                                                     <button
                                                         type="button"
                                                         className="text-primary hover:text-primary/80 transition cursor-pointer"
-                                                        onClick={() => router.push(`/vendors/view/${vendor.id}`)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            router.push(`/vendors/view/${vendor.id}`);
+                                                        }}
                                                         title="View details"
                                                         aria-label="View details"
                                                     >
@@ -290,14 +269,20 @@ export default function Vendors() {
                                                     <button
                                                         type="button"
                                                         className="text-primary hover:text-primary/80 transition cursor-pointer"
-                                                        onClick={() => handleEditVendor(vendor)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleEditVendor(vendor);
+                                                        }}
                                                     >
                                                         <FiEdit2 className="h-4 w-4" />
                                                     </button>
                                                     <button
                                                         type="button"
                                                         className="text-red-500 hover:text-red-600 transition cursor-pointer"
-                                                        onClick={() => handleDeleteVendor(vendor.id)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteVendor(vendor.id);
+                                                        }}
                                                     >
                                                         <FiTrash2 className="h-4 w-4" />
                                                     </button>
@@ -320,9 +305,7 @@ export default function Vendors() {
                                         <TableHead className="py-3 px-4 text-white font-semibold text-sm">
                                             Designation
                                         </TableHead>
-                                        <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
-                                            Status
-                                        </TableHead>
+
                                         <TableHead className="py-3 px-4 text-white font-semibold text-center text-sm">
                                             Projects
                                         </TableHead>
@@ -338,7 +321,8 @@ export default function Vendors() {
                                     {filteredVendors.map((vendor) => (
                                         <TableRow
                                             key={vendor.id}
-                                            className="border-b border-slate-100 hover:bg-slate-50"
+                                            className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50"
+                                            onClick={() => router.push(`/vendors/view/${vendor.id}`)}
                                         >
                                             <TableCell className="py-3 px-4 text-slate-800 text-sm">
                                                 <div>
@@ -349,15 +333,7 @@ export default function Vendors() {
                                             <TableCell className="py-3 px-4 text-slate-600 text-sm">
                                                 {vendor.designation}
                                             </TableCell>
-                                            <TableCell className="py-3 px-4 text-center">
-                                                <span
-                                                    className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusStyle(
-                                                        vendor.status
-                                                    )}`}
-                                                >
-                                                    {vendor.status}
-                                                </span>
-                                            </TableCell>
+
                                             <TableCell className="py-3 px-4 text-slate-600 text-center text-sm">
                                                 {vendor.totalProjects}
                                             </TableCell>
@@ -366,7 +342,10 @@ export default function Vendors() {
                                                     <button
                                                         type="button"
                                                         className="text-primary hover:text-primary/80 transition cursor-pointer"
-                                                        onClick={() => router.push(`/vendors/view/${vendor.id}`)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            router.push(`/vendors/view/${vendor.id}`);
+                                                        }}
                                                         title="View details"
                                                         aria-label="View details"
                                                     >
@@ -375,14 +354,20 @@ export default function Vendors() {
                                                     <button
                                                         type="button"
                                                         className="text-primary hover:text-primary/80 transition cursor-pointer"
-                                                        onClick={() => handleEditVendor(vendor)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleEditVendor(vendor);
+                                                        }}
                                                     >
                                                         <FiEdit2 className="h-4 w-4" />
                                                     </button>
                                                     <button
                                                         type="button"
                                                         className="text-red-500 hover:text-red-600 transition cursor-pointer"
-                                                        onClick={() => handleDeleteVendor(vendor.id)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteVendor(vendor.id);
+                                                        }}
                                                     >
                                                         <FiTrash2 className="h-4 w-4" />
                                                     </button>
@@ -397,18 +382,16 @@ export default function Vendors() {
                         {/* Mobile Cards (small screens) */}
                         <div className="md:hidden divide-y divide-slate-100">
                             {filteredVendors.map((vendor) => (
-                                <div key={vendor.id} className="p-4 space-y-3">
+                                <div
+                                    key={vendor.id}
+                                    className="cursor-pointer p-4 space-y-3 transition-colors hover:bg-slate-50"
+                                    onClick={() => router.push(`/vendors/view/${vendor.id}`)}
+                                >
                                     <div className="flex items-center justify-between">
                                         <h3 className="font-semibold text-slate-800 text-base">
                                             {vendor.name}
                                         </h3>
-                                        <span
-                                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(
-                                                vendor.status
-                                            )}`}
-                                        >
-                                            {vendor.status}
-                                        </span>
+
                                     </div>
                                     <div className="space-y-2 text-sm">
                                         <div className="flex justify-between">
@@ -442,7 +425,10 @@ export default function Vendors() {
                                         <button
                                             type="button"
                                             className="flex-1 rounded-md border border-primary px-4 py-2 text-primary hover:bg-primary/5 transition cursor-pointer"
-                                            onClick={() => handleEditVendor(vendor)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEditVendor(vendor);
+                                            }}
                                         >
                                             <span className="flex items-center justify-center gap-2">
                                                 <FiEdit2 className="h-4 w-4" />
@@ -452,7 +438,10 @@ export default function Vendors() {
                                         <button
                                             type="button"
                                             className="flex-1 rounded-md border border-red-200 px-4 py-2 text-red-500 hover:bg-red-50 transition cursor-pointer"
-                                            onClick={() => handleDeleteVendor(vendor.id)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteVendor(vendor.id);
+                                            }}
                                         >
                                             <span className="flex items-center justify-center gap-2">
                                                 <FiTrash2 className="h-4 w-4" />

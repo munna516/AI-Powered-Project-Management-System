@@ -99,6 +99,7 @@ const normalizeProject = (project) => {
         weeklyAiSummary:
             project.weeklyAiSummary ||
             "No summary available for this project yet.",
+        weeklySummaryDate: project.weeklySummaryDate || null,
         timeline: getTimelineItems(project, normalizedStatus),
     };
 };
@@ -424,8 +425,8 @@ export default function Projects() {
                                                                         {phase.phase}
                                                                     </p>
                                                                     <p className={`text-sm mt-1 ${phase.status === "cancelled" ? "text-red-500" : "text-slate-500"}`}>
-                                                                        {phase.status === "completed" && `completed: ${phase.date}`}
-                                                                        {phase.status === "due" && `due: ${phase.date}`}
+                                                                        {phase.status === "completed" && ` ${phase.date}`}
+                                                                        {phase.status === "due" && ` ${phase.date}`}
                                                                         {phase.status === "upcoming" && phase.date}
                                                                         {phase.status === "cancelled" && phase.date}
                                                                     </p>
@@ -439,12 +440,19 @@ export default function Projects() {
 
                                         {/* Right Section - Weekly AI Summary */}
                                         <div className="space-y-4">
-                                            <h3 className="text-sm sm:text-base font-semibold text-slate-700">
-                                                Weekly AI summary
-                                            </h3>
+                                            <div className="flex items-center justify-between">
+                                                <h3 className="text-sm sm:text-base font-semibold text-slate-700">
+                                                    Weekly AI summary
+                                                </h3>
+                                                {project.weeklySummaryDate && (
+                                                    <span className="text-xs font-medium text-slate-500">
+                                                        {formatDate(project.weeklySummaryDate)}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="rounded-lg p-4 min-h-[120px]">
                                                 <p className="text-xs sm:text-sm text-black">
-                                                   {project.weeklyAiSummary}
+                                                    {project.weeklyAiSummary}
                                                 </p>
                                             </div>
                                             <div className="flex flex-wrap gap-3 justify-end">

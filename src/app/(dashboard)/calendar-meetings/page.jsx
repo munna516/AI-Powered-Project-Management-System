@@ -62,7 +62,8 @@ export default function CalendarMeetings() {
 
   const [currentDate, setCurrentDate] = useState(today2026)
   const [selectedDate, setSelectedDate] = useState(today2026)
-  const [hoveredMeeting, setHoveredMeeting] = useState(null)
+  const [selectedMeeting, setSelectedMeeting] = useState(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [viewMode, setViewMode] = useState("week") // "week", "month"
 
   // Get current month and year
@@ -224,35 +225,35 @@ export default function CalendarMeetings() {
     const rawEvents = Array.isArray(eventsResponse?.data) ? eventsResponse.data : []
     return rawEvents
       .map((ev, idx) => {
-      const start = ev?.start ? new Date(ev.start) : null
-      const end = ev?.end ? new Date(ev.end) : null
-      if (!start || Number.isNaN(start.getTime())) return null
-      const durationMinutes = (() => {
-        if (!start || !end) return 60
-        const diff = Math.round((end.getTime() - start.getTime()) / 60000)
-        return Number.isFinite(diff) && diff > 0 ? diff : 60
-      })()
+        const start = ev?.start ? new Date(ev.start) : null
+        const end = ev?.end ? new Date(ev.end) : null
+        if (!start || Number.isNaN(start.getTime())) return null
+        const durationMinutes = (() => {
+          if (!start || !end) return 60
+          const diff = Math.round((end.getTime() - start.getTime()) / 60000)
+          return Number.isFinite(diff) && diff > 0 ? diff : 60
+        })()
 
-      const dateStr = start ? formatDateForMeeting(start) : ""
-      const timeStr = start ? formatTimeForMeeting(start) : ""
+        const dateStr = start ? formatDateForMeeting(start) : ""
+        const timeStr = start ? formatTimeForMeeting(start) : ""
 
-      const theme = MEETING_COLORS[idx % MEETING_COLORS.length]
+        const theme = MEETING_COLORS[idx % MEETING_COLORS.length]
 
-      const rawAiSummary = ev?.aiSummary ?? ev?.description ?? fallbackAiSummary
-      const aiSummary =
-        Array.isArray(rawAiSummary) ? rawAiSummary.find(Boolean) || fallbackAiSummary : rawAiSummary || fallbackAiSummary
+        const rawAiSummary = ev?.aiSummary ?? ev?.description ?? fallbackAiSummary
+        const aiSummary =
+          Array.isArray(rawAiSummary) ? rawAiSummary.find(Boolean) || fallbackAiSummary : rawAiSummary || fallbackAiSummary
 
-      return {
-        id: String(ev?.id ?? idx),
-        title: ev?.summary || "Meeting",
-        time: timeStr,
-        date: dateStr,
-        duration: durationMinutes,
-        color: theme.color,
-        dotColor: theme.dotColor,
-        aiSummary,
-        joinUrl: ev?.htmlLink || ev?.url || "",
-      }
+        return {
+          id: String(ev?.id ?? idx),
+          title: ev?.summary || ev?.title || "Meeting",
+          time: timeStr,
+          date: dateStr,
+          duration: durationMinutes,
+          color: theme.color,
+          dotColor: theme.dotColor,
+          aiSummary,
+          joinUrl: ev?.htmlLink || ev?.url || "",
+        }
       })
       .filter(Boolean)
   }, [eventsResponse])
@@ -260,8 +261,33 @@ export default function CalendarMeetings() {
   const getShortSummary = (value) => {
     const text = Array.isArray(value) ? value.find(Boolean) : value
     if (!text || typeof text !== "string") return fallbackAiSummary
-    const firstLine = text.split("\n").map((s) => s.trim()).find(Boolean) || fallbackAiSummary
-    return firstLine.length > 120 ? `${firstLine.slice(0, 120)}...` : firstLine
+    const lines = text.split("\n").map((s) => s.trim()).filter(Boolean)
+    const contentLine = lines.find(l => !l.toLowerCase().startsWith("date:")) || lines[0] || fallbackAiSummary
+    return contentLine.length > 120 ? `${contentLine.slice(0, 120)}...` : contentLine
+  }
+
+  const renderSummary = (text) => {
+    if (!text || text === fallbackAiSummary) return <p className="text-sm text-slate-600">No summary available.</p>
+
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean)
+    return (
+      <div className="space-y-3">
+        {lines.map((line, idx) => {
+          if (line.startsWith("🔹") || line.startsWith("-") || line.startsWith("•")) {
+            return (
+              <div key={idx} className="flex gap-2 text-sm text-slate-600 ml-2">
+                <span className="shrink-0">•</span>
+                <span>{line.replace(/^[🔹\-•]\s*/, "")}</span>
+              </div>
+            )
+          }
+          if (line.endsWith(":") || (lines[idx + 1] && (lines[idx + 1].startsWith("🔹") || lines[idx + 1].startsWith("-")))) {
+            return <p key={idx} className="text-sm font-semibold text-slate-900 mt-2">{line}</p>
+          }
+          return <p key={idx} className="text-sm text-slate-600 leading-relaxed">{line}</p>
+        })}
+      </div>
+    )
   }
 
   if (isEventsLoading) {
@@ -376,7 +402,7 @@ export default function CalendarMeetings() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Calendar & Meetings</h1>
             <p className="text-sm text-gray-600 mt-1">
-              Manage your schedule across Zoom, Meet, and Teams.
+              Manage your schedule across Zoom
             </p>
           </div>
           <Button
@@ -472,8 +498,60 @@ export default function CalendarMeetings() {
           </DialogContent>
         </Dialog>
 
+        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+          <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${selectedMeeting?.dotColor || "bg-primary"}`}></div>
+                {selectedMeeting?.title}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedMeeting?.date} • {selectedMeeting?.time} ({selectedMeeting?.duration} min)
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-4 space-y-6">
+              <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
+                <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-[#6051E2]" />
+                  AI Meeting Summary
+                </h4>
+                {renderSummary(selectedMeeting?.aiSummary)}
+              </div>
+
+              {selectedMeeting?.joinUrl && (
+                <div className="flex items-center justify-between p-4 rounded-lg border border-blue-100 bg-blue-50/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <Zap className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-blue-900">Join Meeting</p>
+                      <p className="text-xs text-blue-700">Link is ready for your session</p>
+                    </div>
+                  </div>
+                  <Button
+                    asChild
+                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200"
+                  >
+                    <a href={selectedMeeting.joinUrl} target="_blank" rel="noreferrer">
+                      Join Now
+                    </a>
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button variant="outline" onClick={() => setIsDetailsOpen(false)} className="cursor-pointer">
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* AI Alert */}
-        <div className="mb-4 flex items-center gap-2 rounded-lg bg-yellow-50 border border-yellow-200 p-3">
+        <div className="mb-4 hidden flex items-center gap-2 rounded-lg bg-yellow-50 border border-yellow-200 p-3">
           <Zap className="h-4 w-4 text-yellow-600" />
           <span className="text-sm text-yellow-800">
             AI detected 2 Overlapping meetings On Thursday.
@@ -639,9 +717,9 @@ export default function CalendarMeetings() {
                                       ? "12 PM"
                                       : hour === 0
                                         ? "12 AM"
-                                      : hour > 12
-                                        ? `${hour - 12} PM`
-                                        : `${hour} AM`}
+                                        : hour > 12
+                                          ? `${hour - 12} PM`
+                                          : `${hour} AM`}
                                   </span>
                                 </div>
                               )
@@ -678,6 +756,11 @@ export default function CalendarMeetings() {
                                     <Tooltip key={meeting.id}>
                                       <TooltipTrigger asChild>
                                         <div
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedMeeting(meeting);
+                                            setIsDetailsOpen(true);
+                                          }}
                                           className={`absolute left-2 right-2 ${meeting.color} border rounded-md p-1.5 cursor-pointer hover:shadow-lg hover:scale-[1.01] transition-all z-10`}
                                           style={{
                                             top: `${top + 2}px`,
@@ -701,7 +784,7 @@ export default function CalendarMeetings() {
                                       </TooltipTrigger>
                                       <TooltipContent
                                         side="right"
-                                        className="max-w-xs bg-purple-50 border-purple-200 shadow-lg"
+                                        className="max-w-sm bg-purple-50 border-purple-200 shadow-lg"
                                       >
                                         <div className="space-y-2">
                                           <div>
@@ -719,25 +802,35 @@ export default function CalendarMeetings() {
                                             <div className="text-xs text-gray-700 leading-relaxed line-clamp-2">
                                               {getShortSummary(meeting.aiSummary)}
                                             </div>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedMeeting(meeting);
+                                                setIsDetailsOpen(true);
+                                              }}
+                                              className="text-[10px] text-purple-700 font-semibold hover:underline mt-1 cursor-pointer"
+                                            >
+                                              See full summary
+                                            </button>
                                           </div>
                                           <div className="pt-2 border-t border-purple-200">
-                                          <div className="text-xs font-semibold text-purple-700 mb-1">
-                                            Join meeting:
+                                            <div className="text-xs font-semibold text-purple-700 mb-1">
+                                              Join meeting:
+                                            </div>
+                                            {meeting.joinUrl ? (
+                                              <a
+                                                href={meeting.joinUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-xs text-blue-600 hover:underline leading-relaxed"
+                                              >
+                                                Click here
+                                                <span className="text-xs text-gray-600"> ({meeting.title})</span>
+                                              </a>
+                                            ) : (
+                                              <span className="text-xs text-gray-500">URL not available</span>
+                                            )}
                                           </div>
-                                          {meeting.joinUrl ? (
-                                            <a
-                                              href={meeting.joinUrl}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="text-xs text-blue-600 hover:underline leading-relaxed"
-                                            >
-                                              Click here
-                                              <span className="text-xs text-gray-600"> ({meeting.title})</span>
-                                            </a>
-                                          ) : (
-                                            <span className="text-xs text-gray-500">URL not available</span>
-                                          )}
-                                        </div>
                                         </div>
                                       </TooltipContent>
                                     </Tooltip>
@@ -829,9 +922,9 @@ export default function CalendarMeetings() {
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent
-                                    side="right"
-                                    className="max-w-xs bg-purple-50 border-purple-200 shadow-lg"
-                                  >
+                                     side="right"
+                                     className="max-w-sm bg-purple-50 border-purple-200 shadow-lg"
+                                   >
                                     <div className="space-y-2">
                                       <div>
                                         <div className="font-semibold text-sm text-gray-900">
@@ -845,9 +938,19 @@ export default function CalendarMeetings() {
                                         <div className="text-xs font-semibold text-purple-700 mb-1">
                                           Summary:
                                         </div>
-                                        <div className="text-xs text-gray-700 leading-relaxed line-clamp-2">
-                                          {getShortSummary(meeting.aiSummary)}
-                                        </div>
+                                         <div className="text-xs text-gray-700 leading-relaxed line-clamp-2">
+                                           {getShortSummary(meeting.aiSummary)}
+                                         </div>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedMeeting(meeting);
+                                            setIsDetailsOpen(true);
+                                          }}
+                                          className="text-[10px] text-purple-700 font-semibold hover:underline mt-1 cursor-pointer"
+                                        >
+                                          See full summary
+                                        </button>
                                       </div>
                                       <div className="pt-2 border-t border-purple-200">
                                         <div className="text-xs font-semibold text-purple-700 mb-1">

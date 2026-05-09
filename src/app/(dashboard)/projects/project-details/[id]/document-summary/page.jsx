@@ -144,6 +144,5 @@ export default function MeetingSummary() {
                 </div>
             </div>
         </div>
-
     );
 }
