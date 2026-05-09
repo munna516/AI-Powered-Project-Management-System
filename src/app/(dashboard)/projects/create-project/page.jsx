@@ -1,6 +1,7 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,25 +13,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Upload, Calendar, Link2, X } from "lucide-react";
+import { Upload, Calendar, X } from "lucide-react";
 import toast from "react-hot-toast";
-
-// Dummy data for team members
-const teamMembers = [
-    { id: "1", name: "System Saviour" },
-    { id: "2", name: "AI Waiver" },
-    { id: "3", name: "Design Enthusiast" },
-    { id: "4", name: "Backend Wizard" },
-    { id: "5", name: "Frontend Fanatic" },
-];
-
-const projectOwners = [
-    { id: "1", name: "John Doe" },
-    { id: "2", name: "Jane Smith" },
-    { id: "3", name: "Mike Johnson" },
-    { id: "4", name: "Sarah Williams" },
-    { id: "5", name: "David Brown" },
-];
+import Loading from "@/components/Loading/Loading";
+import { apiGet, apiPatch, apiPost, getStoredUser } from "@/lib/api";
 
 // Reusable File List Component
 const FileList = ({ files, onRemove }) => {
@@ -60,47 +46,228 @@ const FileList = ({ files, onRemove }) => {
     );
 };
 
+const normalizeTeam = (team, index) => ({
+    id: String(team?.id || team?.teamId || index),
+    name: team?.name || team?.teamName || `Team ${index + 1}`,
+});
+
+const getProjectAssignedTeamId = (project) =>
+    String(
+        project?.assignTeamId ||
+        project?.assignTeam?.id ||
+        project?.assignTeam?.teamId ||
+        ""
+    );
+
 export default function CreateProject() {
     const router = useRouter();
+    const initializedProjectRef = useRef("");
+    const [projectId, setProjectId] = useState("");
     const documentInputRef = useRef(null);
-    const slaInputRef = useRef(null);
     const startDateRef = useRef(null);
     const endDateRef = useRef(null);
+    const isEditMode = Boolean(projectId);
+    const currentUser = useMemo(() => getStoredUser(), []);
+    const currentUserValue = useMemo(
+        () =>
+            String(
+                currentUser?.id ||
+                currentUser?._id ||
+                currentUser?.userId ||
+                currentUser?.email ||
+                ""
+            ),
+        [currentUser]
+    );
+    const currentUserName = useMemo(
+        () =>
+            [currentUser?.firstName, currentUser?.lastName]
+                .filter(Boolean)
+                .join(" ")
+                .trim() || currentUser?.name || currentUser?.email || "",
+        [currentUser]
+    );
 
     const [formData, setFormData] = useState({
         vendorName: "",
+        vendorId: "",
         projectName: "",
         projectDescription: "",
         projectOwner: "",
+        currentUser: currentUserName,
         assignedTeam: "",
         startDate: "",
         endDate: "",
     });
 
-    const [meetingLinks, setMeetingLinks] = useState([""]);
     const [documents, setDocuments] = useState([]);
-    const [slaFiles, setSlaFiles] = useState([]);
     const [isDraggingDocuments, setIsDraggingDocuments] = useState(false);
-    const [isDraggingSla, setIsDraggingSla] = useState(false);
+    const [errors, setErrors] = useState({});
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const params = new URLSearchParams(window.location.search);
+        setProjectId(params.get("projectId") || "");
+    }, []);
+
+    useEffect(() => {
+        setFormData((prev) => ({
+            ...prev,
+            projectOwner: currentUserValue,
+            currentUser: currentUserName,
+        }));
+    }, [currentUserName, currentUserValue]);
+
+    const { data: teamsResponse, isLoading: isTeamsLoading } = useQuery({
+        queryKey: ["project-teams"],
+        queryFn: () => apiGet("/api/project-manager/team/all"),
+    });
+
+    const teamOptions = useMemo(() => {
+        const rawTeams = Array.isArray(teamsResponse?.data)
+            ? teamsResponse.data
+            : Array.isArray(teamsResponse?.data?.data)
+                ? teamsResponse.data.data
+                : [];
+
+        return rawTeams.map((team, index) => normalizeTeam(team, index));
+    }, [teamsResponse]);
+
+    const { data: vendorsResponse, isLoading: isVendorsLoading } = useQuery({
+        queryKey: ["all-vendors"],
+        queryFn: () => apiGet("/api/project-manager/vendor-management/all"),
+    });
+
+    const vendorOptions = useMemo(() => {
+        const rawVendors = Array.isArray(vendorsResponse?.data)
+            ? vendorsResponse.data
+            : Array.isArray(vendorsResponse?.data?.data)
+                ? vendorsResponse.data.data
+                : [];
+
+        return rawVendors.map((vendor) => ({
+            id: String(vendor.id),
+            name: vendor.name || "-",
+        }));
+    }, [vendorsResponse]);
+
+    const {
+        data: projectDetails,
+        isLoading: isProjectDetailsLoading,
+        isError: isProjectDetailsError,
+        error: projectDetailsError,
+    } = useQuery({
+        queryKey: ["project-details", projectId],
+        enabled: isEditMode,
+        queryFn: async () => {
+            try {
+                const response = await apiGet(`/api/project-manager/project-management/${projectId}`);
+                return response?.data?.data || response?.data || response;
+            } catch {
+                const response = await apiGet("/api/project-manager/project-management/my-projects");
+                const rawProjects = Array.isArray(response?.data)
+                    ? response.data
+                    : Array.isArray(response?.data?.data)
+                        ? response.data.data
+                        : [];
+
+                const project = rawProjects.find((item) => String(item.id) === String(projectId));
+                if (!project) {
+                    throw new Error("Project not found.");
+                }
+                return project;
+            }
+        },
+    });
+
+    const createProjectMutation = useMutation({
+        mutationFn: (payload) =>
+            apiPost("/api/project-manager/project-management/create", payload),
+        onSuccess: (response) => {
+            toast.success("Project created successfully!");
+            router.push("/projects");
+        },
+        onError: (error) => {
+            toast.error(error?.message || "Failed to create project.");
+        },
+    });
+
+    const updateProjectMutation = useMutation({
+        mutationFn: ({ id, payload }) =>
+            apiPatch(`/api/project-manager/project-management/${id}`, payload),
+        onSuccess: (response) => {
+            toast.success(response?.message || "Project updated successfully!");
+            router.push("/projects");
+        },
+        onError: (error) => {
+            toast.error(error?.message || "Failed to update project.");
+        },
+    });
+
+    useEffect(() => {
+        if (!projectDetails) return;
+        if (initializedProjectRef.current === String(projectDetails.id)) return;
+
+        setFormData((prev) => ({
+            ...prev,
+            vendorName: projectDetails.vendorName || "",
+            vendorId: projectDetails.vendorId || "",
+            projectName: projectDetails.name || "",
+            projectDescription: projectDetails.description || "",
+            projectOwner: String(
+                projectDetails.projectOwnerId ||
+                projectDetails.managerId ||
+                currentUserValue ||
+                ""
+            ),
+            currentUser:
+                [projectDetails.manager?.firstName, projectDetails.manager?.lastName]
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim() || currentUserName,
+            assignedTeam: getProjectAssignedTeamId(projectDetails),
+            startDate: projectDetails.startDate
+                ? new Date(projectDetails.startDate).toISOString().slice(0, 10)
+                : "",
+            endDate: projectDetails.endDate
+                ? new Date(projectDetails.endDate).toISOString().slice(0, 10)
+                : "",
+        }));
+
+        setDocuments(
+            Array.isArray(projectDetails.documents)
+                ? projectDetails.documents.map((document) => ({
+                    name: document.fileName || "document",
+                    existing: true,
+                    fileUrl: document.fileUrl || "",
+                }))
+                : []
+        );
+        initializedProjectRef.current = String(projectDetails.id);
+    }, [currentUserName, currentUserValue, projectDetails]);
+
+    useEffect(() => {
+        if (!projectDetails || formData.assignedTeam) return;
+        const initialTeamId = getProjectAssignedTeamId(projectDetails);
+        if (!initialTeamId) return;
+
+        const matchedTeam = teamOptions.find(
+            (team) => String(team.id) === String(initialTeamId)
+        );
+
+        if (matchedTeam) {
+            setFormData((prev) => ({
+                ...prev,
+                assignedTeam: matchedTeam.id,
+            }));
+        }
+    }, [formData.assignedTeam, projectDetails, teamOptions]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
-    };
-
-    const handleMeetingLinkChange = (index, value) => {
-        const newLinks = [...meetingLinks];
-        newLinks[index] = value;
-        setMeetingLinks(newLinks);
-    };
-
-    const addMeetingLink = () => {
-        setMeetingLinks([...meetingLinks, ""]);
-    };
-
-    const removeMeetingLink = (index) => {
-        if (meetingLinks.length > 1) {
-            setMeetingLinks(meetingLinks.filter((_, i) => i !== index));
+        if (errors[name]) {
+            setErrors((prev) => ({ ...prev, [name]: "" }));
         }
     };
 
@@ -109,33 +276,21 @@ export default function CreateProject() {
         setDocuments((prev) => [...prev, ...files]);
     };
 
-    const handleSlaUpload = (e) => {
-        const files = Array.from(e.target.files);
-        setSlaFiles((prev) => [...prev, ...files]);
-    };
-
     const removeDocument = (index) => {
         setDocuments((prev) => prev.filter((_, i) => i !== index));
     };
 
-    const removeSlaFile = (index) => {
-        setSlaFiles((prev) => prev.filter((_, i) => i !== index));
-    };
 
     const handleDragOver = useCallback((e, type) => {
         e.preventDefault();
         if (type === "documents") {
             setIsDraggingDocuments(true);
-        } else {
-            setIsDraggingSla(true);
         }
     }, []);
 
     const handleDragLeave = useCallback((type) => {
         if (type === "documents") {
             setIsDraggingDocuments(false);
-        } else {
-            setIsDraggingSla(false);
         }
     }, []);
 
@@ -145,9 +300,6 @@ export default function CreateProject() {
         if (type === "documents") {
             setIsDraggingDocuments(false);
             setDocuments((prev) => [...prev, ...files]);
-        } else {
-            setIsDraggingSla(false);
-            setSlaFiles((prev) => [...prev, ...files]);
         }
     }, []);
 
@@ -159,27 +311,101 @@ export default function CreateProject() {
     const handleSubmit = useCallback(
         (e) => {
             e.preventDefault();
-            // Basic validation
-            if (!formData.projectName || !formData.vendorName) {
+
+            const nextErrors = {};
+
+            if (!formData.vendorId) nextErrors.vendorId = "Vendor is required";
+            if (!formData.projectName.trim()) nextErrors.projectName = "Project name is required";
+            if (!formData.projectOwner) nextErrors.projectOwner = "Project manager is required";
+            if (!formData.assignedTeam) nextErrors.assignedTeam = "Assigned team is required";
+            if (!formData.startDate) nextErrors.startDate = "Start date is required";
+
+            setErrors(nextErrors);
+
+            if (Object.keys(nextErrors).length > 0) {
                 toast.error("Please fill in required fields");
                 return;
             }
-            console.log("Form Data:", formData);
-            console.log("Meeting Links:", meetingLinks);
-            console.log("Documents:", documents);
-            console.log("SLA Files:", slaFiles);
-            // Handle form submission here
-            toast.success("Project created successfully!");
+
+            const basePayload = {
+                name: formData.projectName.trim(),
+                description: formData.projectDescription.trim(),
+                vendorId: formData.vendorId,
+                vendorName: formData.vendorName,
+                startDate: new Date(formData.startDate).toISOString(),
+                assignTeamId:
+                    formData.assignedTeam || getProjectAssignedTeamId(projectDetails),
+            };
+
+            if (formData.endDate) {
+                basePayload.endDate = new Date(formData.endDate).toISOString();
+            }
+
+            if (isEditMode) {
+                updateProjectMutation.mutate({
+                    id: projectId,
+                    payload: {
+                        ...basePayload,
+                        status: projectDetails?.status || "IN_PROGRESS",
+                    },
+                });
+            } else {
+                const payload = new FormData();
+                payload.append("name", basePayload.name);
+                payload.append("description", basePayload.description);
+                payload.append("vendorId", basePayload.vendorId);
+                payload.append("vendorName", basePayload.vendorName);
+                payload.append("startDate", basePayload.startDate);
+                payload.append("assignTeamId", basePayload.assignTeamId);
+
+                if (basePayload.endDate) {
+                    payload.append("endDate", basePayload.endDate);
+                }
+
+                documents.forEach((file) => {
+                    if (file instanceof File) {
+                        payload.append("documents", file);
+                    }
+                });
+
+                createProjectMutation.mutate(payload);
+            }
         },
-        [formData, meetingLinks, documents, slaFiles]
+        [createProjectMutation, documents, formData, isEditMode, projectDetails?.status, projectId, updateProjectMutation]
     );
+
+    if (isEditMode && isProjectDetailsLoading) {
+        return <Loading />;
+    }
+
+    if (isEditMode && isProjectDetailsError) {
+        return (
+            <div className="space-y-6">
+                <div className="mb-8">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
+                        Update Project
+                    </h1>
+                </div>
+                <Card>
+                    <CardContent className="p-6 text-center space-y-4">
+                        <p className="text-sm text-slate-500">
+                            {projectDetailsError?.message || "Failed to load project details."}
+                        </p>
+                        <Button type="button" variant="primary" onClick={() => router.push("/projects")}>
+                            Back to Projects
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="">
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                    Create New Project
+                    {isEditMode ? "Update Project" : "Create New Project"}
                 </h1>
             </div>
 
@@ -196,12 +422,43 @@ export default function CreateProject() {
                                     <label className="text-sm font-medium text-slate-700">
                                         Vendor Name
                                     </label>
-                                    <Input
-                                        name="vendorName"
-                                        value={formData.vendorName}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g., G4 Marketing Campaign"
-                                    />
+                                    <Select
+                                        value={formData.vendorId}
+                                        onValueChange={(value) => {
+                                            const selectedVendor = vendorOptions.find(v => v.id === value);
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                vendorId: value,
+                                                vendorName: selectedVendor?.name || "",
+                                            }));
+                                            if (errors.vendorId) {
+                                                setErrors(prev => ({ ...prev, vendorId: "" }));
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue
+                                                placeholder={
+                                                    isVendorsLoading
+                                                        ? "Loading vendors..."
+                                                        : "Select vendor"
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {vendorOptions.map((vendor) => (
+                                                <SelectItem
+                                                    key={vendor.id}
+                                                    value={vendor.id}
+                                                >
+                                                    {vendor.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.vendorId && (
+                                        <p className="text-xs text-red-500">{errors.vendorId}</p>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-700">
@@ -213,6 +470,9 @@ export default function CreateProject() {
                                         onChange={handleInputChange}
                                         placeholder="e.g., G4 Marketing Campaign"
                                     />
+                                    {errors.projectName && (
+                                        <p className="text-xs text-red-500">{errors.projectName}</p>
+                                    )}
                                 </div>
                             </div>
                             <div className="space-y-2">
@@ -237,31 +497,19 @@ export default function CreateProject() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-700">
-                                        Project Owner
+                                        Project Manager
                                     </label>
-                                    <Select
-                                        value={formData.projectOwner}
-                                        onValueChange={(value) =>
-                                            setFormData((prev) => ({
-                                                ...prev,
-                                                projectOwner: value,
-                                            }))
-                                        }
-                                    >
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Search by name or email" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {projectOwners.map((member) => (
-                                                <SelectItem
-                                                    key={member.id}
-                                                    value={member.id}
-                                                >
-                                                    {member.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Input
+                                        name="currentUser"
+                                        readOnly
+                                        value={formData.currentUser}
+                                        className="bg-gray-100"
+                                        placeholder="Project manager"
+                                    />
+
+                                    {errors.projectOwner && (
+                                        <p className="text-xs text-red-500">{errors.projectOwner}</p>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-700">
@@ -277,10 +525,16 @@ export default function CreateProject() {
                                         }
                                     >
                                         <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Search by name or email" />
+                                            <SelectValue
+                                                placeholder={
+                                                    isTeamsLoading
+                                                        ? "Loading teams..."
+                                                        : "Select team"
+                                                }
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {teamMembers.map((member) => (
+                                            {teamOptions.map((member) => (
                                                 <SelectItem
                                                     key={member.id}
                                                     value={member.id}
@@ -290,6 +544,9 @@ export default function CreateProject() {
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                    {errors.assignedTeam && (
+                                        <p className="text-xs text-red-500">{errors.assignedTeam}</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -321,6 +578,9 @@ export default function CreateProject() {
                                             <Calendar className="h-4 w-4 text-primary" />
                                         </button>
                                     </div>
+                                    {errors.startDate && (
+                                        <p className="text-xs text-red-500">{errors.startDate}</p>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-700">
@@ -344,85 +604,6 @@ export default function CreateProject() {
                                         </button>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Upload Meeting Link Section */}
-                        <div className="space-y-4">
-                            <h2 className="text-lg font-semibold text-slate-900">
-                                Upload meeting link here
-                            </h2>
-                            <div className="space-y-3">
-                                {meetingLinks.map((link, index) => (
-                                    <div key={index} className="space-y-2">
-                                        <div className="flex flex-col sm:flex-row gap-2">
-                                            <div className="relative flex-1">
-                                                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                                <Input
-                                                    type="url"
-                                                    value={link}
-                                                    onChange={(e) =>
-                                                        handleMeetingLinkChange(
-                                                            index,
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                    placeholder="Upload meeting link here"
-                                                    className="pl-10"
-                                                />
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="primary"
-                                                    onClick={async () => {
-                                                        try {
-                                                            const text =
-                                                                await navigator.clipboard.readText();
-                                                            handleMeetingLinkChange(
-                                                                index,
-                                                                text
-                                                            );
-                                                            toast.success(
-                                                                "Link pasted successfully"
-                                                            );
-                                                        } catch (error) {
-                                                            toast.error(
-                                                                "Failed to paste from clipboard"
-                                                            );
-                                                        }
-                                                    }}
-                                                >
-                                                    Paste
-                                                </Button>
-                                                {meetingLinks.length > 1 && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="icon"
-                                                        onClick={() =>
-                                                            removeMeetingLink(
-                                                                index
-                                                            )
-                                                        }
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {index ===
-                                            meetingLinks.length - 1 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={addMeetingLink}
-                                                    className="text-primary hover:underline cursor-pointer text-sm font-medium"
-                                                >
-                                                    + Add Another
-                                                </button>
-                                            )}
-                                    </div>
-                                ))}
                             </div>
                         </div>
 
@@ -470,43 +651,7 @@ export default function CreateProject() {
                             <FileList files={documents} onRemove={removeDocument} />
                         </div>
 
-                        {/* Upload SLA Section */}
-                        <div className="space-y-4">
-                            <h2 className="text-lg font-semibold text-slate-900">
-                                Upload service level agreements (SLA)
-                            </h2>
-                            <div
-                                className={`border-2 border-dashed rounded-lg p-6 sm:p-8 text-center transition-colors ${isDraggingSla
-                                    ? "border-primary bg-primary/5"
-                                    : "border-slate-300 bg-slate-50"
-                                    }`}
-                                onDragOver={(e) => handleDragOver(e, "sla")}
-                                onDragLeave={() => handleDragLeave("sla")}
-                                onDrop={(e) => handleDrop(e, "sla")}
-                            >
-                                <Upload className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-                                <p className="text-sm text-slate-600 mb-2">
-                                    Max 100 MB files are allowed.
-                                </p>
-                                <input
-                                    ref={slaInputRef}
-                                    type="file"
-                                    multiple
-                                    onChange={handleSlaUpload}
-                                    className="hidden"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="primary"
-                                    onClick={() => slaInputRef.current?.click()}
-                                    className="flex items-center gap-2 mx-auto"
-                                >
-                                    <Upload className="h-4 w-4" />
-                                    Upload File
-                                </Button>
-                            </div>
-                            <FileList files={slaFiles} onRemove={removeSlaFile} />
-                        </div>
+
                     </CardContent>
                 </Card>
 
@@ -516,16 +661,23 @@ export default function CreateProject() {
                         type="button"
                         variant="outline"
                         onClick={() => router.back()}
-                        className="w-full sm:w-auto cursor-pointer hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                        className="w-full sm:w-auto cursor-pointer bg-red-400 text-white transition-colors border-red-400 hover:bg-red-500"
                     >
                         Cancel
                     </Button>
                     <Button
                         type="submit"
                         variant="primary"
+                        disabled={createProjectMutation.isPending || updateProjectMutation.isPending}
                         className="w-full sm:w-auto"
                     >
-                        Create Project
+                        {createProjectMutation.isPending || updateProjectMutation.isPending
+                            ? isEditMode
+                                ? "Updating Project..."
+                                : "Creating Project..."
+                            : isEditMode
+                                ? "Update Project"
+                                : "Create Project"}
                     </Button>
                 </div>
             </form>

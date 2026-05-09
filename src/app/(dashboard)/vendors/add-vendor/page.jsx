@@ -1,17 +1,54 @@
 "use client";
-import { useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FiUpload, FiX, FiFile, FiImage, FiHelpCircle } from "react-icons/fi";
 import toast from "react-hot-toast";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
+import Loading from "@/components/Loading/Loading";
 
 export default function AddVendor() {
     const router = useRouter();
     const photoInputRef = useRef(null);
     const documentInputRef = useRef(null);
     const slaInputRef = useRef(null);
+    const initializedVendorRef = useRef("");
+    const [vendorId, setVendorId] = useState("");
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const params = new URLSearchParams(window.location.search);
+        setVendorId(params.get("vendorId") || "");
+    }, []);
+
+    const isEditMode = Boolean(vendorId);
+
+
+
+    const {
+        data: vendorDetails,
+        isLoading: isVendorLoading,
+    } = useQuery({
+        queryKey: ["vendor", vendorId],
+        enabled: isEditMode,
+        queryFn: async () => {
+            const response = await apiGet("/api/project-manager/vendor-management/all");
+            const rawVendors = Array.isArray(response?.data)
+                ? response.data
+                : Array.isArray(response?.data?.data)
+                    ? response.data.data
+                    : [];
+
+            const vendor = rawVendors.find((item) => String(item.id) === String(vendorId));
+            if (!vendor) {
+                throw new Error("Vendor not found");
+            }
+            return vendor;
+        },
+    });
 
     const [formData, setFormData] = useState({
         vendorName: "",
@@ -35,6 +72,93 @@ export default function AddVendor() {
     const [isDraggingDocuments, setIsDraggingDocuments] = useState(false);
     const [isDraggingSla, setIsDraggingSla] = useState(false);
 
+
+
+    const createVendorMutation = useMutation({
+        mutationFn: async (payload) => apiPost("/api/project-manager/vendor-management/create", payload),
+        onSuccess: () => {
+            toast.success("Vendor added successfully!");
+            router.push("/vendors");
+        },
+        onError: (error) => {
+            toast.error(error?.message || "Failed to create vendor");
+        },
+    });
+
+    const updateVendorMutation = useMutation({
+        mutationFn: async (payload) =>
+            apiPatch(`/api/project-manager/vendor-management/${vendorId}`, payload),
+        onSuccess: () => {
+            toast.success("Vendor updated successfully!");
+            router.push("/vendors");
+        },
+        onError: (error) => {
+            toast.error(error?.message || "Failed to update vendor");
+        },
+    });
+
+    useEffect(() => {
+        if (!vendorDetails) return;
+        if (initializedVendorRef.current === String(vendorDetails.id)) return;
+
+        setFormData({
+            vendorName: vendorDetails.name || "",
+            designation: vendorDetails.designation || "",
+            email: vendorDetails.email || "",
+            phoneNumber: vendorDetails.phone || "",
+            numberOfProjects: String(vendorDetails.numberOfProjects ?? ""),
+            contactPerson: vendorDetails.contactPerson || "",
+            contactRole: vendorDetails.contactRole || "",
+            contactEmail: vendorDetails.contactEmail || "",
+            contactPhone: vendorDetails.contactPhone || "",
+            contactProjects: String(
+                vendorDetails.contactProjects ?? vendorDetails.numberOfProjects ?? ""
+            ),
+            contactDesignation: vendorDetails.contactDesignation || "",
+        });
+        setErrors({});
+
+        setPhoto(
+            vendorDetails.photoUrl
+                ? {
+                    name: vendorDetails.photoPath?.split("/").pop() || "photo",
+                    size: "",
+                    preview: vendorDetails.photoUrl,
+                    file: null,
+                }
+                : null
+        );
+
+        setDocuments(
+            Array.isArray(vendorDetails.documents)
+                ? vendorDetails.documents.map((doc) => ({
+                    name: doc.name || "document",
+                    size: doc.size ? `${(doc.size / 1024 / 1024).toFixed(2)} MB` : "",
+                    file: null,
+                    fileUrl: doc.fileUrl,
+                }))
+                : []
+        );
+
+        setSlaFiles(
+            Array.isArray(vendorDetails.slas)
+                ? vendorDetails.slas.map((file) => ({
+                    name: file.name || "sla",
+                    size: file.size ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "",
+                    file: null,
+                    fileUrl: file.fileUrl,
+                }))
+                : []
+        );
+
+        setMeetingLinks(
+            Array.isArray(vendorDetails.meetingLinks) && vendorDetails.meetingLinks.length > 0
+                ? vendorDetails.meetingLinks.map((item) => item.link || "")
+                : [""]
+        );
+        initializedVendorRef.current = String(vendorDetails.id);
+    }, [vendorDetails]);
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
@@ -51,6 +175,7 @@ export default function AddVendor() {
                 name: file.name,
                 size: (file.size / 1024).toFixed(2) + " KB",
                 preview: URL.createObjectURL(file),
+                file,
             });
             if (errors.photo) {
                 setErrors((prev) => ({ ...prev, photo: "" }));
@@ -63,6 +188,7 @@ export default function AddVendor() {
         const newDocs = files.map((file) => ({
             name: file.name,
             size: (file.size / 1024 / 1024).toFixed(2) + " MB",
+            file,
         }));
         setDocuments((prev) => [...prev, ...newDocs]);
         if (errors.documents) {
@@ -75,6 +201,7 @@ export default function AddVendor() {
         const newFiles = files.map((file) => ({
             name: file.name,
             size: (file.size / 1024 / 1024).toFixed(2) + " MB",
+            file,
         }));
         setSlaFiles((prev) => [...prev, ...newFiles]);
         if (errors.slaFiles) {
@@ -125,6 +252,7 @@ export default function AddVendor() {
         const newDocs = files.map((file) => ({
             name: file.name,
             size: (file.size / 1024 / 1024).toFixed(2) + " MB",
+            file,
         }));
         setDocuments((prev) => [...prev, ...newDocs]);
         if (errors.documents) {
@@ -140,6 +268,7 @@ export default function AddVendor() {
         const newFiles = files.map((file) => ({
             name: file.name,
             size: (file.size / 1024 / 1024).toFixed(2) + " MB",
+            file,
         }));
         setSlaFiles((prev) => [...prev, ...newFiles]);
         if (errors.slaFiles) {
@@ -208,10 +337,13 @@ export default function AddVendor() {
         }
         if (!formData.numberOfProjects.trim()) {
             newErrors.numberOfProjects = "Number of projects is required";
+        } else if (isNaN(Number(formData.numberOfProjects))) {
+            newErrors.numberOfProjects = "Please enter a valid number";
         }
         if (!photo) {
             newErrors.photo = "Photo is required";
         }
+
 
         // Key Point of Contact
         if (!formData.contactPerson.trim()) {
@@ -230,18 +362,14 @@ export default function AddVendor() {
         }
         if (!formData.contactProjects.trim()) {
             newErrors.contactProjects = "Number of projects is required";
+        } else if (isNaN(Number(formData.contactProjects))) {
+            newErrors.contactProjects = "Please enter a valid number";
         }
         if (!formData.contactDesignation.trim()) {
             newErrors.contactDesignation = "Designation is required";
         }
 
-        // File uploads
-        if (documents.length === 0) {
-            newErrors.documents = "Please upload at least one document";
-        }
-        if (slaFiles.length === 0) {
-            newErrors.slaFiles = "Please upload at least one SLA file";
-        }
+        // File uploads are now optional
 
         // Meeting links validation
         const validLinks = meetingLinks.filter(link => link.trim() !== "");
@@ -264,9 +392,45 @@ export default function AddVendor() {
 
         if (validateForm()) {
             const validMeetingLinks = meetingLinks.filter(link => link.trim() !== "");
-            console.log("Form submitted:", { ...formData, photo, documents, slaFiles, meetingLinks: validMeetingLinks });
-            toast.success("Vendor added successfully!");
-            router.push("/vendors");
+            const meetingLinksPayload = validMeetingLinks.map((link, index) => ({
+                title: `Meeting Link ${index + 1}`,
+                link: link.trim(),
+            }));
+            const payload = new FormData();
+            payload.append("name", formData.vendorName);
+            payload.append("email", formData.email);
+            payload.append("numberOfProjects", Number(formData.numberOfProjects) || 0);
+            payload.append("meetingLinks", JSON.stringify(meetingLinksPayload));
+            payload.append("phone", formData.phoneNumber);
+            payload.append("designation", formData.designation);
+            payload.append("contactPerson", formData.contactPerson);
+            payload.append("contactRole", formData.contactRole);
+            payload.append("contactEmail", formData.contactEmail);
+            payload.append("contactPhone", formData.contactPhone);
+            payload.append("contactProjects", Number(formData.contactProjects) || 0);
+            payload.append("contactDesignation", formData.contactDesignation);
+
+            if (photo?.file) {
+                payload.append("photo", photo.file);
+            }
+
+            documents.forEach((doc) => {
+                if (doc.file) {
+                    payload.append("documents", doc.file);
+                }
+            });
+
+            slaFiles.forEach((file) => {
+                if (file.file) {
+                    payload.append("slas", file.file);
+                }
+            });
+
+            if (isEditMode) {
+                updateVendorMutation.mutate(payload);
+            } else {
+                createVendorMutation.mutate(payload);
+            }
         } else {
             toast.error("Please fill in all required fields");
         }
@@ -276,13 +440,23 @@ export default function AddVendor() {
         router.push("/vendors");
     };
 
+
+
+    if (isVendorLoading) {
+        return <Loading />;
+    }
+
     return (
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-slate-900">Add new vendor</h1>
+                <h1 className="text-2xl font-bold text-slate-900">
+                    {isEditMode ? "Update vendor" : "Add new vendor"}
+                </h1>
                 <p className="text-sm text-slate-500 mt-1">
-                    Enter vendor details to add them to your records. AI powered insights for all your projects
+                    {isEditMode
+                        ? "Update vendor details in your records."
+                        : "Enter vendor details to add them to your records. AI powered insights for all your projects"}
                 </p>
             </div>
 
@@ -292,7 +466,7 @@ export default function AddVendor() {
                     {/* Vendor Name */}
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-slate-700">
-                            Vendor name <span className="text-red-500">*</span>
+                            Vendor name
                         </label>
                         <Input
                             type="text"
@@ -367,8 +541,9 @@ export default function AddVendor() {
                             Number of projects <span className="text-red-500">*</span>
                         </label>
                         <Input
-                            type="text"
+                            type="number"
                             name="numberOfProjects"
+                            min="0"
                             value={formData.numberOfProjects}
                             onChange={handleInputChange}
                             placeholder="03"
@@ -417,6 +592,8 @@ export default function AddVendor() {
                             <p className="text-xs text-red-500">{errors.photo}</p>
                         )}
                     </div>
+
+
                 </div>
 
                 {/* Key Point of Contact */}
@@ -509,8 +686,9 @@ export default function AddVendor() {
                                 Number of projects <span className="text-red-500">*</span>
                             </label>
                             <Input
-                                type="text"
+                                type="number"
                                 name="contactProjects"
+                                min="0"
                                 value={formData.contactProjects}
                                 onChange={handleInputChange}
                                 placeholder="03"
@@ -599,7 +777,7 @@ export default function AddVendor() {
                 {/* Upload  Document */}
                 <div className="space-y-4">
                     <h2 className="text-lg font-semibold text-slate-900">
-                        Upload meeting or Document <span className="text-red-500">*</span>
+                        Upload meeting or Document
                     </h2>
                     <input
                         type="file"
@@ -665,7 +843,7 @@ export default function AddVendor() {
                 {/* Upload Service Level Agreements */}
                 <div className="space-y-4">
                     <h2 className="text-lg font-semibold text-slate-900">
-                        Upload service level agreements <span className="text-red-500">*</span>
+                        Upload service level agreements
                     </h2>
                     <input
                         type="file"
@@ -739,8 +917,15 @@ export default function AddVendor() {
                     >
                         Cancel
                     </Button>
-                    <Button type="submit" variant="primary" size="lg">
-                        Add vendor
+                    <Button
+                        type="submit"
+                        variant="primary"
+                        size="lg"
+                        disabled={createVendorMutation.isPending || updateVendorMutation.isPending}
+                    >
+                        {createVendorMutation.isPending || updateVendorMutation.isPending
+                            ? (isEditMode ? "Updating..." : "Adding...")
+                            : (isEditMode ? "Update vendor" : "Add vendor")}
                     </Button>
                 </div>
             </form>

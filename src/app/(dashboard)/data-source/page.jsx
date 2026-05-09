@@ -1,258 +1,310 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
 import toast from "react-hot-toast";
-import { FiCheck } from "react-icons/fi";
-
-// Toggle Switch Component
-const ToggleSwitch = ({ checked, onChange, label }) => {
-    return (
-        <div className="flex items-center justify-between py-3">
-            <span className="text-sm font-medium text-slate-700">{label}</span>
-            <button
-                type="button"
-                role="switch"
-                aria-checked={checked}
-                onClick={() => onChange(!checked)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#6051E2] focus:ring-offset-2 cursor-pointer ${checked ? "bg-[#6051E2]" : "bg-slate-300"
-                    }`}
-            >
-                <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${checked ? "translate-x-6" : "translate-x-1"
-                        }`}
-                />
-            </button>
-        </div>
-    );
-};
-
-// Progress Bar Component
-const ProgressBar = ({ label, value }) => {
-    // Calculate percentage based on a max value of 100
-    const percentage = Math.min((value / 100) * 100, 100);
-    return (
-        <div className="space-y-2">
-            <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-700">{label}</span>
-                <span className="text-sm font-semibold text-slate-900">{value}</span>
-            </div>
-            <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
-                <div
-                    className="h-full bg-[#6051E2] rounded-full transition-all duration-300"
-                    style={{ width: `${percentage}%` }}
-                />
-            </div>
-        </div>
-    );
-};
-
+import { PiMicrosoftOutlookLogo } from "react-icons/pi";
+import { BiLogoMicrosoftTeams } from "react-icons/bi";
+import { GoMail } from "react-icons/go";
+import { SiGooglecalendar } from "react-icons/si";
+import { SiZoom } from "react-icons/si";
+import { apiDelete, apiGet } from "@/lib/api";
 // Tool Connection Data
 const tools = [
     {
         id: 1,
         name: "Microsoft Outlook",
         icon: (
-            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">O</span>
-            </div>
+            <PiMicrosoftOutlookLogo className="w-10 h-10 text-blue-500" />
         ),
-        connected: true,
-        email: "user@example.com",
-        status: "Connection successful, last tested: 2 minutes ago",
-    },
-    {
-        id: 2,
-        name: "Microsoft Teams",
-        icon: (
-            <div className="w-10 h-10 bg-[#6051E2] rounded-lg flex items-center justify-center relative">
-                <span className="text-white font-bold text-lg">T</span>
-                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-white rounded-full flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 bg-[#6051E2] rounded-full"></div>
-                </div>
-            </div>
-        ),
-        connected: false,
+        connected: false
     },
     {
         id: 3,
         name: "Google Calendar",
         icon: (
-            <div className="w-10 h-10 rounded-lg overflow-hidden flex">
-                <div className="w-1/4 bg-blue-500"></div>
-                <div className="w-1/4 bg-green-500"></div>
-                <div className="w-1/4 bg-yellow-500"></div>
-                <div className="w-1/4 bg-red-500"></div>
-            </div>
+            <SiGooglecalendar className="w-10 h-10 text-blue-500" />
         ),
         connected: false,
     },
     {
         id: 4,
-        name: "Outlook calendar",
+        name: "Gmail",
         icon: (
-            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">O</span>
-            </div>
+            <GoMail className="w-10 h-10 text-blue-500" />
         ),
         connected: false,
     },
     {
         id: 5,
-        name: "Gmail",
-        icon: (
-            <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">M</span>
-            </div>
-        ),
+        name: "Zoom",
+        icon: <SiZoom className="w-10 h-10 text-blue-500" />,
         connected: false,
     },
-    {
-        id: 6,
-        name: "Azure AD",
-        icon: (
-            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center transform rotate-45">
-                <div className="w-6 h-6 bg-white rounded-sm"></div>
-            </div>
-        ),
-        connected: false,
-    },
-    {
-        id: 7,
-        name: "OKTA",
-        icon: (
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-lg">O</span>
-            </div>
-        ),
-        connected: false,
-    },
+
 ];
 
+const OUTLOOK_TOOL_ID = 1;
+const GOOGLE_CALENDAR_TOOL_ID = 3;
+const GMAIL_TOOL_ID = 4;
+const ZOOM_TOOL_ID = 5;
+const CONNECTABLE_TOOLS = {
+    [OUTLOOK_TOOL_ID]: {
+        connectEndpoint: "/api/project-manager/outlook/connect",
+        disconnectEndpoint: "/api/project-manager/outlook/disconnect",
+        statusEndpoint: "/api/email-account-connection/status",
+        statusParams: {
+            category: "social",
+        },
+        popupName: "outlook-connect",
+        successMessage: "Outlook connected successfully",
+        disconnectMessage: "Outlook disconnected successfully",
+        getConnectionInfo: (response) => {
+            const accounts = Array.isArray(response?.data) ? response.data : [];
+            const outlookAccount = accounts.find(
+                (account) => String(account?.source || "").toUpperCase() === "OUTLOOK"
+            );
+
+            return {
+                isConnected: Boolean(outlookAccount?.isConnected),
+                email: outlookAccount?.email || "",
+            };
+        },
+    },
+    [GMAIL_TOOL_ID]: {
+        connectEndpoint: "/api/email-account-connection/connect",
+        disconnectEndpoint: "/api/email-account-connection/disconnect",
+        statusEndpoint: "/api/email-account-connection/status",
+        statusParams: {
+            category: "social",
+        },
+        popupName: "gmail-connect",
+        successMessage: "Gmail connected successfully",
+        disconnectMessage: "Gmail disconnected successfully",
+        getConnectionInfo: (response) => {
+            const accounts = Array.isArray(response?.data) ? response.data : [];
+            const gmailAccount = accounts.find(
+                (account) => String(account?.source || "").toUpperCase() === "GMAIL"
+            );
+
+            return {
+                isConnected: Boolean(gmailAccount?.isConnected),
+                email: gmailAccount?.email || "",
+            };
+        },
+    },
+    [ZOOM_TOOL_ID]: {
+        connectEndpoint: "/api/project-manager/zoom/authorize",
+        disconnectEndpoint: "/api/project-manager/zoom/disconnect",
+        statusEndpoint: "/api/email-account-connection/status",
+        statusParams: {
+            category: "social",
+        },
+        popupName: "zoom-connect",
+        successMessage: "Zoom connected successfully",
+        disconnectMessage: "Zoom disconnected successfully",
+        getConnectionInfo: (response) => {
+            const accounts = Array.isArray(response?.data) ? response.data : [];
+            const zoomAccount = accounts.find(
+                (account) => String(account?.source || "").toUpperCase() === "ZOOM"
+            );
+
+            return {
+                isConnected: Boolean(zoomAccount?.isConnected),
+                email: zoomAccount?.email || "",
+            };
+        },
+    },
+};
+
+function getAuthUrl(response) {
+    return response?.url || response?.data?.url || null;
+}
+
 export default function DataSource() {
-    const [aiSettings, setAiSettings] = useState({
-        tasks: true,
-        risks: true,
-        issues: true,
-        actions: true,
-        decisions: true,
-    });
-
-    const [connectedTools, setConnectedTools] = useState(
-        tools.map((tool) => tool.connected)
+    const initialConnectionState = useMemo(
+        () =>
+            Object.fromEntries(
+                tools.map((tool) => [tool.id, tool.connected])
+            ),
+        []
     );
+    const [connectedTools, setConnectedTools] = useState(initialConnectionState);
+    const [toolConnectionInfo, setToolConnectionInfo] = useState({});
+    const [loadingToolId, setLoadingToolId] = useState(null);
+    const [isCheckingStatus, setIsCheckingStatus] = useState(true);
+    const isGmailConnected = Boolean(connectedTools[GMAIL_TOOL_ID]);
 
-    // Modal states
-    const [isAzureModalOpen, setIsAzureModalOpen] = useState(false);
-    const [isOktaModalOpen, setIsOktaModalOpen] = useState(false);
+    useEffect(() => {
+        loadConnectionStatuses();
 
-    // Azure AD form data
-    const [azureFormData, setAzureFormData] = useState({
-        tenantId: "",
-        clientId: "",
-        secret: "",
-    });
+        const handleWindowFocus = () => {
+            loadConnectionStatuses(false);
+        };
 
-    // OKTA form data
-    const [oktaFormData, setOktaFormData] = useState({
-        domain: "",
-        apiToken: "",
-    });
+        window.addEventListener("focus", handleWindowFocus);
+        return () => window.removeEventListener("focus", handleWindowFocus);
+    }, []);
 
-    const handleToggle = (key) => {
-        setAiSettings((prev) => ({
+    const updateToolConnection = (toolId, isConnected) => {
+        setConnectedTools((prev) => ({
             ...prev,
-            [key]: !prev[key],
+            [toolId]: isConnected,
         }));
     };
 
-    const handleConnect = (index) => {
+    useEffect(() => {
+        setConnectedTools((prev) => ({
+            ...prev,
+            [GOOGLE_CALENDAR_TOOL_ID]: isGmailConnected,
+        }));
+        setToolConnectionInfo((prev) => ({
+            ...prev,
+            [GOOGLE_CALENDAR_TOOL_ID]: {
+                isConnected: isGmailConnected,
+                email: isGmailConnected
+                    ? prev[GMAIL_TOOL_ID]?.email || ""
+                    : "",
+            },
+        }));
+    }, [isGmailConnected, toolConnectionInfo[GMAIL_TOOL_ID]?.email]);
+
+    const loadConnectionStatuses = async (showLoader = true) => {
+        if (showLoader) {
+            setIsCheckingStatus(true);
+        }
+
+        try {
+            const statusEntries = await Promise.all(
+                Object.entries(CONNECTABLE_TOOLS).map(async ([toolId, config]) => {
+                    try {
+                        const response = await apiGet(config.statusEndpoint, {
+                            params: config.statusParams,
+                        });
+                        return [Number(toolId), config.getConnectionInfo(response)];
+                    } catch {
+                        return [Number(toolId), { isConnected: false, email: "" }];
+                    }
+                })
+            );
+
+            const statusMap = Object.fromEntries(statusEntries);
+
+            setConnectedTools((prev) => ({
+                ...prev,
+                ...Object.fromEntries(
+                    Object.entries(statusMap).map(([toolId, info]) => [
+                        Number(toolId),
+                        info.isConnected,
+                    ])
+                ),
+            }));
+            setToolConnectionInfo((prev) => ({
+                ...prev,
+                ...statusMap,
+            }));
+
+            return statusMap;
+        } finally {
+            if (showLoader) {
+                setIsCheckingStatus(false);
+            }
+        }
+    };
+
+    const handleConnect = async (index) => {
         const tool = tools[index];
+        const config = CONNECTABLE_TOOLS[tool.id];
 
-        // Check if it's Azure AD or OKTA
-        if (tool.name === "Azure AD") {
-            setIsAzureModalOpen(true);
+        if (config) {
+            setLoadingToolId(tool.id);
+            try {
+                const response = await apiGet(config.connectEndpoint);
+                const isConnected = Boolean(response?.isConnected ?? response?.data?.isConnected);
+                const authUrl = getAuthUrl(response);
+
+                if (isConnected) {
+                    updateToolConnection(tool.id, true);
+                    setToolConnectionInfo((prev) => ({
+                        ...prev,
+                        [tool.id]: config.getConnectionInfo(response),
+                    }));
+                    toast.success(config.successMessage);
+                    setLoadingToolId(null);
+                    return;
+                }
+
+                if (!authUrl) {
+                    toast.error(`Failed to get ${tool.name} connection URL`);
+                    setLoadingToolId(null);
+                    return;
+                }
+
+                const popup = window.open(
+                    authUrl,
+                    config.popupName,
+                    "width=600,height=700,noopener,noreferrer"
+                );
+
+                if (!popup) {
+                    window.location.href = authUrl;
+                    return;
+                }
+
+                const popupTimer = window.setInterval(async () => {
+                    if (!popup.closed) return;
+
+                    window.clearInterval(popupTimer);
+                    const statusMap = await loadConnectionStatuses(false);
+                    if (statusMap?.[tool.id]?.isConnected) {
+                        toast.success(config.successMessage);
+                    } else {
+                        toast.error(`${tool.name} is not connected yet`);
+                    }
+                    setLoadingToolId(null);
+                }, 1000);
+
+                return;
+            } catch (error) {
+                toast.error(error?.message || `Failed to connect ${tool.name}`);
+                setLoadingToolId(null);
+            }
             return;
         }
 
-        if (tool.name === "OKTA") {
-            setIsOktaModalOpen(true);
-            return;
-        }
-
-        // For other tools, connect directly
-        if (connectedTools[index]) {
-            setConnectedTools((prev) => {
-                const newState = [...prev];
-                newState[index] = false;
-                return newState;
-            });
+        if (connectedTools[tool.id]) {
+            updateToolConnection(tool.id, false);
             toast.success(`${tool.name} disconnected successfully`);
         } else {
-            setConnectedTools((prev) => {
-                const newState = [...prev];
-                newState[index] = true;
-                return newState;
-            });
+            updateToolConnection(tool.id, true);
             toast.success(`${tool.name} connected successfully`);
         }
     };
 
-    const handleAzureConnect = () => {
-        if (!azureFormData.tenantId || !azureFormData.clientId || !azureFormData.secret) {
-            toast.error("Please fill in all fields");
-            return;
-        }
-
-        // Find Azure AD index
-        const azureIndex = tools.findIndex((tool) => tool.name === "Azure AD");
-        if (azureIndex !== -1) {
-            setConnectedTools((prev) => {
-                const newState = [...prev];
-                newState[azureIndex] = true;
-                return newState;
-            });
-            toast.success("Azure AD connected successfully");
-            setIsAzureModalOpen(false);
-            setAzureFormData({ tenantId: "", clientId: "", secret: "" });
-        }
-    };
-
-    const handleOktaConnect = () => {
-        if (!oktaFormData.domain || !oktaFormData.apiToken) {
-            toast.error("Please fill in all fields");
-            return;
-        }
-
-        // Find OKTA index
-        const oktaIndex = tools.findIndex((tool) => tool.name === "OKTA");
-        if (oktaIndex !== -1) {
-            setConnectedTools((prev) => {
-                const newState = [...prev];
-                newState[oktaIndex] = true;
-                return newState;
-            });
-            toast.success("OKTA connected successfully");
-            setIsOktaModalOpen(false);
-            setOktaFormData({ domain: "", apiToken: "" });
-        }
-    };
-
-    const handleDisconnect = (index) => {
+    const handleDisconnect = async (index) => {
         const tool = tools[index];
-        setConnectedTools((prev) => {
-            const newState = [...prev];
-            newState[index] = false;
-            return newState;
-        });
+        const config = CONNECTABLE_TOOLS[tool.id];
+
+        if (config) {
+            setLoadingToolId(tool.id);
+            try {
+                await apiDelete(config.disconnectEndpoint);
+                updateToolConnection(tool.id, false);
+                setToolConnectionInfo((prev) => ({
+                    ...prev,
+                    [tool.id]: { isConnected: false, email: "" },
+                }));
+                toast.success(config.disconnectMessage);
+            } catch (error) {
+                toast.error(error?.message || `Failed to disconnect ${tool.name}`);
+            } finally {
+                setLoadingToolId(null);
+            }
+            return;
+        }
+
+        updateToolConnection(tool.id, false);
         toast.success(`${tool.name} disconnected successfully`);
     };
 
@@ -268,74 +320,7 @@ export default function DataSource() {
                 </p>
             </div>
 
-            {/* Data Source & AI Configuration Section */}
-            <Card className="bg-white">
-                <CardContent className="p-6">
-                    {/* Header */}
-                    <div className="mb-6">
-                        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">
-                            Data Source & AI configuration
-                        </h2>
-                        <p className="text-sm sm:text-base text-slate-600">
-                            Connect your tools & configure what our AI should automatically identify from your data
-                        </p>
-                    </div>
 
-                    {/* Two Column Layout */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-                        {/* Recent Activity */}
-                        <div>
-                            <h3 className="text-xl font-bold text-slate-900 mb-6">
-                                Recent Activity
-                            </h3>
-                            <div className="space-y-5">
-                                <ProgressBar label="Tasks" value={48} />
-                                <ProgressBar label="Risks" value={65} />
-                                <ProgressBar label="Issues" value={65} />
-                                <ProgressBar label="Actions" value={65} />
-                                <ProgressBar label="Decisions" value={65} />
-                            </div>
-                        </div>
-
-                        {/* AI Extraction Settings */}
-                        <div>
-                            <h3 className="text-xl font-bold text-slate-900 mb-2">
-                                AI Extraction Settings
-                            </h3>
-                            <p className="text-sm text-slate-600 mb-6">
-                                Choose what the ai should automatically identify
-                            </p>
-                            <div className="space-y-1">
-                                <ToggleSwitch
-                                    label="Tasks"
-                                    checked={aiSettings.tasks}
-                                    onChange={() => handleToggle("tasks")}
-                                />
-                                <ToggleSwitch
-                                    label="Risks"
-                                    checked={aiSettings.risks}
-                                    onChange={() => handleToggle("risks")}
-                                />
-                                <ToggleSwitch
-                                    label="Issues"
-                                    checked={aiSettings.issues}
-                                    onChange={() => handleToggle("issues")}
-                                />
-                                <ToggleSwitch
-                                    label="Actions"
-                                    checked={aiSettings.actions}
-                                    onChange={() => handleToggle("actions")}
-                                />
-                                <ToggleSwitch
-                                    label="Decisions"
-                                    checked={aiSettings.decisions}
-                                    onChange={() => handleToggle("decisions")}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
 
             {/* Connect your tools Section */}
             <div>
@@ -343,7 +328,16 @@ export default function DataSource() {
                     Connect your tools
                 </h2>
                 <div className="space-y-4">
-                    {tools.map((tool, index) => (
+                    {tools.map((tool, index) => {
+                        const isSupportedTool = Boolean(CONNECTABLE_TOOLS[tool.id]);
+                        const isAutoConnectedTool = tool.id === GOOGLE_CALENDAR_TOOL_ID;
+                        const isActionDisabled =
+                            !isSupportedTool ||
+                            isAutoConnectedTool ||
+                            loadingToolId === tool.id ||
+                            isCheckingStatus;
+
+                        return (
                         <Card
                             key={tool.id}
                             className="bg-white hover:shadow-md transition-shadow"
@@ -356,7 +350,7 @@ export default function DataSource() {
                                             <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-1">
                                                 {tool.name}
                                             </h3>
-                                            {connectedTools[index] ? (
+                                            {connectedTools[tool.id] ? (
                                                 <div className="space-y-1">
                                                     {tool.name === "Azure AD" || tool.name === "OKTA" ? (
                                                         <div className="flex items-center gap-2">
@@ -373,9 +367,11 @@ export default function DataSource() {
                                                                     Connected
                                                                 </span>
                                                             </div>
-                                                            <p className="text-xs text-green-700">
-                                                                {tool.status}
-                                                            </p>
+                                                            {toolConnectionInfo[tool.id]?.email ? (
+                                                                <p className="text-xs text-green-700">
+                                                                    {toolConnectionInfo[tool.id].email}
+                                                                </p>
+                                                            ) : null}
                                                         </>
                                                     )}
                                                 </div>
@@ -384,44 +380,89 @@ export default function DataSource() {
                                                     Not Connected
                                                 </p>
                                             )}
+                                            {isAutoConnectedTool ? (
+                                                <p className="text-xs text-slate-400 mt-1">
+                                                    Synced with Gmail connection
+                                                </p>
+                                            ) : !isSupportedTool ? (
+                                                <p className="text-xs text-slate-400 mt-1">
+                                                    Coming soon
+                                                </p>
+                                            ) : null}
                                         </div>
                                     </div>
                                     <div className="flex-shrink-0">
-                                        {connectedTools[index] ? (
+                                        {isAutoConnectedTool ? (
+                                            <div className="group relative inline-flex">
+                                                <button
+                                                    type="button"
+                                                    disabled
+                                                    className={`relative inline-flex h-10 items-center justify-center rounded-full border px-5 text-sm font-medium shadow-sm transition-all ${
+                                                        connectedTools[tool.id]
+                                                            ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-700"
+                                                            : "border-slate-200 bg-slate-50 text-slate-500"
+                                                    }`}
+                                                >
+                                                    <span
+                                                        className={`mr-2 h-2.5 w-2.5 rounded-full ${
+                                                            connectedTools[tool.id]
+                                                                ? "bg-emerald-500"
+                                                                : "bg-slate-300"
+                                                        }`}
+                                                    />
+                                                    Auto connected
+                                                </button>
+                                                <div className="pointer-events-none absolute -top-12 left-1/2 z-10 w-64 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-xs text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+                                                    When you connect Gmail, Google Calendar connects automatically.
+                                                </div>
+                                            </div>
+                                        ) : connectedTools[tool.id] ? (
                                             tool.name === "Azure AD" || tool.name === "OKTA" ? (
                                                 <Button
                                                     onClick={() => handleDisconnect(index)}
+                                                    disabled={isActionDisabled}
                                                     className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 cursor-pointer w-full sm:w-auto"
                                                 >
-                                                    Disconnect
+                                                    {loadingToolId === tool.id ? "Disconnecting..." : "Disconnect"}
                                                 </Button>
                                             ) : (
                                                 <Button
                                                     onClick={() => handleDisconnect(index)}
                                                     variant="outline"
+                                                    disabled={isActionDisabled}
                                                     className="bg-red-500 text-white  px-6 py-2 cursor-pointer w-full sm:w-auto"
                                                 >
-                                                    Disconnect
+                                                    {loadingToolId === tool.id ? "Disconnecting..." : "Disconnect"}
                                                 </Button>
                                             )
                                         ) : (
                                             <Button
                                                 onClick={() => handleConnect(index)}
-                                                className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-2 cursor-pointer flex-shrink-0 w-full sm:w-auto"
+                                                disabled={isActionDisabled}
+                                                className={`px-6 py-2 flex-shrink-0 w-full sm:w-auto ${
+                                                    isSupportedTool
+                                                        ? "bg-[#6051E2] hover:bg-[#4a3db8] text-white cursor-pointer"
+                                                        : "bg-slate-200 text-slate-400 cursor-not-allowed hover:bg-slate-200"
+                                                }`}
                                             >
-                                                Connect
+                                                {!isSupportedTool
+                                                    ? "Connect"
+                                                    : loadingToolId === tool.id
+                                                    ? "Connecting..."
+                                                    : "Connect"}
                                             </Button>
                                         )}
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 
             {/* Azure AD Connection Modal */}
-            <Dialog open={isAzureModalOpen} onOpenChange={setIsAzureModalOpen}>
+            {/* <Dialog open={isAzureModalOpen} onOpenChange={setIsAzureModalOpen}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-bold text-slate-900">
@@ -499,10 +540,10 @@ export default function DataSource() {
                         </div>
                     </div>
                 </DialogContent>
-            </Dialog>
+            </Dialog> */}
 
             {/* OKTA Connection Modal */}
-            <Dialog open={isOktaModalOpen} onOpenChange={setIsOktaModalOpen}>
+            {/* <Dialog open={isOktaModalOpen} onOpenChange={setIsOktaModalOpen}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-bold text-slate-900">
@@ -563,7 +604,7 @@ export default function DataSource() {
                         </div>
                     </div>
                 </DialogContent>
-            </Dialog>
+            </Dialog> */}
         </div>
     );
 }

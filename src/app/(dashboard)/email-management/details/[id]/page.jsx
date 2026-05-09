@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,56 +8,207 @@ import { FaLinkedin } from "react-icons/fa";
 import { CiSquareCheck } from "react-icons/ci";
 import { FiAlertTriangle } from "react-icons/fi";
 import { FiFile } from "react-icons/fi";
-import { useState } from "react";
-import { toast } from "react-hot-toast";
+import { useQuery } from "@tanstack/react-query";
+import Loading from "@/components/Loading/Loading";
+import { apiGet } from "@/lib/api";
 
-// Dummy email data - in real app, fetch based on id
-const emailData = {
-    id: "1",
-    title: "Cloud Infrastructure Migration - Weekly Update",
-    sender: {
-        name: "Sarah Chen",
-        email: "sarah.chen@company.com",
+import { SiGmail } from "react-icons/si";
+import { PiMicrosoftOutlookLogo } from "react-icons/pi";
+
+const EMPTY_AI_EXTRACTED = {};
+
+const getSourceIcon = (type) => {
+    const normalized = String(type || "").toLowerCase();
+    if (normalized === "gmail") return <SiGmail className="h-5 w-5 text-white" />;
+    if (normalized === "outlook") return <PiMicrosoftOutlookLogo className="h-5 w-5 text-white" />;
+    return <FiMail className="h-5 w-5 text-white" />;
+};
+
+const unwrapEmailPayload = (response) =>
+    response?.data?.data ?? response?.data ?? null;
+
+const normalizeRaiddKey = (value) => {
+    const normalized = String(value || "").toLowerCase();
+
+    switch (normalized) {
+        case "task":
+        case "tasks":
+            return "tasks";
+        case "risk":
+        case "risks":
+            return "risks";
+        case "issue":
+        case "issues":
+            return "issues";
+        case "assumption":
+        case "assumptions":
+            return "assumptions";
+        case "decision":
+        case "decisions":
+            return "decisions";
+        case "dependency":
+        case "dependencies":
+            return "dependencies";
+        default:
+            return "";
+    }
+};
+
+const extractedSections = [
+    {
+        key: "tasks",
+        title: "Tasks",
+        icon: <CiSquareCheck className="h-6 w-6 text-green-500" />,
+        iconClass: "bg-green-50",
     },
-    content: {
-        greeting: "Hi team,",
-        introduction: "Here is the weekly update for the Cloud Infrastructure Migration project:",
-        progress: [
-            "Database migration phase 1 completed successfully",
-            "45 out of 60 tasks completed (75%)",
-            "All critical milestones on track",
-        ],
-        actionItems: [
-            "Complete database migration testing by Dec 12",
-            "Review security audit findings by end of week",
-            "Schedule stakeholder review meeting for Dec 15",
-        ],
-        risksAndIssues: [
-            "Potential delay in third-party API integration due to vendor capacity",
-            "Mitigation: We have identified an alternative provider as backup",
-        ],
-        decisionsMade: [
-            "Approved budget increase of $50K for additional testing resources",
-            "Moving security testing phase forward by one week",
-        ],
-        sentiment: "Team morale is high and we are confident in meeting our Jan 15 deadline.",
-        closing: "Best regards,\nSarah Chen",
+    {
+        key: "risks",
+        title: "Risks",
+        icon: <FiAlertTriangle className="h-6 w-6 text-yellow-500" />,
+        iconClass: "bg-yellow-50",
     },
-    aiExtracted: {
-        tasks: [
-            "Complete database migration testing by Dec 12",
-            "Review security audit findings",
-        ],
-        risks: ["Potential delay in third-party API integration"],
-        decisions: ["Approved budget increase of $50K for additional testing resources"],
-        sentiment: "Positive",
+    {
+        key: "issues",
+        title: "Issues",
+        icon: <FiAlertTriangle className="h-6 w-6 text-amber-500" />,
+        iconClass: "bg-amber-50",
     },
+    {
+        key: "assumptions",
+        title: "Assumptions",
+        icon: <FiFile className="h-6 w-6 text-sky-500" />,
+        iconClass: "bg-sky-50",
+    },
+    {
+        key: "decisions",
+        title: "Decisions",
+        icon: <FiFile className="h-6 w-6 text-blue-500" />,
+        iconClass: "bg-blue-50",
+    },
+    {
+        key: "dependencies",
+        title: "Dependencies",
+        icon: <FiFile className="h-6 w-6 text-purple-500" />,
+        iconClass: "bg-purple-50",
+    },
+];
+
+const formatDateTime = (dateValue) => {
+    if (!dateValue) return "";
+
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    }).format(date);
 };
 
 export default function EmailDetails() {
     const params = useParams();
     const router = useRouter();
     const [isStarred, setIsStarred] = useState(false);
+    const [category, setCategory] = useState("");
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const searchParams = new URLSearchParams(window.location.search);
+        setCategory(searchParams.get("category") || "");
+    }, []);
+
+    const emailId = Array.isArray(params?.id) ? params.id[0] : params?.id;
+    const { data: emailResponse, isLoading, error } = useQuery({
+        queryKey: ["unified-email", emailId, category],
+        queryFn: () =>
+            apiGet(`/api/project-manager/outlook/unified/${emailId}`, {
+                params: category ? { category } : undefined,
+            }),
+        enabled: Boolean(emailId),
+    });
+
+    const emailData = unwrapEmailPayload(emailResponse);
+    const aiExtracted = useMemo(() => {
+        if (!emailData) return EMPTY_AI_EXTRACTED;
+
+        const fullAi = emailData?.fullAiResponse;
+        const detectedRaiddKeys = Array.isArray(emailData?.raiddAnalysis)
+            ? emailData.raiddAnalysis.map(normalizeRaiddKey).filter(Boolean)
+            : [];
+
+        const aggregated = {
+            tasks: [],
+            risks: [],
+            issues: [],
+            assumptions: [],
+            decisions: [],
+            dependencies: [],
+        };
+
+        const pushRaiddValues = (targetKey, raw) => {
+            if (raw == null) return;
+            if (Array.isArray(raw)) {
+                raw.forEach((v) => {
+                    if (typeof v === "string" && v.trim()) aggregated[targetKey].push(v.trim());
+                });
+            } else if (typeof raw === "string" && raw.trim()) {
+                aggregated[targetKey].push(raw.trim());
+            }
+        };
+
+        const ingestRaiddBlock = (raidd) => {
+            if (!raidd || typeof raidd !== "object") return;
+            extractedSections.forEach((section) => {
+                if (section.key === "tasks") return;
+                pushRaiddValues(section.key, raidd[section.key]);
+            });
+        };
+
+        if (Array.isArray(emailData?.tasks)) {
+            aggregated.tasks = emailData.tasks
+                .map((t) => {
+                    if (typeof t === "string") return t.trim();
+                    if (t && typeof t === "object") {
+                        return (
+                            t.title ||
+                            t.name ||
+                            t.content ||
+                            t.description ||
+                            ""
+                        );
+                    }
+                    return "";
+                })
+                .filter(Boolean);
+        }
+
+        if (typeof emailData?.decisions === "string" && emailData.decisions.trim()) {
+            aggregated.decisions.push(emailData.decisions.trim());
+        } else if (Array.isArray(emailData?.decisions)) {
+            aggregated.decisions.push(...emailData.decisions.filter(Boolean));
+        }
+
+        if (Array.isArray(fullAi)) {
+            fullAi.forEach((entry) => ingestRaiddBlock(entry?.raiddAnalysis));
+        } else if (fullAi && typeof fullAi === "object") {
+            ingestRaiddBlock(fullAi.raiddAnalysis);
+        }
+
+        const deduped = Object.fromEntries(
+            Object.entries(aggregated).map(([key, values]) => [
+                key,
+                Array.from(new Set((Array.isArray(values) ? values : []).filter(Boolean))),
+            ])
+        );
+
+        return {
+            ...deduped,
+            detectedRaiddKeys,
+        };
+    }, [emailData]);
 
     const handlePrint = () => {
         window.print();
@@ -67,11 +219,9 @@ export default function EmailDetails() {
         router.back();
     };
 
-    const handleRaidToProject = () => {
-        // Handle RAIDD to Project logic
-        toast.success("Email RAIDD to Project successfully");
-        router.push("/raidd");
-    };
+    if (isLoading) {
+        return <Loading />;
+    }
 
     return (
         <div className="space-y-6 ">
@@ -83,228 +233,148 @@ export default function EmailDetails() {
                 >
                     <FiArrowLeft className="h-4 w-4" /> Go Back
                 </button>
-               
+
             </div>
 
-            {/* Email Document Section */}
-            <Card>
-                <CardContent className="p-6 sm:p-8">
-                    {/* Header with Title and Action Icons */}
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 pb-6 border-b border-slate-200">
-                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex-1">
-                            {emailData.title}
-                        </h1>
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={handlePrint}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                                title="Print"
-                            >
-                                <FiPrinter className="h-5 w-5 text-slate-600" />
-                            </button>
-                            <button
-                                onClick={handleDelete}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                                title="Delete"
-                            >
-                                <FiTrash2 className="h-5 w-5 text-slate-600" />
-                            </button>
-                            <button
-                                onClick={() => setIsStarred(!isStarred)}
-                                className={`p-2 rounded-lg transition-colors cursor-pointer ${isStarred
-                                    ? "bg-yellow-50 text-yellow-500"
-                                    : "hover:bg-slate-100 text-slate-600"
-                                    }`}
-                                title="Star"
-                            >
-                                <FiStar
-                                    className={`h-5 w-5 ${isStarred ? "fill-current" : ""}`}
-                                />
-                            </button>
-                        </div>
-                    </div>
+            {error ? (
+                <Card>
+                    <CardContent className="p-8 text-center text-slate-500">
+                        <p className="text-lg font-medium">Failed to load email</p>
+                        <p className="text-sm mt-2">{error.message || "Please try again later."}</p>
+                    </CardContent>
+                </Card>
+            ) : !emailData ? (
+                <Card>
+                    <CardContent className="p-8 text-center text-slate-500">
+                        <p className="text-lg font-medium">Email not found</p>
+                    </CardContent>
+                </Card>
+            ) : (
+                <>
 
-                    {/* Sender Information */}
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FaLinkedin className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <p className="text-sm sm:text-base font-semibold text-slate-900">
-                                {emailData.sender.name}
-                            </p>
-                            <p className="text-xs sm:text-sm text-slate-600">
-                                {emailData.sender.email}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Email Content */}
-                    <div className="space-y-6 text-sm sm:text-base text-slate-700 leading-relaxed">
-                        {/* Greeting */}
-                        <p>{emailData.content.greeting}</p>
-
-                        {/* Introduction */}
-                        <p>{emailData.content.introduction}</p>
-
-                        {/* Progress */}
-                        <div>
-                            <h3 className="font-semibold text-slate-900 mb-2">Progress:</h3>
-                            <ul className="list-disc list-inside space-y-1 ml-2">
-                                {emailData.content.progress.map((item, index) => (
-                                    <li key={index}>{item}</li>
-                                ))}
-                            </ul>
-                        </div>
-
-                        {/* Action Items */}
-                        <div>
-                            <h3 className="font-semibold text-slate-900 mb-2">Action Items:</h3>
-                            <ol className="list-decimal list-inside space-y-1 ml-2">
-                                {emailData.content.actionItems.map((item, index) => (
-                                    <li key={index}>{item}</li>
-                                ))}
-                            </ol>
-                        </div>
-
-                        {/* Risks & Issues */}
-                        <div>
-                            <h3 className="font-semibold text-slate-900 mb-2">Risks & Issues:</h3>
-                            <ul className="list-disc list-inside space-y-1 ml-2">
-                                {emailData.content.risksAndIssues.map((item, index) => (
-                                    <li key={index}>{item}</li>
-                                ))}
-                            </ul>
-                        </div>
-
-                        {/* Decisions Made */}
-                        <div>
-                            <h3 className="font-semibold text-slate-900 mb-2">Decisions Made:</h3>
-                            <ul className="list-disc list-inside space-y-1 ml-2">
-                                {emailData.content.decisionsMade.map((item, index) => (
-                                    <li key={index}>{item}</li>
-                                ))}
-                            </ul>
-                        </div>
-
-                        {/* Overall Sentiment */}
-                        <p>{emailData.content.sentiment}</p>
-
-                        {/* Closing */}
-                        <div className="whitespace-pre-line">{emailData.content.closing}</div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* AI Extracted Information Section */}
-            <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4 sm:mb-6">
-                    AI Extracted Information
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                    {/* Left Column */}
-                    <div className="space-y-4 sm:space-y-6">
-                        {/* Tasks Card */}
-                        <Card className="bg-white border-slate-200">
-                            <CardContent className="p-4 sm:p-6">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <CiSquareCheck className="h-6 w-6 text-green-500" />
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-slate-900">
-                                        Tasks ({emailData.aiExtracted.tasks.length})
-                                    </h3>
+                    {/* Email Document Section */}
+                    <Card>
+                        <CardContent className="p-6 sm:p-8">
+                            {/* Header with Title and Action Icons */}
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 pb-6 border-b border-slate-200">
+                                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex-1">
+                                    {emailData.subject || "Untitled email"}
+                                </h1>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={handleDelete}
+                                        className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                        title="Delete"
+                                    >
+                                        <FiTrash2 className="h-5 w-5 text-slate-600" />
+                                    </button>
+                                    <Button onClick={() => router.push(`/email-management/generate-email?id=${encodeURIComponent(emailId)}`)} className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-3 text-sm sm:text-base font-semibold cursor-pointer">
+                                        <FiMail className="h-4 w-4" /> Draft Email
+                                    </Button>
                                 </div>
-                                <ul className="space-y-2 ml-2">
-                                    {emailData.aiExtracted.tasks.map((task, index) => (
-                                        <li
-                                            key={index}
-                                            className="text-sm sm:text-base text-slate-700 flex items-start gap-2"
-                                        >
-                                            <span className="text-slate-400 mt-1">•</span>
-                                            <span>{task}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </CardContent>
-                        </Card>
+                            </div>
 
-                        {/* Decisions Card */}
-                        <Card className="bg-white border-slate-200">
-                            <CardContent className="p-4 sm:p-6">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <FiFile className="h-6 w-6 text-blue-500" />
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-slate-900">
-                                        Decisions ({emailData.aiExtracted.decisions.length})
-                                    </h3>
+                            {/* Sender Information */}
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    {getSourceIcon(emailData.type)}
                                 </div>
-                                <ul className="space-y-2 ml-2">
-                                    {emailData.aiExtracted.decisions.map((decision, index) => (
-                                        <li
-                                            key={index}
-                                            className="text-sm sm:text-base text-slate-700 flex items-start gap-2"
-                                        >
-                                            <span className="text-slate-400 mt-1">•</span>
-                                            <span>{decision}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </CardContent>
-                        </Card>
+                                <div>
+                                    <p className="text-sm sm:text-base font-semibold text-slate-900">
+                                        {emailData.senderEmail || "Unknown sender"}
+                                    </p>
+                                    <p className="text-xs sm:text-sm text-slate-600">
+                                        To: {emailData.receiverEmail || "Unknown receiver"}
+                                    </p>
+                                </div>
+                            </div>
 
-                        {/* Sentiment */}
-                        <div className="flex items-center gap-4">
+                            {/* Email Content */}
+                            <div className="space-y-6 text-sm sm:text-base text-slate-700 leading-relaxed">
+                                <div className="flex flex-wrap gap-4 text-xs sm:text-sm text-slate-500">
+                                    {emailData.type ? <span>Source: {emailData.type}</span> : null}
+                                    {emailData.category ? <span>Category: {emailData.category}</span> : null}
+                                    {formatDateTime(emailData.receivedAt || emailData.createdAt) ? (
+                                        <span>
+                                            Received: {formatDateTime(emailData.receivedAt || emailData.createdAt)}
+                                        </span>
+                                    ) : null}
+                                </div>
+
+                                <div className="whitespace-pre-line break-words">
+                                    {emailData.body || "No email body available."}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* AI Extracted Information Section */}
+                    <div>
+                        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4 sm:mb-6">
+                            AI Extracted Information
+                        </h2>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                            {extractedSections.map((section) => {
+                                const items = Array.isArray(aiExtracted?.[section.key]) ? aiExtracted[section.key] : [];
+                                const isDetected =
+                                    section.key === "tasks" ||
+                                    (Array.isArray(aiExtracted?.detectedRaiddKeys) &&
+                                        aiExtracted.detectedRaiddKeys.includes(section.key));
+
+                                return (
+                                    <Card key={section.key} className="bg-white border-slate-200">
+                                        <CardContent className="p-4 sm:p-6">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${section.iconClass}`}>
+                                                    {section.icon}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h3 className="text-lg font-semibold text-slate-900">
+                                                        {section.title} ({items.length})
+                                                    </h3>
+                                                    {section.key !== "tasks" && (
+                                                        <p className="text-xs text-slate-500">
+                                                            {isDetected ? "Detected" : "Not detected"}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {items.length > 0 ? (
+                                                <ul className="ml-2 space-y-2">
+                                                    {items.map((item, index) => (
+                                                        <li
+                                                            key={`${section.key}-${index}`}
+                                                            className="flex items-start gap-2 text-sm sm:text-base text-slate-700"
+                                                        >
+                                                            <span className="mt-1 text-slate-400">•</span>
+                                                            <span>{item}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-sm text-slate-500">
+                                                    In this mail no {section.title.toLowerCase()} related context found.
+                                                </p>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mt-6 flex items-center gap-4">
                             <span className="text-sm sm:text-base font-medium text-slate-700">
                                 Sentiment:
                             </span>
-                            <span className="px-4 py-2 bg-green-100 rounded-full text-green-800 text-sm sm:text-base font-semibold">
-                                {emailData.aiExtracted.sentiment}
+                            <span className="px-4 py-2 bg-green-100 rounded-full text-green-800 text-sm sm:text-base font-semibold capitalize">
+                                {emailData.sentiment || emailData?.fullAiResponse?.sentiment || "N/A"}
                             </span>
                         </div>
                     </div>
-
-                    {/* Right Column */}
-                    <div>
-                        {/* Risks Card */}
-                        <Card className="bg-white border-slate-200">
-                            <CardContent className="p-4 sm:p-6">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-10 h-10 bg-yellow-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <FiAlertTriangle className="h-6 w-6 text-yellow-500" />
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-slate-900">
-                                        Risks ({emailData.aiExtracted.risks.length})
-                                    </h3>
-                                </div>
-                                <ul className="space-y-2 ml-2">
-                                    {emailData.aiExtracted.risks.map((risk, index) => (
-                                        <li
-                                            key={index}
-                                            className="text-sm sm:text-base text-slate-700 flex items-start gap-2"
-                                        >
-                                            <span className="text-slate-400 mt-1">•</span>
-                                            <span>{risk}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
-
-                {/* RAIDD to Project Button */}
-                <div className="flex justify-end mt-6">
-                    <Button
-                        onClick={handleRaidToProject}
-                        className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-3 text-sm sm:text-base font-semibold cursor-pointer"
-                    >
-                        RAIDD to Project
-                    </Button>
-                </div>
-            </div>
+                </>
+            )}
         </div>
     );
 }

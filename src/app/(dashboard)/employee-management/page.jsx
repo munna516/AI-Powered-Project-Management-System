@@ -1,5 +1,6 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,106 +20,297 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { FiSearch, FiPlus, FiEdit2, FiTrash2, ChevronDown, FiDownload } from "react-icons/fi";
+import { FiPlus, FiEdit2, FiTrash2, FiDownload, FiChevronDown } from "react-icons/fi";
 import { XIcon } from "lucide-react";
+import Swal from "sweetalert2";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/PageHeader/PageHeader";
+import Loading from "@/components/Loading/Loading";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { downloadCsv } from "@/lib/csv";
 
 const tabs = [
   { id: "employee", label: "Employee Management" },
   { id: "team", label: "Team Management" },
 ];
 
-// Initial dummy data for Team Management
-const initialTeamData = [
-  { id: 1, teamName: "Debug Squad", teamLead: "Darrell Steward", members: 5, memberIds: ["1", "2"] },
-  { id: 2, teamName: "Byte Analytics", teamLead: "Ronald Richards", members: 5, memberIds: ["3", "4"] },
-  { id: 3, teamName: "Theresa Webb", teamLead: "Jerome Bell", members: 9, memberIds: ["5", "6"] },
-  { id: 4, teamName: "Digital Dynamos", teamLead: "Darlene Robertson", members: 8, memberIds: ["7", "8"] },
-  { id: 5, teamName: "The IT Crowd", teamLead: "Bessie Cooper", members: 88, memberIds: ["9", "10"] },
-  { id: 6, teamName: "Cameron Williamson", teamLead: "API Developer", members: 6, memberIds: ["1", "2"] },
-  { id: 7, teamName: "Cody Fisher", teamLead: "Savannah Nguyen", members: 6, memberIds: ["3", "4"] },
-  { id: 8, teamName: "Kristin Watson", teamLead: "Product Designer", members: 6, memberIds: ["5", "6"] },
-];
+const initialEmployeeFormData = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  phoneNumber: "",
+  designation: "",
+};
 
-// Initial dummy data for Employee Management
-const initialEmployeeData = [
-  { id: 1, name: "John Doe", email: "john.doe@example.com", designation: "Senior Developer", phoneNumber: "+62 81313782626", assignedTeam: "1" },
-  { id: 2, name: "Jane Smith", email: "jane.smith@example.com", designation: "UI/UX Designer", phoneNumber: "+62 81234567890", assignedTeam: "2" },
-  { id: 3, name: "Mike Johnson", email: "mike.johnson@example.com", designation: "Project Manager", phoneNumber: "+62 81112233445", assignedTeam: "3" },
-  { id: 4, name: "Sarah Williams", email: "sarah.williams@example.com", designation: "Full Stack Developer", phoneNumber: "+62 81987654321", assignedTeam: "4" },
-  { id: 5, name: "David Brown", email: "david.brown@example.com", designation: "Data Analyst", phoneNumber: "+62 81555666777", assignedTeam: "1" },
-  { id: 6, name: "Emily Davis", email: "emily.davis@example.com", designation: "Product Designer", phoneNumber: "+62 81888999000", assignedTeam: "2" },
-  { id: 7, name: "Chris Wilson", email: "chris.wilson@example.com", designation: "Backend Developer", phoneNumber: "+62 81222333444", assignedTeam: "3" },
-  { id: 8, name: "Lisa Anderson", email: "lisa.anderson@example.com", designation: "Team Lead", phoneNumber: "+62 81666777888", assignedTeam: "4" },
-];
+const initialTeamFormData = {
+  teamName: "",
+  teamMembers: [],
+};
 
-// Available teams for dropdown
-const availableTeams = [
-  { id: "1", name: "Debug Squad" },
-  { id: "2", name: "Byte Analytics" },
-  { id: "3", name: "Digital Dynamos" },
-  { id: "4", name: "The IT Crowd" },
-  { id: "5", name: "Stack Masters" },
-  { id: "6", name: "Network Ninjas" },
-  { id: "7", name: "Tech Nova" },
-  { id: "8", name: "Pixel Pulse" },
-];
+const getNameParts = (employee = {}) => {
+  const user = employee.user || {};
+  const rawName = employee.name || user.name || "";
 
-// Available users for team member selection
-const availableUsers = [
-  { id: "1", name: "Anik", email: "anik@example.com" },
-  { id: "2", name: "John Doe", email: "john.doe@example.com" },
-  { id: "3", name: "Jane Smith", email: "jane.smith@example.com" },
-  { id: "4", name: "Mike Johnson", email: "mike.johnson@example.com" },
-  { id: "5", name: "Sarah Williams", email: "sarah.williams@example.com" },
-  { id: "6", name: "David Brown", email: "david.brown@example.com" },
-  { id: "7", name: "Emily Davis", email: "emily.davis@example.com" },
-  { id: "8", name: "Chris Wilson", email: "chris.wilson@example.com" },
-  { id: "9", name: "Lisa Anderson", email: "lisa.anderson@example.com" },
-  { id: "10", name: "Robert Taylor", email: "robert.taylor@example.com" },
-];
+  if (employee.firstName || employee.lastName || user.firstName || user.lastName) {
+    return {
+      firstName: employee.firstName || user.firstName || "",
+      lastName: employee.lastName || user.lastName || "",
+    };
+  }
 
-// Country codes for phone number
-const countryCodes = [
-  { code: "+62", country: "Indonesia" },
-  { code: "+1", country: "USA" },
-  { code: "+44", country: "UK" },
-  { code: "+91", country: "India" },
-  { code: "+86", country: "China" },
-];
+  const [firstName = "", ...rest] = rawName.trim().split(" ").filter(Boolean);
+
+  return {
+    firstName,
+    lastName: rest.join(" "),
+  };
+};
+
+const normalizeEmployee = (employee, index) => {
+  const user = employee?.user || {};
+  const { firstName, lastName } = getNameParts(employee);
+  const fullName =
+    [firstName, lastName].filter(Boolean).join(" ").trim() ||
+    employee?.name ||
+    user?.name ||
+    `Employee ${index + 1}`;
+
+  return {
+    id: employee?.id || employee?.employeeId || user?.id || `employee-${index}`,
+    firstName,
+    lastName,
+    name: fullName,
+    email: employee?.email || user?.email || "",
+    phoneNumber:
+      employee?.phoneNumber ||
+      employee?.phone ||
+      user?.phoneNumber ||
+      user?.phone ||
+      "",
+    designation: employee?.designation || user?.designation || "",
+  };
+};
+
+const getTeamMemberList = (team = {}) => {
+  if (Array.isArray(team.employees)) return team.employees;
+  if (Array.isArray(team.members)) return team.members;
+  if (Array.isArray(team.teamMembers)) return team.teamMembers;
+  return [];
+};
+
+const getTeamMemberIds = (team = {}) => {
+  if (Array.isArray(team.employeeIds)) return team.employeeIds;
+  if (Array.isArray(team.memberIds)) return team.memberIds;
+  if (Array.isArray(team.employees)) {
+    return team.employees
+      .map((employee) => employee?.id || employee?.employeeId || employee?.user?.id)
+      .filter(Boolean);
+  }
+  if (Array.isArray(team.members)) {
+    return team.members
+      .map((employee) => employee?.id || employee?.employeeId || employee?.user?.id)
+      .filter(Boolean);
+  }
+  return [];
+};
+
+async function fetchTeams() {
+  const endpoints = [
+    "/api/project-manager/team/all",
+    "/api/project-manager/team",
+    "/api/project-manager/teams/all",
+  ];
+
+  let lastError;
+
+  for (const endpoint of endpoints) {
+    try {
+      return await apiGet(endpoint);
+    } catch (error) {
+      lastError = error;
+      if (error?.status && error.status !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error("Failed to load teams.");
+}
+
+const normalizeTeam = (team, index, teamMemberOptions) => {
+  const memberLookup = new Map(teamMemberOptions.map((member) => [String(member.id), member]));
+  const memberIds = getTeamMemberIds(team).map((id) => String(id));
+  const rawMembers = getTeamMemberList(team);
+
+  const membersFromPayload = rawMembers
+    .map((member, memberIndex) => normalizeEmployee(member, memberIndex))
+    .map((member) => ({
+      id: String(member.id),
+      name: member.name,
+      email: member.email,
+    }));
+
+  const membersFromIds = memberIds
+    .map((id) => memberLookup.get(id))
+    .filter(Boolean);
+
+  const teamMembers =
+    membersFromPayload.length > 0
+      ? membersFromPayload
+      : membersFromIds;
+
+  return {
+    id: team?.id || team?.teamId || `team-${index}`,
+    teamName: team?.name || team?.teamName || `Team ${index + 1}`,
+    teamMembers,
+    memberIds: teamMembers.map((member) => String(member.id)),
+    membersCount:
+      teamMembers.length ||
+      team?.memberCount ||
+      team?.membersCount ||
+      team?.members ||
+      memberIds.length ||
+      0,
+  };
+};
 
 export default function EmployeeManagement() {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("employee");
   const [searchValue, setSearchValue] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
   const [editingEmployeeId, setEditingEmployeeId] = useState(null);
   const [editingTeamId, setEditingTeamId] = useState(null);
-  const [employeeData, setEmployeeData] = useState(initialEmployeeData);
-  const [teamData, setTeamData] = useState(initialTeamData);
-  const [selectedCountryCode, setSelectedCountryCode] = useState("+62");
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    assignedTeam: "",
-    designation: "",
-    phoneNumber: "",
-  });
-  const [teamFormData, setTeamFormData] = useState({
-    teamName: "",
-    teamMembers: [],
-    teamLead: "",
-  });
+  const [formData, setFormData] = useState(initialEmployeeFormData);
+  const [employeeErrors, setEmployeeErrors] = useState({});
+  const [teamFormData, setTeamFormData] = useState(initialTeamFormData);
+  const [teamErrors, setTeamErrors] = useState({});
   const [memberSearchValue, setMemberSearchValue] = useState("");
+  const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
+
+  const {
+    data: employeesResponse,
+    isLoading: isEmployeesLoading,
+    isError: isEmployeesError,
+    error: employeesError,
+    refetch: refetchEmployees,
+  } = useQuery({
+    queryKey: ["employees"],
+    queryFn: () => apiGet("/api/project-manager/employees/all"),
+  });
+
+  const createEmployeeMutation = useMutation({
+    mutationFn: (payload) => apiPost("/api/project-manager/employees/create", payload),
+    onSuccess: async (response) => {
+      toast.success(response?.message || "Employee created successfully!");
+      await queryClient.invalidateQueries({ queryKey: ["employees"] });
+      handleEmployeeDialogChange(false);
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Failed to create employee.");
+    },
+  });
+
+  const updateEmployeeMutation = useMutation({
+    mutationFn: ({ id, payload }) =>
+      apiPatch(`/api/project-manager/employees/${id}`, payload),
+    onSuccess: async (response) => {
+      toast.success(response?.message || "Employee updated successfully!");
+      await queryClient.invalidateQueries({ queryKey: ["employees"] });
+      handleEmployeeDialogChange(false);
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Failed to update employee.");
+    },
+  });
+
+  const deleteEmployeeMutation = useMutation({
+    mutationFn: (id) => apiDelete(`/api/project-manager/employees/${id}`),
+    onSuccess: async (response) => {
+      toast.success(response?.message || "Employee deleted successfully!");
+      await queryClient.invalidateQueries({ queryKey: ["employees"] });
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Failed to delete employee.");
+    },
+  });
+
+  const employeeData = useMemo(() => {
+    const rawEmployees = Array.isArray(employeesResponse?.data)
+      ? employeesResponse.data
+      : Array.isArray(employeesResponse?.data?.data)
+      ? employeesResponse.data.data
+      : [];
+
+    return rawEmployees.map((employee, index) => normalizeEmployee(employee, index));
+  }, [employeesResponse]);
+
+  const teamMemberOptions = useMemo(
+    () =>
+      employeeData.map((employee) => ({
+        id: String(employee.id),
+        name: employee.name,
+        email: employee.email,
+      })),
+    [employeeData]
+  );
+
+  const {
+    data: teamsResponse,
+    isLoading: isTeamsLoading,
+    isError: isTeamsError,
+    error: teamsError,
+    refetch: refetchTeams,
+  } = useQuery({
+    queryKey: ["teams"],
+    queryFn: fetchTeams,
+  });
+
+  const createTeamMutation = useMutation({
+    mutationFn: (payload) => apiPost("/api/project-manager/team/create", payload),
+    onSuccess: async (response) => {
+      toast.success(response?.message || "Team created successfully!");
+      await queryClient.invalidateQueries({ queryKey: ["teams"] });
+      handleTeamDialogChange(false);
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Failed to create team.");
+    },
+  });
+
+  const updateTeamMutation = useMutation({
+    mutationFn: ({ id, payload }) => apiPatch(`/api/project-manager/team/${id}`, payload),
+    onSuccess: async (response) => {
+      toast.success(response?.message || "Team updated successfully!");
+      await queryClient.invalidateQueries({ queryKey: ["teams"] });
+      handleTeamDialogChange(false);
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Failed to update team.");
+    },
+  });
+
+  const deleteTeamMutation = useMutation({
+    mutationFn: (id) => apiDelete(`/api/project-manager/team/${id}`),
+    onSuccess: async (response) => {
+      toast.success(response?.message || "Team deleted successfully!");
+      await queryClient.invalidateQueries({ queryKey: ["teams"] });
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Failed to delete team.");
+    },
+  });
+
+  const teamData = useMemo(() => {
+    const rawTeams = Array.isArray(teamsResponse?.data)
+      ? teamsResponse.data
+      : Array.isArray(teamsResponse?.data?.data)
+      ? teamsResponse.data.data
+      : [];
+
+    return rawTeams.map((team, index) => normalizeTeam(team, index, teamMemberOptions));
+  }, [teamsResponse, teamMemberOptions]);
 
   // Filter data based on search
   const filteredTeamData = useMemo(() => {
@@ -127,9 +319,11 @@ export default function EmployeeManagement() {
     return teamData.filter(
       (team) =>
         team.teamName.toLowerCase().includes(searchLower) ||
-        team.teamLead.toLowerCase().includes(searchLower)
+        team.teamMembers.some((member) =>
+          member.name.toLowerCase().includes(searchLower)
+        )
     );
-  }, [searchValue]);
+  }, [searchValue, teamData]);
 
   const filteredEmployeeData = useMemo(() => {
     if (!searchValue.trim()) return employeeData;
@@ -139,233 +333,296 @@ export default function EmployeeManagement() {
         employee.name.toLowerCase().includes(searchLower) ||
         employee.email.toLowerCase().includes(searchLower) ||
         employee.designation?.toLowerCase().includes(searchLower) ||
-        employee.assignedTeam?.toLowerCase().includes(searchLower) ||
         employee.phoneNumber?.toLowerCase().includes(searchLower)
     );
-  }, [searchValue]);
+  }, [searchValue, employeeData]);
 
-  const handleEdit = (id, type) => {
-    if (type === "employee") {
-      const employee = employeeData.find((emp) => emp.id === id);
-      if (employee) {
-        // Parse name into first and last name
-        const nameParts = employee.name.split(" ");
-        const firstName = nameParts[0] || "";
-        const lastName = nameParts.slice(1).join(" ") || "";
+  const resetEmployeeForm = () => {
+    setFormData(initialEmployeeFormData);
+    setEmployeeErrors({});
+    setEditingEmployeeId(null);
+  };
 
-        // Parse phone number (remove country code if present)
-        const phoneNumber = employee.phoneNumber.replace(/^\+\d+\s*/, "");
-        const countryCode = employee.phoneNumber.match(/^\+\d+/)?.[0] || "+62";
-
-        setFormData({
-          firstName,
-          lastName,
-          email: employee.email,
-          assignedTeam: employee.assignedTeam || "",
-          designation: employee.designation || "",
-          phoneNumber,
-        });
-        setSelectedCountryCode(countryCode);
-        setEditingEmployeeId(id);
-        setIsDialogOpen(true);
-      }
-    } else if (type === "team") {
-      const team = teamData.find((t) => t.id === id);
-      if (team) {
-        // Get team members from memberIds
-        const members = availableUsers.filter((user) =>
-          team.memberIds?.includes(user.id)
-        );
-
-        setTeamFormData({
-          teamName: team.teamName || "",
-          teamMembers: members,
-          teamLead: availableUsers.find((u) => u.name === team.teamLead)?.id || "",
-        });
-        setEditingTeamId(id);
-        setIsTeamDialogOpen(true);
-      }
+  const handleEmployeeDialogChange = (open) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      resetEmployeeForm();
     }
   };
 
-  const handleDelete = (id, type) => {
-    if (type === "employee") {
-      setEmployeeData((prev) => prev.filter((emp) => emp.id !== id));
-      toast.success("Employee deleted successfully!");
-    } else if (type === "team") {
-      setTeamData((prev) => prev.filter((team) => team.id !== id));
-      toast.success("Team deleted successfully!");
+  const handleOpenCreateEmployee = () => {
+    resetEmployeeForm();
+    setIsDialogOpen(true);
+  };
+
+  const handleEditEmployee = (employee) => {
+    setFormData({
+      firstName: employee.firstName || "",
+      lastName: employee.lastName || "",
+      email: employee.email || "",
+      phoneNumber: employee.phoneNumber || "",
+      designation: employee.designation || "",
+    });
+    setEmployeeErrors({});
+    setEditingEmployeeId(employee.id);
+    setIsDialogOpen(true);
+  };
+
+  const handleEditTeam = (id) => {
+    const team = teamData.find((t) => t.id === id);
+    if (team) {
+      setTeamFormData({
+        teamName: team.teamName || "",
+        teamMembers: team.teamMembers || [],
+      });
+      setTeamErrors({});
+      setMemberSearchValue("");
+      setIsMemberDropdownOpen(false);
+      setEditingTeamId(id);
+      setIsTeamDialogOpen(true);
     }
+  };
+
+  const resetTeamForm = () => {
+    setTeamFormData(initialTeamFormData);
+    setTeamErrors({});
+    setMemberSearchValue("");
+    setIsMemberDropdownOpen(false);
+    setEditingTeamId(null);
+  };
+
+  const handleTeamDialogChange = (open) => {
+    setIsTeamDialogOpen(open);
+    if (!open) {
+      resetTeamForm();
+    }
+  };
+
+  const handleOpenCreateTeam = () => {
+    resetTeamForm();
+    setIsTeamDialogOpen(true);
+  };
+
+  const handleDeleteTeam = async (id) => {
+    const result = await Swal.fire({
+      title: "Delete team?",
+      text: "This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6051E2",
+      confirmButtonText: "Yes, delete it",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) return;
+    deleteTeamMutation.mutate(id);
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (employeeErrors[name]) {
+      setEmployeeErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const validateEmployeeForm = () => {
+    const errors = {};
+
+    if (!formData.firstName.trim()) {
+      errors.firstName = "First name is required";
+    }
+
+    if (!formData.lastName.trim()) {
+      errors.lastName = "Last name is required";
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = "Please enter a valid email";
+    }
+
+    if (!formData.phoneNumber.trim()) {
+      errors.phoneNumber = "Phone number is required";
+    }
+
+    if (!formData.designation.trim()) {
+      errors.designation = "Designation is required";
+    }
+
+    setEmployeeErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const fullPhoneNumber = `${selectedCountryCode} ${formData.phoneNumber}`;
-    const fullName = `${formData.firstName} ${formData.lastName}`.trim();
-    const assignedTeamName = availableTeams.find(
-      (team) => team.id === formData.assignedTeam
-    )?.name || "";
 
-    if (editingEmployeeId) {
-      // Update existing employee
-      setEmployeeData((prev) =>
-        prev.map((emp) =>
-          emp.id === editingEmployeeId
-            ? {
-              ...emp,
-              name: fullName,
-              email: formData.email,
-              designation: formData.designation,
-              phoneNumber: fullPhoneNumber,
-              assignedTeam: formData.assignedTeam,
-            }
-            : emp
-        )
-      );
-      toast.success("Employee updated successfully!");
-    } else {
-      // Create new employee
-      const newEmployee = {
-        id: Math.max(...employeeData.map((e) => e.id), 0) + 1,
-        name: fullName,
-        email: formData.email,
-        designation: formData.designation,
-        phoneNumber: fullPhoneNumber,
-        assignedTeam: formData.assignedTeam,
-      };
-      setEmployeeData((prev) => [...prev, newEmployee]);
-      toast.success("Employee created successfully!");
+    if (!validateEmployeeForm()) {
+      toast.error("Please fill in all required fields correctly.");
+      return;
     }
 
-    // Reset form and close dialog
-    setFormData({
-      firstName: "",
-      lastName: "",
-      email: "",
-      assignedTeam: "",
-      designation: "",
-      phoneNumber: "",
-    });
-    setSelectedCountryCode("+62");
-    setEditingEmployeeId(null);
-    setIsDialogOpen(false);
+    const payload = {
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+      email: formData.email.trim(),
+      phoneNumber: formData.phoneNumber.trim(),
+      designation: formData.designation.trim(),
+    };
+
+    if (editingEmployeeId) {
+      updateEmployeeMutation.mutate({ id: editingEmployeeId, payload });
+    } else {
+      createEmployeeMutation.mutate(payload);
+    }
   };
 
   const handleCancel = () => {
-    setFormData({
-      firstName: "",
-      lastName: "",
-      email: "",
-      assignedTeam: "",
-      designation: "",
-      phoneNumber: "",
+    handleEmployeeDialogChange(false);
+  };
+
+  const handleDeleteEmployee = async (employeeId) => {
+    const result = await Swal.fire({
+      title: "Delete employee?",
+      text: "This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6051E2",
+      confirmButtonText: "Yes, delete it",
+      cancelButtonText: "Cancel",
     });
-    setSelectedCountryCode("+62");
-    setEditingEmployeeId(null);
-    setIsDialogOpen(false);
+
+    if (!result.isConfirmed) return;
+    deleteEmployeeMutation.mutate(employeeId);
   };
 
   // Team dialog handlers
   const handleTeamSubmit = (e) => {
     e.preventDefault();
-    const teamLeadName = availableUsers.find(
-      (u) => u.id === teamFormData.teamLead
-    )?.name || "";
-    const memberIds = teamFormData.teamMembers.map((m) => m.id);
-    const memberCount = teamFormData.teamMembers.length;
 
-    if (editingTeamId) {
-      // Update existing team
-      setTeamData((prev) =>
-        prev.map((team) =>
-          team.id === editingTeamId
-            ? {
-              ...team,
-              teamName: teamFormData.teamName,
-              teamLead: teamLeadName,
-              members: memberCount,
-              memberIds,
-            }
-            : team
-        )
-      );
-      toast.success("Team updated successfully!");
-    } else {
-      // Create new team
-      const newTeam = {
-        id: Math.max(...teamData.map((t) => t.id), 0) + 1,
-        teamName: teamFormData.teamName,
-        teamLead: teamLeadName,
-        members: memberCount,
-        memberIds,
-      };
-      setTeamData((prev) => [...prev, newTeam]);
-      toast.success("Team created successfully!");
+    const nextErrors = {};
+
+    if (!teamFormData.teamName.trim()) {
+      nextErrors.teamName = "Team name is required";
     }
 
-    setTeamFormData({
-      teamName: "",
-      teamMembers: [],
-      teamLead: "",
-    });
-    setMemberSearchValue("");
-    setEditingTeamId(null);
-    setIsTeamDialogOpen(false);
+    if (teamFormData.teamMembers.length === 0) {
+      nextErrors.teamMembers = "Please select at least one team member";
+    }
+
+    setTeamErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      toast.error("Please fill in all required team fields.");
+      return;
+    }
+
+    const payload = {
+      name: teamFormData.teamName.trim(),
+      employeeIds: teamFormData.teamMembers.map((member) => String(member.id)),
+    };
+
+    if (editingTeamId) {
+      updateTeamMutation.mutate({ id: editingTeamId, payload });
+    } else {
+      createTeamMutation.mutate(payload);
+    }
   };
 
   const handleTeamCancel = () => {
-    setTeamFormData({
-      teamName: "",
-      teamMembers: [],
-      teamLead: "",
-    });
-    setMemberSearchValue("");
-    setEditingTeamId(null);
-    setIsTeamDialogOpen(false);
+    handleTeamDialogChange(false);
   };
 
-  const handleAddMember = (userId) => {
-    if (!teamFormData.teamMembers.find((m) => m.id === userId)) {
-      const user = availableUsers.find((u) => u.id === userId);
-      if (user) {
-        setTeamFormData((prev) => ({
-          ...prev,
-          teamMembers: [...prev.teamMembers, user],
-        }));
-        setMemberSearchValue("");
-      }
+  const handleAddMember = (member) => {
+    const memberId = String(member.id);
+    if (!teamFormData.teamMembers.find((selected) => String(selected.id) === memberId)) {
+      setTeamFormData((prev) => ({
+        ...prev,
+        teamMembers: [...prev.teamMembers, member],
+      }));
+      setMemberSearchValue("");
+      setTeamErrors((prev) => ({ ...prev, teamMembers: "" }));
     }
   };
 
   const handleRemoveMember = (userId) => {
     setTeamFormData((prev) => ({
       ...prev,
-      teamMembers: prev.teamMembers.filter((m) => m.id !== userId),
+      teamMembers: prev.teamMembers.filter((m) => String(m.id) !== String(userId)),
     }));
   };
 
-  // Filter available users for team member search
   const filteredAvailableUsers = useMemo(() => {
-    if (!memberSearchValue.trim()) return availableUsers;
-    const searchLower = memberSearchValue.toLowerCase();
-    return availableUsers.filter(
-      (user) =>
-        user.name.toLowerCase().includes(searchLower) ||
-        user.email.toLowerCase().includes(searchLower)
+    const selectedIds = new Set(
+      teamFormData.teamMembers.map((member) => String(member.id))
     );
-  }, [memberSearchValue]);
+    const searchLower = memberSearchValue.toLowerCase();
+    return teamMemberOptions.filter(
+      (user) =>
+        !selectedIds.has(String(user.id)) &&
+        (!memberSearchValue.trim() ||
+          user.name.toLowerCase().includes(searchLower) ||
+          user.email.toLowerCase().includes(searchLower))
+    );
+  }, [memberSearchValue, teamFormData.teamMembers, teamMemberOptions]);
 
-  // Export handlers - just show toast
+  // Export handlers
   const handleExportEmployees = () => {
+    downloadCsv({
+      rows: filteredEmployeeData,
+      filename: `employees_export_${new Date().toISOString().split("T")[0]}.csv`,
+      columns: [
+        { header: "ID", key: "id" },
+        { header: "Name", key: "name" },
+        { header: "First Name", key: "firstName" },
+        { header: "Last Name", key: "lastName" },
+        { header: "Email", key: "email" },
+        { header: "Designation", key: "designation" },
+        // Prefix with a tab so Excel treats it as text (prevents 1.23E+09 display)
+        {
+          header: "Phone Number",
+          value: (employee) =>
+            employee?.phoneNumber ? `\t${String(employee.phoneNumber)}` : "",
+        },
+      ],
+    });
     toast.success("Employee data exported successfully!");
   };
 
   const handleExportTeams = () => {
+    downloadCsv({
+      rows: filteredTeamData,
+      filename: `teams_export_${new Date().toISOString().split("T")[0]}.csv`,
+      columns: [
+        { header: "ID", key: "id" },
+        { header: "Team Name", key: "teamName" },
+        { header: "Members Count", key: "membersCount" },
+        {
+          header: "Team Members",
+          value: (team) =>
+            Array.isArray(team?.teamMembers)
+              ? team.teamMembers
+                  .map((m) => m?.name || m?.email || "")
+                  .filter(Boolean)
+                  .join("; ")
+              : "",
+        },
+        {
+          header: "Team Member Emails",
+          value: (team) =>
+            Array.isArray(team?.teamMembers)
+              ? team.teamMembers
+                  .map((m) => m?.email || "")
+                  .filter(Boolean)
+                  .join("; ")
+              : "",
+        },
+      ],
+    });
     toast.success("Team data exported successfully!");
   };
 
@@ -402,7 +659,7 @@ export default function EmployeeManagement() {
             searchValue={searchValue}
             onSearchChange={(e) => setSearchValue(e.target.value)}
             buttonLabel="Create New Employee"
-            onButtonClick={() => setIsDialogOpen(true)}
+            onButtonClick={handleOpenCreateEmployee}
             buttonIcon={<FiPlus className="h-4 w-4" />}
           />
 
@@ -418,91 +675,103 @@ export default function EmployeeManagement() {
           </div>
 
           {/* Employee Table */}
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-[#6051E2]">
-                    <TableRow className="border-b-0 hover:bg-[#6051E2]">
-                      <TableHead className="py-3 px-4 text-white font-semibold">
-                        Name
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-white font-semibold">
-                        Email
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-white font-semibold">
-                        Designation
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-white font-semibold">
-                        Phone Number
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-white font-semibold">
-                        Assigned Team
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-white font-semibold text-center">
-                        Action
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredEmployeeData.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={6}
-                          className="text-center py-8 text-slate-500"
-                        >
-                          No employees found
-                        </TableCell>
+          {isEmployeesLoading ? (
+            <Loading />
+          ) : isEmployeesError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6">
+              <p className="text-sm text-red-600">
+                {employeesError?.message || "Failed to load employees."}
+              </p>
+              <Button
+                type="button"
+                onClick={() => refetchEmployees()}
+                className="mt-4 bg-[#6051E2] hover:bg-[#4a3db8] text-white cursor-pointer"
+              >
+                Retry
+              </Button>
+            </div>
+          ) : (
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-[#6051E2]">
+                      <TableRow className="border-b-0 hover:bg-[#6051E2]">
+                        <TableHead className="py-3 px-4 text-white font-semibold">
+                          Name
+                        </TableHead>
+                        <TableHead className="py-3 px-4 text-white font-semibold">
+                          Email
+                        </TableHead>
+                        <TableHead className="py-3 px-4 text-white font-semibold">
+                          Designation
+                        </TableHead>
+                        <TableHead className="py-3 px-4 text-white font-semibold">
+                          Phone Number
+                        </TableHead>
+                        <TableHead className="py-3 px-4 text-white font-semibold text-center">
+                          Action
+                        </TableHead>
                       </TableRow>
-                    ) : (
-                      filteredEmployeeData.map((employee) => (
-                        <TableRow
-                          key={employee.id}
-                          className="border-b border-slate-100 hover:bg-slate-50"
-                        >
-                          <TableCell className="py-3 px-4 text-slate-800">
-                            {employee.name}
-                          </TableCell>
-                          <TableCell className="py-3 px-4 text-slate-800">
-                            {employee.email}
-                          </TableCell>
-                          <TableCell className="py-3 px-4 text-slate-800">
-                            {employee.designation}
-                          </TableCell>
-                          <TableCell className="py-3 px-4 text-slate-800">
-                            {employee.phoneNumber}
-                          </TableCell>
-                          <TableCell className="py-3 px-4 text-slate-800">
-                            {availableTeams.find((t) => t.id === employee.assignedTeam)?.name || employee.assignedTeam}
-                          </TableCell>
-                          <TableCell className="py-3 px-4">
-                            <div className="flex items-center justify-center gap-3">
-                              <button
-                                onClick={() =>
-                                  handleEdit(employee.id, "employee")
-                                }
-                                className="text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
-                              >
-                                <FiEdit2 className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleDelete(employee.id, "employee")
-                                }
-                                className="text-red-600 hover:text-red-800 transition-colors cursor-pointer"
-                              >
-                                <FiTrash2 className="h-4 w-4" />
-                              </button>
-                            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredEmployeeData.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={5}
+                            className="text-center py-8 text-slate-500"
+                          >
+                            {searchValue.trim()
+                              ? `No employees found matching "${searchValue}"`
+                              : "No employees found"}
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+                      ) : (
+                        filteredEmployeeData.map((employee) => (
+                          <TableRow
+                            key={employee.id}
+                            className="border-b border-slate-100 hover:bg-slate-50"
+                          >
+                            <TableCell className="py-3 px-4 text-slate-800">
+                              {employee.name}
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-slate-800">
+                              {employee.email || "-"}
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-slate-800">
+                              {employee.designation || "-"}
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-slate-800">
+                              {employee.phoneNumber || "-"}
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <div className="flex items-center justify-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditEmployee(employee)}
+                                  className="text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                                >
+                                  <FiEdit2 className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteEmployee(employee.id)}
+                                  disabled={deleteEmployeeMutation.isPending}
+                                  className="text-red-600 hover:text-red-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <FiTrash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
@@ -516,7 +785,7 @@ export default function EmployeeManagement() {
             searchValue={searchValue}
             onSearchChange={(e) => setSearchValue(e.target.value)}
             buttonLabel="Create New Team"
-            onButtonClick={() => setIsTeamDialogOpen(true)}
+            onButtonClick={handleOpenCreateTeam}
             buttonIcon={<FiPlus className="h-4 w-4" />}
           />
 
@@ -532,83 +801,97 @@ export default function EmployeeManagement() {
           </div>
 
           {/* Team Table */}
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                <Table>
-                  <TableHeader className="bg-[#6051E2] sticky top-0 z-10">
-                    <TableRow className="border-b-0 hover:bg-[#6051E2]">
-                      <TableHead className="py-3 px-4 text-white font-semibold">
-                        Team Name
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-white font-semibold">
-                        Team Lead
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-white font-semibold">
-                        Team Members
-                      </TableHead>
-                      <TableHead className="py-3 px-4 text-white font-semibold text-center">
-                        Action
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTeamData.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={4}
-                          className="text-center py-8 text-slate-500"
-                        >
-                          No teams found
-                        </TableCell>
+          {isTeamsLoading ? (
+            <Loading />
+          ) : isTeamsError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6">
+              <p className="text-sm text-red-600">
+                {teamsError?.message || "Failed to load teams."}
+              </p>
+              <Button
+                type="button"
+                onClick={() => refetchTeams()}
+                className="mt-4 bg-[#6051E2] hover:bg-[#4a3db8] text-white cursor-pointer"
+              >
+                Retry
+              </Button>
+            </div>
+          ) : (
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                  <Table>
+                    <TableHeader className="bg-[#6051E2] sticky top-0 z-10">
+                      <TableRow className="border-b-0 hover:bg-[#6051E2]">
+                        <TableHead className="py-3 px-4 text-white font-semibold">
+                          Team Name
+                        </TableHead>
+                        <TableHead className="py-3 px-4 text-white font-semibold">
+                          Team Members
+                        </TableHead>
+                        <TableHead className="py-3 px-4 text-white font-semibold text-center">
+                          Action
+                        </TableHead>
                       </TableRow>
-                    ) : (
-                      filteredTeamData.map((team) => (
-                        <TableRow
-                          key={team.id}
-                          className="border-b border-slate-100 hover:bg-slate-50"
-                        >
-                          <TableCell className="py-3 px-4 text-slate-800">
-                            {team.teamName}
-                          </TableCell>
-                          <TableCell className="py-3 px-4 text-slate-800">
-                            {team.teamLead}
-                          </TableCell>
-                          <TableCell className="py-3 px-4 text-slate-800">
-                            {team.members}
-                          </TableCell>
-                          <TableCell className="py-3 px-4">
-                            <div className="flex items-center justify-center gap-3">
-                              <button
-                                onClick={() => handleEdit(team.id, "team")}
-                                className="text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
-                              >
-                                <FiEdit2 className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleDelete(team.id, "team")
-                                }
-                                className="text-red-600 hover:text-red-800 transition-colors cursor-pointer"
-                              >
-                                <FiTrash2 className="h-4 w-4" />
-                              </button>
-                            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredTeamData.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={3}
+                            className="text-center py-8 text-slate-500"
+                          >
+                            {searchValue.trim()
+                              ? `No teams found matching "${searchValue}"`
+                              : "No teams found"}
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+                      ) : (
+                        filteredTeamData.map((team) => (
+                          <TableRow
+                            key={team.id}
+                            className="border-b border-slate-100 hover:bg-slate-50"
+                          >
+                            <TableCell className="py-3 px-4 text-slate-800">
+                              {team.teamName}
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-slate-800">
+                              {team.membersCount}
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <div className="flex items-center justify-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditTeam(team.id)}
+                                  className="text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                                >
+                                  <FiEdit2 className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTeam(team.id)}
+                                  disabled={deleteTeamMutation.isPending}
+                                  className="text-red-600 hover:text-red-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <FiTrash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
       {/* Add New Employee Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={isDialogOpen} onOpenChange={handleEmployeeDialogChange}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-slate-900">
               {editingEmployeeId ? "Edit Employee" : "Add New Employee"}
@@ -622,105 +905,81 @@ export default function EmployeeManagement() {
 
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* First Name */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Fast Name
-                  </label>
-                  <Input
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    placeholder="Enter first name"
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">
+                  First Name
+                </label>
+                <Input
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                  placeholder="Enter first name"
+                />
+                {employeeErrors.firstName && (
+                  <p className="text-xs text-red-500">{employeeErrors.firstName}</p>
+                )}
+              </div>
 
-                {/* Last Name */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Last Name
-                  </label>
-                  <Input
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    placeholder="Enter last name"
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">
+                  Last Name
+                </label>
+                <Input
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  placeholder="Enter last name"
+                />
+                {employeeErrors.lastName && (
+                  <p className="text-xs text-red-500">{employeeErrors.lastName}</p>
+                )}
+              </div>
 
-                {/* Email Address */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Email Address
-                  </label>
-                  <Input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="Enter email address"
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">
+                  Email Address
+                </label>
+                <Input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="Enter email address"
+                />
+                {employeeErrors.email && (
+                  <p className="text-xs text-red-500">{employeeErrors.email}</p>
+                )}
+              </div>
 
-                {/* Assigned Team */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Assigned Team
-                  </label>
-                  <Select
-                    value={formData.assignedTeam}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({ ...prev, assignedTeam: value }))
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select team" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableTeams.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>
-                          {team.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">
+                  Phone Number
+                </label>
+                <Input
+                  type="tel"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleInputChange}
+                  placeholder="Enter phone number"
+                />
+                {employeeErrors.phoneNumber && (
+                  <p className="text-xs text-red-500">{employeeErrors.phoneNumber}</p>
+                )}
+              </div>
 
-                {/* Designation */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Designation
-                  </label>
-                  <Input
-                    name="designation"
-                    value={formData.designation}
-                    onChange={handleInputChange}
-                    placeholder="Enter designation"
-                    required
-                  />
-                </div>
-
-                {/* Phone Number */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Phone Number
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="tel"
-                      name="phoneNumber"
-                      value={formData.phoneNumber}
-                      onChange={handleInputChange}
-                      placeholder="81313782626"
-                      className="flex-1"
-                      required
-                    />
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">
+                  Designation
+                </label>
+                <Input
+                  name="designation"
+                  value={formData.designation}
+                  onChange={handleInputChange}
+                  placeholder="Enter designation"
+                />
+                {employeeErrors.designation && (
+                  <p className="text-xs text-red-500">{employeeErrors.designation}</p>
+                )}
               </div>
             </div>
 
@@ -736,10 +995,19 @@ export default function EmployeeManagement() {
               <Button
                 type="submit"
                 variant="primary"
+                disabled={
+                  createEmployeeMutation.isPending || updateEmployeeMutation.isPending
+                }
                 className="w-full sm:w-auto flex items-center gap-2 cursor-pointer"
               >
                 <FiPlus className="h-4 w-4" />
-                {editingEmployeeId ? "Update" : "Add"}
+                {createEmployeeMutation.isPending || updateEmployeeMutation.isPending
+                  ? editingEmployeeId
+                    ? "Updating..."
+                    : "Adding..."
+                  : editingEmployeeId
+                  ? "Update"
+                  : "Add"}
               </Button>
             </DialogFooter>
           </form>
@@ -747,8 +1015,8 @@ export default function EmployeeManagement() {
       </Dialog>
 
       {/* Create New Team Dialog */}
-      <Dialog open={isTeamDialogOpen} onOpenChange={setIsTeamDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={isTeamDialogOpen} onOpenChange={handleTeamDialogChange}>
+        <DialogContent className="sm:max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-slate-900">
               {editingTeamId ? "Edit Team" : "Create New Team"}
@@ -778,6 +1046,9 @@ export default function EmployeeManagement() {
                   placeholder="e.g. Engineering Squad Alpha"
                   required
                 />
+                {teamErrors.teamName && (
+                  <p className="text-xs text-red-500">{teamErrors.teamName}</p>
+                )}
               </div>
 
               {/* Team Members */}
@@ -785,97 +1056,73 @@ export default function EmployeeManagement() {
                 <label className="text-sm font-medium text-slate-700">
                   Team Members
                 </label>
-                <div className="min-h-[120px] border border-[#6051E2] rounded-md p-3 space-y-2">
-                  {/* Selected Members as Chips */}
-                  {teamFormData.teamMembers.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {teamFormData.teamMembers.map((member) => (
-                        <div
-                          key={member.id}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-[#6051E2] rounded-md text-sm text-slate-800"
+                {teamFormData.teamMembers.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {teamFormData.teamMembers.map((member) => (
+                      <div
+                        key={member.id}
+                        className="inline-flex items-center gap-1 rounded-md bg-green-100 px-3 py-1.5 text-sm text-green-800"
+                      >
+                        <span>{member.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMember(member.id)}
+                          className="ml-1 text-green-700 hover:text-red-600 transition-colors"
                         >
-                          <span>{member.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveMember(member.id)}
-                            className="ml-1 text-slate-500 hover:text-red-600 transition-colors"
-                          >
-                            <XIcon className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                          <XIcon className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-                  {/* Search Input */}
+                <div className="relative">
                   <Input
                     type="text"
                     value={memberSearchValue}
-                    onChange={(e) => setMemberSearchValue(e.target.value)}
-                    placeholder="Search users by name or email..."
-                    className="border-slate-300"
+                    onChange={(e) => {
+                      setMemberSearchValue(e.target.value);
+                      setIsMemberDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsMemberDropdownOpen(true)}
+                    onBlur={() => {
+                      setTimeout(() => setIsMemberDropdownOpen(false), 150);
+                    }}
+                    placeholder="Search and select team members"
+                    className="pr-10"
                   />
+                  <FiChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
-                  {/* Search Results Dropdown */}
-                  {memberSearchValue.trim() &&
-                    filteredAvailableUsers
-                      .filter(
-                        (user) =>
-                          !teamFormData.teamMembers.find(
-                            (m) => m.id === user.id
-                          )
-                      )
-                      .length > 0 && (
-                      <div className="mt-2 border border-slate-200 rounded-md bg-white shadow-lg max-h-48 overflow-y-auto">
-                        {filteredAvailableUsers
-                          .filter(
-                            (user) =>
-                              !teamFormData.teamMembers.find(
-                                (m) => m.id === user.id
-                              )
-                          )
-                          .map((user) => (
-                            <button
-                              key={user.id}
-                              type="button"
-                              onClick={() => handleAddMember(user.id)}
-                              className="w-full text-left px-4 py-2 hover:bg-slate-100 transition-colors border-b border-slate-100 last:border-b-0"
-                            >
-                              <div className="font-medium text-slate-800">
-                                {user.name}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                {user.email}
-                              </div>
-                            </button>
-                          ))}
-                      </div>
-                    )}
+                  {isMemberDropdownOpen && (
+                    <div className="absolute z-20 mt-2 max-h-56 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                      {filteredAvailableUsers.length > 0 ? (
+                        filteredAvailableUsers.map((user) => (
+                          <button
+                            key={user.id}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => handleAddMember(user)}
+                            className="w-full border-b border-slate-100 px-4 py-2 text-left transition-colors hover:bg-slate-100 last:border-b-0"
+                          >
+                            <div className="font-medium text-slate-800">
+                              {user.name}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {user.email}
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-sm text-slate-500">
+                          No members found
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-
-              {/* Assign Team Lead */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">
-                  Assign Team Lead
-                </label>
-                <Select
-                  value={teamFormData.teamLead}
-                  onValueChange={(value) =>
-                    setTeamFormData((prev) => ({ ...prev, teamLead: value }))
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select team lead" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableUsers.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({user.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {teamErrors.teamMembers && (
+                  <p className="text-xs text-red-500">{teamErrors.teamMembers}</p>
+                )}
               </div>
             </div>
 
@@ -891,10 +1138,17 @@ export default function EmployeeManagement() {
               <Button
                 type="submit"
                 variant="primary"
+                disabled={createTeamMutation.isPending || updateTeamMutation.isPending}
                 className="w-full sm:w-auto flex items-center gap-2 cursor-pointer"
               >
                 <FiPlus className="h-4 w-4" />
-                {editingTeamId ? "Update Team" : "Create New Teams"}
+                {createTeamMutation.isPending || updateTeamMutation.isPending
+                  ? editingTeamId
+                    ? "Updating Team..."
+                    : "Creating Team..."
+                  : editingTeamId
+                  ? "Update Team"
+                  : "Create New Team"}
               </Button>
             </DialogFooter>
           </form>

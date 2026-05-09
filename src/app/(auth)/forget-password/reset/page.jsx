@@ -5,23 +5,50 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiPost, RESET_TOKEN_KEY } from "@/lib/api";
 
 export default function ResetPassword() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-      if (newPassword === confirmPassword) {
-        // Navigate to success page
-        toast.success("Password updated successfully");
-        router.push("/forget-password/success");
-    }
-    else {
+    if (newPassword !== confirmPassword) {
       toast.error("New password and confirm password do not match");
+      return;
+    }
+
+    const resetToken = typeof window !== "undefined" ? sessionStorage.getItem(RESET_TOKEN_KEY) : null;
+    console.log(resetToken);
+    if (!resetToken) {
+      toast.error("Session expired. Please start the forgot password flow again.");
+      router.push("/forget-password");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await apiPost(
+        "/api/auth/reset-password",
+        { newPassword },
+        {
+          skipAuth: true,
+          skip401Redirect: true,
+          headers: { Authorization: `Bearer ${resetToken}` },
+        }
+      );
+      console.log(response);
+      sessionStorage.removeItem(RESET_TOKEN_KEY);
+      toast.success("Password updated successfully");
+      router.push("/forget-password/success");
+    } catch (error) {
+      toast.error(error?.message || "Failed to reset password. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -95,8 +122,9 @@ export default function ResetPassword() {
             variant="primary"
             size="lg"
             className="w-full cursor-pointer mt-3"
+            disabled={isLoading}
           >
-            Reset Password
+            {isLoading ? "Resetting..." : "Reset Password"}
           </Button>
         </form>
       </div>

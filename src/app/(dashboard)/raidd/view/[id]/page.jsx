@@ -1,74 +1,171 @@
 "use client";
+// Forced recompile to clear Label module resolution error
+
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
-import { FiArrowLeft, FiFlag, FiAtSign, FiAlertTriangle } from "react-icons/fi";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { FiArrowLeft, FiFlag, FiEdit, FiPlus, FiUser, FiCalendar } from "react-icons/fi";
 import { HiOutlineSparkles } from "react-icons/hi2";
 import { MdOutlineEmail } from "react-icons/md";
-import { BsGear } from "react-icons/bs";
+import Loading from "@/components/Loading/Loading";
+import { apiGet, apiPatch } from "@/lib/api";
+import toast from "react-hot-toast";
 
-// Dummy RAIDD data
-const raiddData = {
-    id: 1,
-    aiRisk: {
-        summary: "AI analyzed meetings, emails and docs and identified potential delivery risks. Timeline may be affected if delays occur.",
-        details: [
-            "Content delivery delay",
-            "Mobile navigation complexity",
-            "Dependency on final approval"
-        ]
-    },
-    aiAssumptions: {
-        summary: "AI analyzed meetings, emails and docs and identified potential delivery risks. Timeline may be affected if delays occur.",
-        details: [
-            "Budget is approved",
-            "Stakeholders available for review",
-            "Technology stack is stable"
-        ]
-    },
-    aiDependencies: {
-        summary: "AI detected dependencies that may block progress if not completed on time.",
-        details: [
-            "Design sign-off",
-            "Backend API readiness",
-            "User testing completion"
-        ]
-    },
-    aiDecisions: {
-        summary: "AI extracted decisions from meeting transcripts and approval emails.",
-        details: [
-            "Proceed with Phase 2",
-            "Adopt new cloud vendor",
-            "Postpone feature to next release"
-        ]
-    },
-    raisedBy: {
-        name: "Sara Akter",
-        email: "sara@gmail.com",
-        role: "project manager",
-        avatar: "https://cdn.pixabay.com/photo/2024/09/23/10/39/man-9068618_640.jpg"
-    },
-    identifyBy: {
-        name: "Automated system monitor",
-        email: "sara@gmail.com",
-        role: "system bot",
-        isSystem: true
-    },
-    escalatedTo: {
-        name: "Maya Moni",
-        email: "sara@gmail.com",
-        role: "Led Manager",
-        avatar: "https://media.licdn.com/dms/image/v2/D4E03AQEwpCRnQnpVag/profile-displayphoto-scale_200_200/B4EZgO_E_RHgAk-/0/1752598082646?e=2147483647&v=beta&t=NixziB5SwFlx2sJ2KDbqxVnxt6QcQGrzMMEbjwUEvbA"
-    }
+const formatLabel = (value) => {
+    if (!value) return "Not available";
+    return String(value)
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const normalizeRaiddDetails = (item) => {
+    const managerFirstName = item?.project?.manager?.firstName?.trim() || "";
+    const managerLastName = item?.project?.manager?.lastName?.trim() || "";
+    const projectManagerName =
+        [managerFirstName, managerLastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim() || "Not available";
+
+    return {
+        id: String(item?.id || ""),
+        type: formatLabel(item?.type),
+        title: item?.title || "Not available",
+        description: item?.description || "Not available",
+        projectId: item?.project?.id || item?.projectId || "Not available",
+        projectName: item?.project?.name || "Not available",
+        projectDescription: item?.project?.description || "Not available",
+        vendorName: item?.project?.vendorName || "Not available",
+        decisionOwner: item?.decisionOwner || "Not assigned",
+        decisionDueDate: item?.decisionDueDate || item?.dueDate || item?.due_date || "",
+        raisedBy: {
+            firstName: managerFirstName,
+            name: projectManagerName,
+            email: item?.project?.manager?.email || "Not available",
+            role: "Project Manager",
+            image:
+                item?.project?.manager?.avatar ||
+                item?.project?.manager?.image ||
+                item?.project?.manager?.photoUrl ||
+                item?.project?.manager?.profileImage ||
+                "",
+        },
+    };
 };
 
 export default function ViewRAIDD() {
-    const { id } = useParams();
+    const params = useParams();
+    const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
     const router = useRouter();
+    const {
+        data: raiddResponse,
+        isLoading,
+        isError,
+        error,
+    } = useQuery({
+        queryKey: ["raidd-details", id],
+        enabled: Boolean(id),
+        queryFn: () => apiGet(`/api/project-manager/raidd/${id}`),
+    });
+
+    const raiddData = useMemo(() => {
+        const rawItem =
+            raiddResponse?.data?.data ||
+            raiddResponse?.data ||
+            null;
+
+        return rawItem ? normalizeRaiddDetails(rawItem) : null;
+    }, [raiddResponse]);
+
+    const queryClient = useQueryClient();
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editMode, setEditMode] = useState(null); // 'owner' or 'date'
+    const [formData, setFormData] = useState({
+        decisionOwner: "",
+        decisionDueDate: "",
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: (data) => apiPatch(`/api/project-manager/raidd/${id}`, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["raidd-details", id] });
+            toast.success("RAIDD updated successfully");
+            setIsEditModalOpen(false);
+        },
+        onError: (err) => {
+            toast.error(err.message || "Failed to update RAIDD");
+        },
+    });
+
+    const handleOpenOwnerEdit = () => {
+        setEditMode("owner");
+        setFormData({
+            decisionOwner: raiddData?.decisionOwner === "Not assigned" ? "" : raiddData?.decisionOwner,
+            decisionDueDate: raiddData?.decisionDueDate && !isNaN(new Date(raiddData.decisionDueDate).getTime())
+                ? new Date(raiddData.decisionDueDate).toISOString().split("T")[0]
+                : "",
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleOpenDateEdit = () => {
+        setEditMode("date");
+        setFormData({
+            decisionOwner: raiddData?.decisionOwner === "Not assigned" ? "" : raiddData?.decisionOwner,
+            decisionDueDate: raiddData?.decisionDueDate && !isNaN(new Date(raiddData.decisionDueDate).getTime())
+                ? new Date(raiddData.decisionDueDate).toISOString().split("T")[0]
+                : "",
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const payload = {};
+        if (editMode === "owner") {
+            payload.decisionOwner = formData.decisionOwner;
+        } else {
+            // Ensure date is in ISO format as expected by backend
+            if (formData.decisionDueDate) {
+                payload.decisionDueDate = new Date(formData.decisionDueDate).toISOString();
+            }
+        }
+            
+        updateMutation.mutate(payload);
+    };
+
+    if (isLoading) {
+        return <Loading />;
+    }
+
+    if (isError || !raiddData) {
+        return (
+            <div className="space-y-6">
+                <button
+                    onClick={() => router.push("/raidd")}
+                    className="flex items-center gap-2 text-sm text-primary hover:underline transition cursor-pointer"
+                >
+                    <FiArrowLeft className="h-4 w-4" />
+                    Go Back
+                </button>
+
+                <Card>
+                    <CardContent className="p-6 text-center text-sm text-slate-500 sm:text-base">
+                        {error?.message || "RAIDD details not available."}
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
-            {/* Back Button */}
             <button
                 onClick={() => router.push("/raidd")}
                 className="flex items-center gap-2 text-sm text-primary hover:underline transition cursor-pointer"
@@ -77,259 +174,269 @@ export default function ViewRAIDD() {
                 Go Back
             </button>
 
-            {/* Project Description */}
             <div className="mt-6 space-y-4">
-                <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Project Description</h2>
-                <Card className="bg-[#EFEEFC] border-slate-200">
-                    <CardContent className="p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
+                        Project Description
+                    </h2>
+                    <Button
+                        onClick={handleOpenDateEdit}
+                        variant="outline"
+                        className="flex items-center gap-2 border-[#6051E2]/20 text-[#6051E2] hover:bg-[#6051E2]/5 font-semibold cursor-pointer"
+                    >
+                        <FiPlus className="h-4 w-4" />
+                        Add Decision Due Date
+                    </Button>
+                </div>
+                <Card className="border-slate-200 bg-[#EFEEFC]">
+                    <CardContent className="space-y-4 p-6">
                         <div className="space-y-2">
                             <p className="text-base text-slate-600">
                                 <span className="font-medium text-slate-700">Project ID:</span>{" "}
-                                <span className="font-medium text-slate-900">5897</span>
+                                <span className="font-medium text-slate-900">{raiddData.projectId}</span>
                             </p>
                             <p className="text-base text-slate-600">
                                 <span className="font-medium text-slate-700">Project Name:</span>{" "}
-                                <span className="font-bold text-slate-900">Basketball App</span>
+                                <span className="font-bold text-slate-900">{raiddData.projectName}</span>
+                            </p>
+                            <p className="text-base text-slate-600">
+                                <span className="font-medium text-slate-700">Vendor Name:</span>{" "}
+                                <span className="font-medium text-slate-900">{raiddData.vendorName}</span>
                             </p>
                         </div>
-                        <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-                            The Basketball App project focuses on delivering a modern mobile application with key content, navigation, and back-end integration. The project is currently in progress, with AI continuously analyzing project communications, documents, and meetings to provide real-time insights into risks, assumptions, dependencies, and decisions.
+                        <p className="text-sm leading-relaxed text-slate-600 sm:text-base">
+                            {raiddData.projectDescription}
                         </p>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Header */}
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">AI summary RAIDD</h1>
+                <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">
+                    AI Summary RAIDD
+                </h1>
             </div>
 
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Section: AI Summary Cards (2x2 Grid) */}
-                <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                    {/* AI Risk */}
-                    <Card className="p-4 sm:p-5 bg-[#EFEEFC]">
-                        <CardContent className="p-0 space-y-3 sm:space-y-4">
-                            <h3 className="font-semibold text-slate-900 text-base sm:text-lg">AI Risk</h3>
-                            <div className="flex items-start gap-2 p-3  rounded-lg">
-                                <HiOutlineSparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <p className="text-xs font-medium text-slate-700 mb-1">AI SUMMARY</p>
-                                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                                        {raiddData.aiRisk.summary}
-                                    </p>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                    <Card className="bg-[#EFEEFC] p-4 sm:p-5">
+                        <CardContent className="space-y-4 p-0">
+                            <h3 className="text-base font-semibold text-slate-900 sm:text-lg">
+                                AI {raiddData.type}
+                            </h3>
+                            <div className="rounded-lg p-3">
+                                <div className="flex items-start gap-2">
+                                    <HiOutlineSparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+                                    <div>
+                                        <p className="mb-1 text-xs font-medium text-slate-700 uppercase">
+                                            Description
+                                        </p>
+                                        <div className="text-xs leading-relaxed text-slate-600 sm:text-sm">
+                                            {typeof raiddData.description === "object" && raiddData.description !== null ? (
+                                                <div className="space-y-3">
+                                                    {Object.entries(raiddData.description).map(([key, value]) => {
+                                                        const items = Array.isArray(value) ? value : [value];
+                                                        if (items.length === 0) return null;
+                                                        return (
+                                                            <div key={key} className="space-y-1">
+                                                                <p className="text-[10px] font-bold uppercase tracking-wider text-primary/80">
+                                                                    {key}
+                                                                </p>
+                                                                <ul className="space-y-1 list-disc pl-4">
+                                                                    {items.map((item, idx) => (
+                                                                        <li key={idx} className="text-slate-600">
+                                                                            {String(item)}
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <p>{raiddData.description}</p>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-700 mb-2">Risk Details</p>
-                                <ul className="space-y-1.5">
-                                    {raiddData.aiRisk.details.map((item, idx) => (
-                                        <li key={idx} className="text-xs sm:text-sm text-slate-600 flex items-center gap-2">
-                                            <span className="h-1 w-1 bg-slate-400 rounded-full flex-shrink-0"></span>
-                                            {item}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* AI Assumptions */}
-                    <Card className="p-4 sm:p-5 bg-[#EFEEFC]">
-                        <CardContent className="p-0 space-y-3 sm:space-y-4">
-                            <h3 className="font-semibold text-slate-900 text-base sm:text-lg">AI Assumptions</h3>
-                            <div className="flex items-start gap-2 p-3  rounded-lg">
-                                <HiOutlineSparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <p className="text-xs font-medium text-slate-700 mb-1">AI SUMMARY</p>
-                                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                                        {raiddData.aiAssumptions.summary}
-                                    </p>
-                                </div>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-700 mb-2">Assumptions</p>
-                                <ul className="space-y-1.5">
-                                    {raiddData.aiAssumptions.details.map((item, idx) => (
-                                        <li key={idx} className="text-xs sm:text-sm text-slate-600 flex items-center gap-2">
-                                            <span className="h-1 w-1 bg-slate-400 rounded-full flex-shrink-0"></span>
-                                            {item}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* AI Dependencies */}
-                    <Card className="p-4 sm:p-5 bg-[#EFEEFC]">
-                        <CardContent className="p-0 space-y-3 sm:space-y-4">
-                            <h3 className="font-semibold text-slate-900 text-base sm:text-lg">AI Dependencies</h3>
-                            <div className="flex items-start gap-2 p-3  rounded-lg">
-                                <HiOutlineSparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <p className="text-xs font-medium text-slate-700 mb-1">AI SUMMARY</p>
-                                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                                        {raiddData.aiDependencies.summary}
-                                    </p>
-                                </div>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-700 mb-2">Dependencies</p>
-                                <ul className="space-y-1.5">
-                                    {raiddData.aiDependencies.details.map((item, idx) => (
-                                        <li key={idx} className="text-xs sm:text-sm text-slate-600 flex items-center gap-2">
-                                            <span className="h-1 w-1 bg-slate-400 rounded-full flex-shrink-0"></span>
-                                            {item}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* AI Decisions */}
-                    <Card className="p-4 sm:p-5 bg-[#EFEEFC]">
-                        <CardContent className="p-0 space-y-3 sm:space-y-4">
-                            <h3 className="font-semibold text-slate-900 text-base sm:text-lg">AI Decisions</h3>
-                            <div className="flex items-start gap-2 p-3  rounded-lg">
-                                <HiOutlineSparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <p className="text-xs font-medium text-slate-700 mb-1">AI SUMMARY</p>
-                                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                                        {raiddData.aiDecisions.summary}
-                                    </p>
-                                </div>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-700 mb-2">Decisions</p>
-                                <ul className="space-y-1.5">
-                                    {raiddData.aiDecisions.details.map((item, idx) => (
-                                        <li key={idx} className="text-xs sm:text-sm text-slate-600 flex items-center gap-2">
-                                            <span className="h-1 w-1 bg-slate-400 rounded-full flex-shrink-0"></span>
-                                            {item}
-                                        </li>
-                                    ))}
-                                </ul>
                             </div>
                         </CardContent>
                     </Card>
                 </div>
-
-                {/* Right Section: Responsibility Details */}
                 <div className="space-y-4 sm:space-y-6">
                     <div>
-                        <h2 className="text-lg md:text-xl font-semibold text-slate-900">Responsibility Details</h2>
-                        <p className="text-xs sm:text-sm text-slate-500 mt-1">AI search intonations</p>
+                        <h2 className="text-lg font-semibold text-slate-900 md:text-xl">
+                            Responsibility Details
+                        </h2>
+                        <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                            Project manager information
+                        </p>
                     </div>
 
-                    {/* Raised by */}
-                    <Card className="p-4 sm:p-5 border border-primary/50">
-                        <CardContent className="p-0 space-y-4">
+                    <Card className="border border-primary/50 p-4 sm:p-5">
+                        <CardContent className="space-y-4 p-0">
                             <div className="flex items-center gap-2">
                                 <FiFlag className="h-4 w-4 text-red-500" />
-                                <h3 className="font-semibold text-slate-900 text-sm sm:text-base">Raised by</h3>
+                                <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
+                                    Raised by
+                                </h3>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <div className="relative h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden flex-shrink-0">
-                                    <Image
-                                        src={raiddData.raisedBy.avatar}
-                                        alt={raiddData.raisedBy.name}
-                                        fill
-                                        sizes="48px"
-                                        className="object-cover"
-                                    />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-slate-900 text-sm sm:text-base truncate">
-                                        {raiddData.raisedBy.name}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <MdOutlineEmail className="h-3 w-3 sm:h-4 sm:w-4 text-slate-400 flex-shrink-0" />
-                                        <span className="text-xs sm:text-sm text-slate-600 truncate">
-                                            {raiddData.raisedBy.email}
-                                        </span>
+
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#6051E2]/10 text-sm font-semibold text-[#6051E2] sm:h-12 sm:w-12 sm:text-base">
+                                        {raiddData.raisedBy.image ? (
+                                            <Image
+                                                src={raiddData.raisedBy.image}
+                                                alt={raiddData.raisedBy.name}
+                                                fill
+                                                sizes="48px"
+                                                className="object-cover"
+                                            />
+                                        ) : (
+                                            <span>
+                                                {(raiddData.raisedBy.name || "P")
+                                                    .trim()
+                                                    .charAt(0)
+                                                    .toUpperCase()}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <p className="font-medium text-slate-900 text-sm sm:text-base">
+                                            {raiddData.raisedBy.name}
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <MdOutlineEmail className="h-3 w-3 flex-shrink-0 text-slate-400 sm:h-4 sm:w-4" />
+                                            <span className="text-xs text-slate-600 sm:text-sm">
+                                                {raiddData.raisedBy.email}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+
                             <div>
-                                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 text-xs sm:text-sm font-medium rounded-full">
+                                <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 sm:text-sm">
                                     {raiddData.raisedBy.role}
                                 </span>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Identify by */}
-                    <Card className="p-4 sm:p-5 border border-primary/50">
-                        <CardContent className="p-0 space-y-4">
-                            <div className="flex items-center gap-2">
-                                <FiAtSign className="h-4 w-4 text-blue-500" />
-                                <h3 className="font-semibold text-slate-900 text-sm sm:text-base">Identify by</h3>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                                    <BsGear className="h-5 w-5 sm:h-6 sm:w-6 text-slate-600" />
+                    <Card className="border border-primary/50 p-4 sm:p-5">
+                        <CardContent className="space-y-4 p-0">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <FiFlag className="h-4 w-4 text-[#6051E2]" />
+                                    <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
+                                        Decision Details
+                                    </h3>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-slate-900 text-sm sm:text-base truncate">
-                                        {raiddData.identifyBy.name}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <MdOutlineEmail className="h-3 w-3 sm:h-4 sm:w-4 text-slate-400 flex-shrink-0" />
-                                        <span className="text-xs sm:text-sm text-slate-600 truncate">
-                                            {raiddData.identifyBy.email}
-                                        </span>
-                                    </div>
-                                </div>
+                                <button
+                                    onClick={handleOpenOwnerEdit}
+                                    className="text-slate-400 hover:text-[#6051E2] transition cursor-pointer"
+                                >
+                                    <FiEdit className="h-4 w-4" />
+                                </button>
                             </div>
-                            <div>
-                                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 text-xs sm:text-sm font-medium rounded-full">
-                                    {raiddData.identifyBy.role}
-                                </span>
-                            </div>
-                        </CardContent>
-                    </Card>
 
-                    {/* Escalated To */}
-                    <Card className="p-4 sm:p-5 border border-primary/50">
-                        <CardContent className="p-0 space-y-4">
-                            <div className="flex items-center gap-2">
-                                <FiAlertTriangle className="h-4 w-4 text-orange-500" />
-                                <h3 className="font-semibold text-slate-900 text-sm sm:text-base">Escalated To</h3>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="relative h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden flex-shrink-0">
-                                    <Image
-                                        src={raiddData.escalatedTo.avatar}
-                                        alt={raiddData.escalatedTo.name}
-                                        fill
-                                        sizes="48px"
-                                        className="object-cover"
-                                    />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-slate-900 text-sm sm:text-base truncate">
-                                        {raiddData.escalatedTo.name}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <MdOutlineEmail className="h-3 w-3 sm:h-4 sm:w-4 text-slate-400 flex-shrink-0" />
-                                        <span className="text-xs sm:text-sm text-slate-600 truncate">
-                                            {raiddData.escalatedTo.email}
-                                        </span>
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 sm:h-12 sm:w-12">
+                                        <FiUser className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                                            Decision Owner
+                                        </p>
+                                        <p className="font-semibold text-slate-900 text-sm sm:text-base">
+                                            {raiddData.decisionOwner}
+                                        </p>
                                     </div>
                                 </div>
-                            </div>
-                            <div>
-                                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 text-xs sm:text-sm font-medium rounded-full">
-                                    {raiddData.escalatedTo.role}
-                                </span>
+
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 sm:h-12 sm:w-12">
+                                        <FiCalendar className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                                            Decision Due Date
+                                        </p>
+                                        <p className="font-semibold text-slate-900 text-sm sm:text-base">
+                                            {raiddData.decisionDueDate
+                                                ? new Date(raiddData.decisionDueDate).toLocaleDateString("en-GB", {
+                                                    day: "2-digit",
+                                                    month: "short",
+                                                    year: "numeric",
+                                                })
+                                                : "Not set"}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
                 </div>
             </div>
+
+            <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold text-slate-900">
+                            {editMode === "owner" ? "Update Decision Owner" : "Update Decision Due Date"}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleSubmit} className="space-y-6 py-4">
+                        {editMode === "owner" ? (
+                            <div className="space-y-2">
+                                <label htmlFor="decisionOwner" className="text-sm font-semibold text-slate-700">
+                                    Decision Owner
+                                </label>
+                                <Input
+                                    id="decisionOwner"
+                                    placeholder="Enter owner name"
+                                    value={formData.decisionOwner}
+                                    onChange={(e) => setFormData({ ...formData, decisionOwner: e.target.value })}
+                                    className="border-slate-200 focus:border-[#6051E2] focus:ring-[#6051E2]"
+                                />
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <label htmlFor="decisionDueDate" className="text-sm font-semibold text-slate-700">
+                                    Decision Due Date
+                                </label>
+                                <Input
+                                    id="decisionDueDate"
+                                    type="date"
+                                    value={formData.decisionDueDate}
+                                    onChange={(e) => setFormData({ ...formData, decisionDueDate: e.target.value })}
+                                    className="border-slate-200 focus:border-[#6051E2] focus:ring-[#6051E2]"
+                                />
+                            </div>
+                        )}
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="cursor-pointer"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={updateMutation.isPending}
+                                className="bg-[#6051E2] hover:bg-[#4a3db8] text-white cursor-pointer"
+                            >
+                                {updateMutation.isPending ? "Updating..." : "Save Changes"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
