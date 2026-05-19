@@ -19,6 +19,7 @@ import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Date
 import PageHeader from "@/components/PageHeader/PageHeader";
 import Loading from "@/components/Loading/Loading";
 import { apiGet } from "@/lib/api";
+import { downloadCsv } from "@/lib/csv";
 
 const tabLabelMap = {
     all: "All",
@@ -39,6 +40,10 @@ const tabs = [
 ];
 
 const normalizeTabId = (value) => {
+    if (Array.isArray(value)) {
+        if (value.length > 1) return "all";
+        value = value[0];
+    }
     const normalized = String(value || "").trim().toLowerCase();
 
     switch (normalized) {
@@ -63,6 +68,10 @@ const normalizeTabId = (value) => {
 };
 
 const normalizeTabType = (value) => {
+    if (Array.isArray(value)) {
+        if (value.length > 1) return "All Type";
+        value = value[0];
+    }
     const normalized = String(value || "").trim().toLowerCase();
 
     switch (normalized) {
@@ -113,18 +122,31 @@ const normalizeRaiddItem = (item, index) => {
         item?.updatedAt ||
         null;
 
+    const rawDueDate = item?.decisionDueDate || item?.dueDate || item?.due_date;
+    const type = normalizeTabType(item?.type);
+    
+    let formattedDueDate = formatDate(rawDueDate);
+    if (type === "Decision" && formattedDueDate === "Not available") {
+        formattedDueDate = "Pending due date";
+    } else if (type !== "Decision") {
+        formattedDueDate = "Not available";
+    }
+
     return {
         id: String(item?.id || index),
         tabType: normalizeTabId(item?.type),
-        type: normalizeTabType(item?.type),
+        type,
         projectId: String(item?.projectId || item?.project?.id || "Not available"),
         projectName: item?.project?.name || "Not available",
         vendorName: item?.project?.vendorName || item?.project?.vendor?.name || "Not available",
         status: formatLabel(item?.status),
         title: item?.title || "Not available",
-        description: item?.description || "Not available",
+        description: typeof item?.description === "object" && item?.description !== null
+            ? Object.values(item.description).flat().join(" ")
+            : item?.description || "Not available",
         rawDate,
         date: formatDate(rawDate),
+        dueDate: formattedDueDate,
     };
 };
 
@@ -132,6 +154,8 @@ const getStatusStyle = (status) => {
     const statusLower = String(status || "").toLowerCase();
 
     switch (statusLower) {
+        case "all type":
+            return "bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 shadow-sm";
         case "risk":
             return "bg-red-100 text-red-700";
         case "issue":
@@ -202,6 +226,21 @@ export default function RAIDD() {
     }, [dateFilterState]);
 
     const handleExport = () => {
+        downloadCsv({
+            rows: filteredData,
+            filename: `raidd_export_${activeTab}.csv`,
+            columns: [
+                { header: "Type", key: "type" },
+                { header: "Project ID", key: "projectId" },
+                { header: "Project Name", key: "projectName" },
+                { header: "Vendor Name", key: "vendorName" },
+                { header: "Title", key: "title" },
+                { header: "Description", key: "description" },
+                { header: "Status", key: "status" },
+                { header: "Date", key: "date" },
+                { header: "Due Date", key: "dueDate" }
+            ]
+        });
         toast.success(`${tabLabelMap[activeTab] || formatLabel(activeTab)} data exported successfully!`);
     };
 
@@ -313,13 +352,16 @@ export default function RAIDD() {
                                         Project Name
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
-                                        Status
+                                        Type
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         Vendor Name
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         Date
+                                    </TableHead>
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
+                                        Due Date
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         View Details
@@ -330,7 +372,8 @@ export default function RAIDD() {
                                 {filteredData.map((item, index) => (
                                     <TableRow
                                         key={item.id}
-                                        className="border-b border-slate-100 hover:bg-slate-50"
+                                        className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                                        onClick={() => router.push(`/raidd/view/${item.id}`)}
                                     >
                                         <TableCell className="px-4 py-3 text-sm text-slate-800 lg:px-6 lg:py-4 lg:text-base">
                                             {index + 1}
@@ -353,10 +396,16 @@ export default function RAIDD() {
                                         <TableCell className="px-4 py-3 text-sm text-slate-600 lg:px-6 lg:py-4 lg:text-base">
                                             {item.date}
                                         </TableCell>
+                                        <TableCell className="px-4 py-3 text-sm text-slate-600 lg:px-6 lg:py-4 lg:text-base">
+                                            {item.dueDate}
+                                        </TableCell>
                                         <TableCell className="px-4 py-3 text-center lg:px-6 lg:py-4">
                                             <button
                                                 className={viewButtonClass}
-                                                onClick={() => router.push(`/raidd/view/${item.id}`)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    router.push(`/raidd/view/${item.id}`);
+                                                }}
                                                 title="View details"
                                                 aria-label="View details"
                                             >
@@ -380,13 +429,16 @@ export default function RAIDD() {
                                         Project Name
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white">
-                                        Status
+                                        Type
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-sm font-semibold text-white">
                                         Vendor Name
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-sm font-semibold text-white">
                                         Date
+                                    </TableHead>
+                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white">
+                                        Due Date
                                     </TableHead>
                                     <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white">
                                         View
@@ -397,7 +449,8 @@ export default function RAIDD() {
                                 {filteredData.map((item, index) => (
                                     <TableRow
                                         key={item.id}
-                                        className="border-b border-slate-100 hover:bg-slate-50"
+                                        className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                                        onClick={() => router.push(`/raidd/view/${item.id}`)}
                                     >
                                         <TableCell className="px-4 py-3 text-sm text-slate-800">
                                             {index + 1}
@@ -420,10 +473,16 @@ export default function RAIDD() {
                                         <TableCell className="px-4 py-3 text-sm text-slate-600">
                                             {item.date}
                                         </TableCell>
+                                        <TableCell className="px-4 py-3 text-sm text-slate-600">
+                                            {item.dueDate}
+                                        </TableCell>
                                         <TableCell className="px-4 py-3 text-center">
                                             <button
                                                 className={viewButtonClass}
-                                                onClick={() => router.push(`/raidd/view/${item.id}`)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    router.push(`/raidd/view/${item.id}`);
+                                                }}
                                                 title="View details"
                                                 aria-label="View details"
                                             >
@@ -467,6 +526,12 @@ export default function RAIDD() {
                                         <span className="text-slate-500">Date</span>
                                         <span className="text-right text-slate-700">
                                             {item.date}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between gap-4">
+                                        <span className="text-slate-500">Due Date</span>
+                                        <span className="text-right text-slate-700">
+                                            {item.dueDate}
                                         </span>
                                     </div>
                                 </div>

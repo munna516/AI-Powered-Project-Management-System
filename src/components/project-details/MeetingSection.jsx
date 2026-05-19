@@ -45,6 +45,7 @@ const getRawList = (response) =>
 
 const normalizeMeeting = (meeting, index) => ({
   id: meeting?.id || index,
+  title: meeting?.title || "N/A",
   date: formatDate(meeting?.meetingDate || meeting?.createdAt),
   link: meeting?.videoPlayUrl || meeting?.meetingUrl || "N/A",
   platform: meeting?.platform || "Zoom",
@@ -58,17 +59,20 @@ export default function MeetingSection({
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
   const [meetingForm, setMeetingForm] = useState({
+    title: "",
     videoPlayUrl: "",
     file: null,
   });
   const [editingMeetingId, setEditingMeetingId] = useState(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedMeeting, setSelectedMeeting] = useState(null);
 
   const inputBaseClass =
     "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#6051E2]";
   const labelClass = "mb-1.5 block text-sm font-medium text-slate-900";
 
   const resetMeetingForm = () => {
-    setMeetingForm({ videoPlayUrl: "", file: null });
+    setMeetingForm({ title: "", videoPlayUrl: "", file: null });
     setEditingMeetingId(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -151,6 +155,9 @@ export default function MeetingSection({
 
     const payload = new FormData();
     payload.append("projectId", projectId);
+    if (meetingForm.title.trim()) {
+      payload.append("title", meetingForm.title.trim());
+    }
     if (meetingForm.videoPlayUrl.trim()) {
       payload.append("meetingUrl", meetingForm.videoPlayUrl.trim());
       payload.append("videoPlayUrl", meetingForm.videoPlayUrl.trim());
@@ -172,6 +179,7 @@ export default function MeetingSection({
   const handleEdit = (meeting) => {
     setEditingMeetingId(meeting.id);
     setMeetingForm({
+      title: meeting.title === "N/A" ? "" : meeting.title,
       videoPlayUrl: meeting.link === "N/A" ? "" : meeting.link,
       file: null,
     });
@@ -212,6 +220,21 @@ export default function MeetingSection({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div>
+              <label className={labelClass}>Meeting Title</label>
+              <input
+                type="text"
+                value={meetingForm.title}
+                onChange={(e) =>
+                  setMeetingForm((p) => ({
+                    ...p,
+                    title: e.target.value,
+                  }))
+                }
+                placeholder="e.g. Weekly Sync"
+                className={inputBaseClass}
+              />
+            </div>
             <div>
               <label className={labelClass}>Select Transcript File</label>
               <input
@@ -268,6 +291,65 @@ export default function MeetingSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+ 
+      {/* View Meeting Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-left font-semibold text-[#6051E2]">
+              Meeting Details
+            </DialogTitle>
+          </DialogHeader>
+          {selectedMeeting && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">Title</span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedMeeting.title}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">Date</span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedMeeting.date}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">
+                  Platform
+                </span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedMeeting.platform}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">
+                  Recordings link
+                </span>
+                <div className="col-span-2">
+                  <Link
+                    href={selectedMeeting.link}
+                    target="_blank"
+                    className="text-sm text-blue-600 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Click to view
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setViewDialogOpen(false)}
+              className="w-full cursor-pointer sm:w-auto"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
@@ -275,6 +357,9 @@ export default function MeetingSection({
             <Table>
               <TableHeader className="bg-[#6051E2]">
                 <TableRow className="border-b-0 hover:bg-[#6051E2]">
+                  <TableHead className="px-4 py-3 font-semibold text-white">
+                    Title
+                  </TableHead>
                   <TableHead className="px-4 py-3 font-semibold text-white">
                     Date
                   </TableHead>
@@ -292,7 +377,7 @@ export default function MeetingSection({
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-6 text-center text-slate-500">
+                    <TableCell colSpan={5} className="py-6 text-center text-slate-500">
                       Loading meetings...
                     </TableCell>
                   </TableRow>
@@ -300,8 +385,15 @@ export default function MeetingSection({
                   meetings.map((meeting) => (
                     <TableRow
                       key={meeting.id}
-                      className="border-b border-slate-100 hover:bg-slate-50"
+                      className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50"
+                      onClick={() => {
+                        setSelectedMeeting(meeting);
+                        setViewDialogOpen(true);
+                      }}
                     >
+                      <TableCell className="px-4 py-3 text-slate-800">
+                        {meeting.title}
+                      </TableCell>
                       <TableCell className="px-4 py-3 text-slate-800">
                         {meeting.date}
                       </TableCell>
@@ -313,6 +405,7 @@ export default function MeetingSection({
                           href={meeting.link}
                           target="_blank"
                           className="cursor-pointer text-blue-600 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           Click to view
                         </Link>
@@ -324,6 +417,7 @@ export default function MeetingSection({
                             className="cursor-pointer text-slate-500 transition-colors hover:text-blue-600"
                             title="View meeting summary"
                             aria-label="View meeting summary"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <FiEye className="h-4 w-4" />
                           </Link>
@@ -338,7 +432,10 @@ export default function MeetingSection({
                           </button> */}
                           <button
                             type="button"
-                            onClick={() => handleDelete(meeting.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(meeting.id);
+                            }}
                             className="cursor-pointer text-slate-500 transition-colors hover:text-red-600"
                             title="Delete meeting"
                             aria-label="Delete meeting"
@@ -351,7 +448,7 @@ export default function MeetingSection({
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-6 text-center text-slate-500">
+                    <TableCell colSpan={5} className="py-6 text-center text-slate-500">
                       N/A
                     </TableCell>
                   </TableRow>

@@ -41,29 +41,23 @@ const normalizeMeeting = (raw) => {
         : fallback;
 
     // API shape from your payload:
-    // agenda: { meetingTopics: string[], coreDiscussionPoints: string[] }
-    const agenda = normalizeTextList(detail?.agenda?.meetingTopics);
+    const agenda = typeof detail?.agenda === "string" ? [detail.agenda] : normalizeTextList(detail?.agenda);
+    
+    const aiMeetingSummary = normalizeTextList(detail?.aiMeetingSummary);
+    const lastMeetingSummary = detail?.lastMeetingSummary || "";
 
-    const discussionSummary = normalizeTextList(detail?.agenda?.coreDiscussionPoints).map((text) => ({
-        topic: "",
-        text,
-    }));
-
-    // keyPoints: [{ content: string, ... }]
-    const decisions = Array.isArray(detail?.keyPoints)
-        ? detail.keyPoints.map((kp) => kp?.content).filter(Boolean)
+    const keyPoints = Array.isArray(detail?.keyPoints)
+        ? detail.keyPoints.map((kp) => typeof kp === 'string' ? kp : (kp?.content || kp?.text || "")).filter(Boolean)
         : [];
 
-    // actionPoints: [{ content: string, status: string, ... }]
     const actionItems = Array.isArray(detail?.actionPoints)
         ? detail.actionPoints.map((ap) => ({
-            task: ap?.content ?? ap?.task ?? "",
+            task: typeof ap === 'string' ? ap : (ap?.content ?? ap?.task ?? ""),
             owner: ap?.status ?? "",
             dueDate: "",
         }))
         : [];
 
-    // notes: string
     const notes = typeof detail?.notes === "string" && detail.notes.trim()
         ? [detail.notes]
         : normalizeTextList(detail?.notes ?? detail?.meetingNotes);
@@ -75,8 +69,9 @@ const normalizeMeeting = (raw) => {
         organizer: detail?.organizer ?? detail?.organizerName ?? detail?.host ?? fallback,
         participants,
         agenda,
-        discussionSummary,
-        decisions,
+        aiMeetingSummary,
+        lastMeetingSummary,
+        keyPoints,
         actionItems,
         notes,
         recordingLink:
@@ -213,48 +208,16 @@ function MeetingSummaryInner() {
                 </Card>
             </div>
 
-            {/* Discussion Summary */}
+            {/* AI Meeting Summary */}
             <div className="space-y-3">
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
-                    💬 Discussion Summary
+                    🤖 AI Meeting Summary
                 </h2>
                 <Card>
                     <CardContent className="p-6">
-                        {meetingData.discussionSummary?.length ? (
-                            <ul className="space-y-4">
-                                {meetingData.discussionSummary.map((item, index) => (
-                                    <li key={index} className="text-slate-700">
-                                        <div className="flex items-start gap-2">
-                                            <span className="text-slate-400 mt-1">•</span>
-                                            <div className="flex-1">
-                                                {item.topic ? (
-                                                    <span className="font-semibold text-slate-900">
-                                                        {item.topic}:
-                                                    </span>
-                                                ) : null}{" "}
-                                                <span>{item.text || fallback}</span>
-                                            </div>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-sm text-slate-500">No discussion summary found.</p>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Decisions Made */}
-            <div className="space-y-3">
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
-                    ✅ Decisions Made
-                </h2>
-                <Card>
-                    <CardContent className="p-6">
-                        {meetingData.decisions?.length ? (
+                        {meetingData.aiMeetingSummary?.length ? (
                             <ul className="space-y-2">
-                                {meetingData.decisions.map((item, index) => (
+                                {meetingData.aiMeetingSummary.map((item, index) => (
                                     <li key={index} className="text-slate-700 flex items-start gap-2">
                                         <span className="text-slate-400 mt-1">•</span>
                                         <span>{item}</span>
@@ -262,7 +225,46 @@ function MeetingSummaryInner() {
                                 ))}
                             </ul>
                         ) : (
-                            <p className="text-sm text-slate-500">No decisions found.</p>
+                            <p className="text-sm text-slate-500">No AI meeting summary found.</p>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Last Meeting Summary */}
+            <div className="space-y-3">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    📝 Last Meeting Summary
+                </h2>
+                <Card>
+                    <CardContent className="p-6">
+                        {meetingData.lastMeetingSummary ? (
+                            <p className="text-slate-700">{meetingData.lastMeetingSummary}</p>
+                        ) : (
+                            <p className="text-sm text-slate-500">No last meeting summary found.</p>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Key Points */}
+            <div className="space-y-3">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    🔑 Key Points
+                </h2>
+                <Card>
+                    <CardContent className="p-6">
+                        {meetingData.keyPoints?.length ? (
+                            <ul className="space-y-2">
+                                {meetingData.keyPoints.map((item, index) => (
+                                    <li key={index} className="text-slate-700 flex items-start gap-2">
+                                        <span className="text-slate-400 mt-1">•</span>
+                                        <span>{item}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-slate-500">No key points found.</p>
                         )}
                     </CardContent>
                 </Card>

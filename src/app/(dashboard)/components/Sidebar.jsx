@@ -40,7 +40,7 @@ import toast from "react-hot-toast";
 // Constants
 const SIDEBAR_BG = "bg-[#201B51]";
 const ACTIVE_BG = "bg-[#6051E2]";
-const SIDEBAR_ORDER_KEY = "sidebar-nav-order";
+const SIDEBAR_ORDER_KEY = "sidebar-nav-order-v2";
 const PROFILE_QUERY_KEY = ["userProfile"];
 const PROFILE_GET_ENDPOINT = "/api/user/profile/me";
 
@@ -51,8 +51,10 @@ const defaultSidebarItems = [
   { name: "RAIDD", icon: <MdBlock />, href: "/raidd" },
   { name: "AI Detection", icon: <IoCheckboxOutline />, href: "/ai-detection" },
   { name: "Lesson Learned", icon: <FiBook />, href: "/lessons" },
+  { name: "Client Management", icon: <HiOutlineShoppingBag />, href: "/clients" },
   { name: "Vendors", icon: <HiOutlineShoppingBag />, href: "/vendors" },
   { name: "Email Management", icon: <MdEmail />, href: "/email-management" },
+  { name: "All Notification", icon: <FiBell />, href: "/all-notifications" },
   { name: "Data Source", icon: <FaDatabase />, href: "/data-source" },
   { name: "Meeting Management", icon: <BsDatabaseFillGear />, href: "/meeting-management" },
   { name: "Calendar & Meetings", icon: <FaCalendarAlt />, href: "/calendar-meetings" },
@@ -62,7 +64,7 @@ const defaultSidebarItems = [
 function getStoredOrder() {
   if (typeof window === "undefined") return null;
   try {
-    const stored = localStorage.getItem(SIDEBAR_ORDER_KEY);
+    const stored = localStorage.getItem(SIDEBAR_ORDER_KEY); 
     return stored ? JSON.parse(stored) : null;
   } catch {
     return null;
@@ -240,7 +242,7 @@ export default function Sidebar() {
   };
 
   const renderNav = (isMobile = false) => (
-    <nav className="flex-1 overflow-y-auto p-3 md:p-4 space-y-1">
+    <nav className="flex-1 overflow-y-auto p-3 md:p-4 space-y-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}

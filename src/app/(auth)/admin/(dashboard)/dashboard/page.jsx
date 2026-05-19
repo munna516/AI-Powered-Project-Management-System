@@ -14,6 +14,9 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "@/lib/api";
+import Loading from "@/components/Loading/Loading";
 import {
     LineChart,
     Line,
@@ -92,7 +95,7 @@ const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-[#6051E2] text-white text-xs px-2 py-1 rounded shadow-md">
-                {`${(payload[0].value / 1000).toFixed(0)}k`}
+                {`${payload[0].value}`}
             </div>
         );
     }
@@ -100,6 +103,33 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function AdminDashboard() {
+    const { data: dashboardResponse, isLoading, isError } = useQuery({
+        queryKey: ["admin-dashboard"],
+        queryFn: () => apiGet("/api/admin/dashboard"),
+    });
+
+    const dashboardData = dashboardResponse?.data?.data || dashboardResponse?.data || {};
+    const stats = dashboardData.stats || {};
+    const kpiChart = (dashboardData.kpiChart || []).map(item => ({
+        ...item,
+        month: item.month.charAt(0).toUpperCase() + item.month.slice(1),
+        value: item.ongoing // Use ongoing for the growth line
+    }));
+
+    const totalCompleted = (dashboardData.kpiChart || []).reduce((acc, curr) => acc + (curr.completed || 0), 0);
+    const totalCancelled = (dashboardData.kpiChart || []).reduce((acc, curr) => acc + (curr.cancelled || 0), 0);
+    const managers = dashboardData.projectManagers || [];
+
+    if (isLoading) return <Loading />;
+
+    if (isError) {
+        return (
+            <div className="flex h-[400px] items-center justify-center text-slate-500">
+                Failed to load dashboard data.
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-8">
             {/* Header */}
@@ -111,7 +141,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card className="bg-emerald-100 border-none shadow-none">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-slate-600">
@@ -119,7 +149,7 @@ export default function AdminDashboard() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-slate-900">1,240</div>
+                        <div className="text-3xl font-bold text-slate-900">{stats.activeProjects || 0}</div>
                     </CardContent>
                 </Card>
                 <Card className="bg-rose-100 border-none shadow-none">
@@ -129,7 +159,7 @@ export default function AdminDashboard() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-slate-900">500</div>
+                        <div className="text-3xl font-bold text-slate-900">{totalCompleted}</div>
                     </CardContent>
                 </Card>
                 <Card className="bg-purple-100 border-none shadow-none">
@@ -139,7 +169,17 @@ export default function AdminDashboard() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-slate-900">5</div>
+                        <div className="text-3xl font-bold text-slate-900">{totalCancelled}</div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-blue-100 border-none shadow-none">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-slate-600">
+                            Overall Health
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold text-slate-900">{stats.overallHealth || 0}%</div>
                     </CardContent>
                 </Card>
             </div>
@@ -151,14 +191,14 @@ export default function AdminDashboard() {
                         Project Growth
                     </CardTitle>
                     <button className="text-xs font-medium text-slate-500 bg-white border border-slate-200 rounded px-3 py-1.5 shadow-sm">
-                        Jan 01-Dec 31
+                        {new Date().getFullYear()} Overview
                     </button>
                 </CardHeader>
                 <CardContent className="pl-0">
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart
-                                data={chartData}
+                                data={kpiChart}
                                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                             >
                                 <CartesianGrid
@@ -177,11 +217,7 @@ export default function AdminDashboard() {
                                     axisLine={false}
                                     tickLine={false}
                                     tick={{ fill: "#64748B", fontSize: 12 }}
-                                    tickFormatter={(value) =>
-                                        value === 0 ? "0" : `${value / 1000}k`
-                                    }
-                                    domain={[0, 200000]}
-                                    ticks={[0, 50000, 100000, 150000, 200000]}
+                                    tickFormatter={(value) => value}
                                 />
                                 <Tooltip content={<CustomTooltip />} cursor={false} />
                                 <Line
@@ -210,8 +246,6 @@ export default function AdminDashboard() {
 
             {/* Manager List Section */}
             <div className="space-y-4">
-
-
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <Table>
                         <TableHeader className="bg-[#6051E2] hover:bg-[#6051E2]">
@@ -225,24 +259,30 @@ export default function AdminDashboard() {
                                 <TableHead className="text-white font-semibold h-12 w-[25%]">
                                     Assigned Projects
                                 </TableHead>
-
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {managers.map((manager, index) => (
-                                <TableRow key={index} className="hover:bg-slate-50 border-slate-100">
-                                    <TableCell className="font-medium text-slate-700 pl-6 py-4">
-                                        {manager.name}
+                            {managers.length > 0 ? (
+                                managers.map((manager, index) => (
+                                    <TableRow key={manager.id || index} className="hover:bg-slate-50 border-slate-100">
+                                        <TableCell className="font-medium text-slate-700 pl-6 py-4">
+                                            {manager.name}
+                                        </TableCell>
+                                        <TableCell className="text-slate-500 py-4">
+                                            {manager.email}
+                                        </TableCell>
+                                        <TableCell className="text-slate-500 py-4">
+                                            {manager.assignedProjects} {manager.assignedProjects === 1 ? 'Project' : 'Projects'}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="text-center py-8 text-slate-500">
+                                        No project managers found.
                                     </TableCell>
-                                    <TableCell className="text-slate-500 py-4">
-                                        {manager.email}
-                                    </TableCell>
-                                    <TableCell className="text-slate-500 py-4">
-                                        {manager.projects}
-                                    </TableCell>
-
                                 </TableRow>
-                            ))}
+                            )}
                         </TableBody>
                     </Table>
                 </div>

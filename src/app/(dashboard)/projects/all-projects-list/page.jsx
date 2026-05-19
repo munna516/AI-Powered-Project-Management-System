@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
 import { FiDownload } from "react-icons/fi";
+import { downloadCsv } from "@/lib/csv";
 
 // All projects data
 const allProjectsData = [
@@ -105,32 +106,18 @@ export default function AllProjectsList() {
     }, [searchValue, dateFilterState]);
 
     const handleExport = () => {
-        // Convert filtered projects to CSV
-        const headers = ["Project ID", "Project Name", "Owner", "Status", "Progress", "Deadline"];
-        const csvContent = [
-            headers.join(","),
-            ...filteredProjects.map(project =>
-                [
-                    project.id,
-                    `"${project.name}"`,
-                    `"${project.owner}"`,
-                    project.status,
-                    project.progress,
-                    `"${project.deadline}"`
-                ].join(",")
-            )
-        ].join("\n");
-
-        // Create blob and download
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", `projects_export_${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = "hidden";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadCsv({
+            rows: filteredProjects,
+            filename: `projects_export_${new Date().toISOString().split("T")[0]}.csv`,
+            columns: [
+                { header: "Project ID", key: "id" },
+                { header: "Project Name", key: "name" },
+                { header: "Owner", key: "owner" },
+                { header: "Status", key: "status" },
+                { header: "Progress", key: "progress" },
+                { header: "Deadline", key: "deadline" },
+            ],
+        });
     };
 
     return (

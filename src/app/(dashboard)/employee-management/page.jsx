@@ -27,6 +27,7 @@ import toast from "react-hot-toast";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import Loading from "@/components/Loading/Loading";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { downloadCsv } from "@/lib/csv";
 
 const tabs = [
   { id: "employee", label: "Employee Management" },
@@ -569,12 +570,59 @@ export default function EmployeeManagement() {
     );
   }, [memberSearchValue, teamFormData.teamMembers, teamMemberOptions]);
 
-  // Export handlers - just show toast
+  // Export handlers
   const handleExportEmployees = () => {
+    downloadCsv({
+      rows: filteredEmployeeData,
+      filename: `employees_export_${new Date().toISOString().split("T")[0]}.csv`,
+      columns: [
+        { header: "ID", key: "id" },
+        { header: "Name", key: "name" },
+        { header: "First Name", key: "firstName" },
+        { header: "Last Name", key: "lastName" },
+        { header: "Email", key: "email" },
+        { header: "Designation", key: "designation" },
+        // Prefix with a tab so Excel treats it as text (prevents 1.23E+09 display)
+        {
+          header: "Phone Number",
+          value: (employee) =>
+            employee?.phoneNumber ? `\t${String(employee.phoneNumber)}` : "",
+        },
+      ],
+    });
     toast.success("Employee data exported successfully!");
   };
 
   const handleExportTeams = () => {
+    downloadCsv({
+      rows: filteredTeamData,
+      filename: `teams_export_${new Date().toISOString().split("T")[0]}.csv`,
+      columns: [
+        { header: "ID", key: "id" },
+        { header: "Team Name", key: "teamName" },
+        { header: "Members Count", key: "membersCount" },
+        {
+          header: "Team Members",
+          value: (team) =>
+            Array.isArray(team?.teamMembers)
+              ? team.teamMembers
+                  .map((m) => m?.name || m?.email || "")
+                  .filter(Boolean)
+                  .join("; ")
+              : "",
+        },
+        {
+          header: "Team Member Emails",
+          value: (team) =>
+            Array.isArray(team?.teamMembers)
+              ? team.teamMembers
+                  .map((m) => m?.email || "")
+                  .filter(Boolean)
+                  .join("; ")
+              : "",
+        },
+      ],
+    });
     toast.success("Team data exported successfully!");
   };
 

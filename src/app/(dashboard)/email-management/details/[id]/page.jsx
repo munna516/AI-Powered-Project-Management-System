@@ -12,7 +12,17 @@ import { useQuery } from "@tanstack/react-query";
 import Loading from "@/components/Loading/Loading";
 import { apiGet } from "@/lib/api";
 
+import { SiGmail } from "react-icons/si";
+import { PiMicrosoftOutlookLogo } from "react-icons/pi";
+
 const EMPTY_AI_EXTRACTED = {};
+
+const getSourceIcon = (type) => {
+    const normalized = String(type || "").toLowerCase();
+    if (normalized === "gmail") return <SiGmail className="h-5 w-5 text-white" />;
+    if (normalized === "outlook") return <PiMicrosoftOutlookLogo className="h-5 w-5 text-white" />;
+    return <FiMail className="h-5 w-5 text-white" />;
+};
 
 const unwrapEmailPayload = (response) =>
     response?.data?.data ?? response?.data ?? null;
@@ -163,6 +173,7 @@ export default function EmailDetails() {
                     if (typeof t === "string") return t.trim();
                     if (t && typeof t === "object") {
                         return (
+                            t.data ||
                             t.title ||
                             t.name ||
                             t.content ||
@@ -178,13 +189,25 @@ export default function EmailDetails() {
         if (typeof emailData?.decisions === "string" && emailData.decisions.trim()) {
             aggregated.decisions.push(emailData.decisions.trim());
         } else if (Array.isArray(emailData?.decisions)) {
-            aggregated.decisions.push(...emailData.decisions.filter(Boolean));
+            aggregated.decisions.push(
+                ...emailData.decisions.map(d => typeof d === 'object' ? d.data || d.title || '' : d).filter(Boolean)
+            );
         }
 
         if (Array.isArray(fullAi)) {
             fullAi.forEach((entry) => ingestRaiddBlock(entry?.raiddAnalysis));
         } else if (fullAi && typeof fullAi === "object") {
             ingestRaiddBlock(fullAi.raiddAnalysis);
+        }
+
+        const raiddDatas = emailData?.raiddDatas;
+        if (raiddDatas) {
+            const extractData = (arr) => Array.isArray(arr) ? arr.map(item => item?.data || item).filter(Boolean) : [];
+            aggregated.risks.push(...extractData(raiddDatas.projectRisks || raiddDatas.risks));
+            aggregated.assumptions.push(...extractData(raiddDatas.projectAssumptions || raiddDatas.assumptions));
+            aggregated.issues.push(...extractData(raiddDatas.projectIssues || raiddDatas.issues));
+            aggregated.decisions.push(...extractData(raiddDatas.projectDecisions || raiddDatas.decisions));
+            aggregated.dependencies.push(...extractData(raiddDatas.projectDependencies || raiddDatas.dependencies));
         }
 
         const deduped = Object.fromEntries(
@@ -252,30 +275,11 @@ export default function EmailDetails() {
                                 </h1>
                                 <div className="flex items-center gap-3">
                                     <button
-                                        onClick={handlePrint}
-                                        className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                                        title="Print"
-                                    >
-                                        <FiPrinter className="h-5 w-5 text-slate-600" />
-                                    </button>
-                                    <button
                                         onClick={handleDelete}
                                         className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                                         title="Delete"
                                     >
                                         <FiTrash2 className="h-5 w-5 text-slate-600" />
-                                    </button>
-                                    <button
-                                        onClick={() => setIsStarred(!isStarred)}
-                                        className={`p-2 rounded-lg transition-colors cursor-pointer ${isStarred
-                                            ? "bg-yellow-50 text-yellow-500"
-                                            : "hover:bg-slate-100 text-slate-600"
-                                            }`}
-                                        title="Star"
-                                    >
-                                        <FiStar
-                                            className={`h-5 w-5 ${isStarred ? "fill-current" : ""}`}
-                                        />
                                     </button>
                                     <Button onClick={() => router.push(`/email-management/generate-email?id=${encodeURIComponent(emailId)}`)} className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-3 text-sm sm:text-base font-semibold cursor-pointer">
                                         <FiMail className="h-4 w-4" /> Draft Email
@@ -286,7 +290,7 @@ export default function EmailDetails() {
                             {/* Sender Information */}
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <FaLinkedin className="h-5 w-5 text-white" />
+                                    {getSourceIcon(emailData.type)}
                                 </div>
                                 <div>
                                     <p className="text-sm sm:text-base font-semibold text-slate-900">

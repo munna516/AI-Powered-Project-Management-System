@@ -35,7 +35,7 @@ export default function AddVendor() {
         queryKey: ["vendor", vendorId],
         enabled: isEditMode,
         queryFn: async () => {
-            const response = await apiGet("/api/project-manager/vendor-management/all");
+            const response = await apiGet("/api/project-manager/client-management/all");
             const rawVendors = Array.isArray(response?.data)
                 ? response.data
                 : Array.isArray(response?.data?.data)
@@ -75,10 +75,10 @@ export default function AddVendor() {
 
 
     const createVendorMutation = useMutation({
-        mutationFn: async (payload) => apiPost("/api/project-manager/vendor-management/create", payload),
+        mutationFn: async (payload) => apiPost("/api/project-manager/client-management/create", payload),
         onSuccess: () => {
             toast.success("Vendor added successfully!");
-            router.push("/vendors");
+            router.push("/clients");
         },
         onError: (error) => {
             toast.error(error?.message || "Failed to create vendor");
@@ -87,10 +87,10 @@ export default function AddVendor() {
 
     const updateVendorMutation = useMutation({
         mutationFn: async (payload) =>
-            apiPatch(`/api/project-manager/vendor-management/${vendorId}`, payload),
+            apiPatch(`/api/project-manager/client-management/${vendorId}`, payload),
         onSuccess: () => {
             toast.success("Vendor updated successfully!");
-            router.push("/vendors");
+            router.push("/clients");
         },
         onError: (error) => {
             toast.error(error?.message || "Failed to update vendor");
@@ -356,6 +356,11 @@ export default function AddVendor() {
         if (!formData.contactPhone.trim()) {
             newErrors.contactPhone = "Phone number is required";
         }
+        if (!formData.contactProjects.trim()) {
+            newErrors.contactProjects = "Number of projects is required";
+        } else if (isNaN(Number(formData.contactProjects))) {
+            newErrors.contactProjects = "Please enter a valid number";
+        }
         if (!formData.contactDesignation.trim()) {
             newErrors.contactDesignation = "Designation is required";
         }
@@ -390,14 +395,15 @@ export default function AddVendor() {
             payload.append("email", formData.email);
             payload.append("phoneNumber", formData.phoneNumber);
 
-            payload.append("meetingLink", validMeetingLinks[0] || "");
+            payload.append("meetingLinks", JSON.stringify(validMeetingLinks));
             
             payload.append("contactPerson", formData.contactPerson);
             payload.append("contactRole", formData.contactRole);
             payload.append("contactEmail", formData.contactEmail);
             payload.append("contactPhone", formData.contactPhone);
             payload.append("contactDesignation", formData.contactDesignation);
-            payload.append("projectIds", JSON.stringify(["94f62931-3b30-4289-abd6-734796a22377"])); // Example ID from screenshot
+            payload.append("contactProjects", Number(formData.contactProjects) || 0);
+            payload.append("projectIds", JSON.stringify([]));
 
             if (photo?.file) {
                 payload.append("photo", photo.file);
@@ -405,13 +411,13 @@ export default function AddVendor() {
 
             documents.forEach((doc) => {
                 if (doc.file) {
-                    payload.append("document", doc.file);
+                    payload.append("documents", doc.file);
                 }
             });
 
             slaFiles.forEach((file) => {
                 if (file.file) {
-                    payload.append("sla", file.file);
+                    payload.append("slas", file.file);
                 }
             });
 
@@ -426,7 +432,7 @@ export default function AddVendor() {
     };
 
     const handleCancel = () => {
-        router.push("/vendors");
+        router.push("/clients");
     };
 
 
@@ -440,12 +446,12 @@ export default function AddVendor() {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-slate-900">
-                    {isEditMode ? "Update vendor" : "Add new vendor"}
+                    {isEditMode ? "Update client" : "Add new client"}
                 </h1>
                 <p className="text-sm text-slate-500 mt-1">
                     {isEditMode
-                        ? "Update vendor details in your records."
-                        : "Enter vendor details to add them to your records. AI powered insights for all your projects"}
+                        ? "Update client details in your records."
+                        : "Enter client details to add them to your records. AI powered insights for all your projects"}
                 </p>
             </div>
 
@@ -455,14 +461,14 @@ export default function AddVendor() {
                     {/* Vendor Name */}
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-slate-700">
-                            Vendor name
+                            Client name
                         </label>
                         <Input
                             type="text"
                             name="vendorName"
                             value={formData.vendorName}
                             onChange={handleInputChange}
-                            placeholder="Enter vendor official's name"
+                            placeholder="Enter client official's name"
                             className={`bg-white placeholder:text-slate-400 ${errors.vendorName ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                         />
                         {errors.vendorName && (
@@ -575,7 +581,7 @@ export default function AddVendor() {
                             Key Point of Contact
                         </h2>
                         <p className="text-sm text-slate-500">
-                            Main person to contact for all vendor-related communication.
+                            Main person to contact for all client-related communication.
                         </p>
                     </div>
 
@@ -652,6 +658,24 @@ export default function AddVendor() {
                             )}
                         </div>
 
+                        {/* Contact Number of Projects */}
+                        <div className="space-y-2">
+                            <label className="block text-sm font-medium text-slate-700">
+                                Number of projects <span className="text-red-500">*</span>
+                            </label>
+                            <Input
+                                type="number"
+                                name="contactProjects"
+                                min="0"
+                                value={formData.contactProjects}
+                                onChange={handleInputChange}
+                                placeholder="03"
+                                className={`bg-white placeholder:text-slate-400 ${errors.contactProjects ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                            />
+                            {errors.contactProjects && (
+                                <p className="text-xs text-red-500">{errors.contactProjects}</p>
+                            )}
+                        </div>
 
                         {/* Contact Designation */}
                         <div className="space-y-2">

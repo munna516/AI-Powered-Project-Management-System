@@ -1,14 +1,14 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { FiArrowLeft, FiCopy } from "react-icons/fi";
+import { FiArrowLeft, FiCopy, FiRefreshCcw } from "react-icons/fi";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Loading from "@/components/Loading/Loading";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 import toast from "react-hot-toast";
 
 const UNIFIED_INBOX_KEY = ["unified-inbox"];
@@ -16,8 +16,19 @@ const UNIFIED_INBOX_KEY = ["unified-inbox"];
 function resolveGeneratedReply(data, emailIdFromQuery) {
     if (!data) return null;
 
+    const formatReply = (item) => {
+        if (!item || !item.generatedReply) return null;
+        if (typeof item.generatedReply === "string") {
+            return {
+                subject: item.subject ? `Re: ${item.subject}` : "Generated Reply",
+                body: item.generatedReply,
+            };
+        }
+        return item.generatedReply;
+    };
+
     if (!Array.isArray(data) && data.generatedReply) {
-        return data.generatedReply;
+        return formatReply(data);
     }
 
     const list = Array.isArray(data) ? data : data?.data;
@@ -27,27 +38,60 @@ function resolveGeneratedReply(data, emailIdFromQuery) {
         const match = list.find(
             (item) => String(item?.id) === String(emailIdFromQuery)
         );
-        if (match?.generatedReply) return match.generatedReply;
+        if (match?.generatedReply) return formatReply(match);
     }
 
     const withReply = list.find((item) => item?.generatedReply);
-    return withReply?.generatedReply ?? list[0]?.generatedReply ?? null;
+    return withReply ? formatReply(withReply) : formatReply(list[0]);
 }
 
 function GenerateEmailContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const emailIdFromQuery = searchParams.get("id");
+    const [regeneratedReply, setRegeneratedReply] = useState(null);
 
     const { data: inboxResponse, isLoading, error } = useQuery({
         queryKey: UNIFIED_INBOX_KEY,
         queryFn: () => apiGet("/api/project-manager/outlook/unified-inbox"),
     });
 
-    const generatedReply = useMemo(() => {
+    const regenerateMutation = useMutation({
+        mutationFn: () =>
+            apiPost("/api/project-manager/draft-mail/generate-reply", {
+                emailId: emailIdFromQuery,
+                type: "email",
+            }),
+        onSuccess: (response) => {
+            const newReply = response?.data?.data || response?.data;
+            if (newReply) {
+                if (typeof newReply === "string") {
+                    setRegeneratedReply({
+                        subject: "Regenerated AI Reply",
+                        body: newReply
+                    });
+                } else if (newReply.generatedReply && typeof newReply.generatedReply === "string") {
+                    setRegeneratedReply({
+                        subject: newReply.subject ? `Re: ${newReply.subject}` : "Regenerated AI Reply",
+                        body: newReply.generatedReply
+                    });
+                } else {
+                    setRegeneratedReply(newReply);
+                }
+                toast.success("AI Reply regenerated successfully!");
+            }
+        },
+        onError: () => {
+            toast.error("Failed to regenerate AI reply");
+        },
+    });
+
+    const initialGeneratedReply = useMemo(() => {
         if (inboxResponse?.generatedReply) return inboxResponse.generatedReply;
         return resolveGeneratedReply(inboxResponse?.data, emailIdFromQuery);
     }, [inboxResponse, emailIdFromQuery]);
+
+    const currentReply = regeneratedReply || initialGeneratedReply;
 
     const toDisplay = (value) => {
         if (value == null) return "Not Available";
@@ -55,8 +99,8 @@ function GenerateEmailContent() {
         return s || "Not Available";
     };
 
-    const subjectDisplay = toDisplay(generatedReply?.subject);
-    const bodyDisplay = toDisplay(generatedReply?.body);
+    const subjectDisplay = toDisplay(currentReply?.subject);
+    const bodyDisplay = toDisplay(currentReply?.body);
 
     const copyText = async (text, label) => {
         if (!text || text === "Not Available") {
@@ -158,6 +202,27 @@ function GenerateEmailContent() {
                         />
                     </CardContent>
                 </Card>
+
+                {/* Regenerate Button Section */}
+                <div className="flex justify-center pt-4">
+                    <Button
+                        onClick={() => regenerateMutation.mutate()}
+                        disabled={regenerateMutation.isPending}
+                        className="bg-emerald-500 hover:bg-emerald-600 cursor-pointer text-white px-8 py-6 rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition-all active:scale-95 flex items-center gap-2"
+                    >
+                        {regenerateMutation.isPending ? (
+                            <>
+                                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Regenerating...
+                            </>
+                        ) : (
+                            <>
+                                <FiRefreshCcw className="h-5 w-5" />
+                                Regenerate AI Reply
+                            </>
+                        )}
+                    </Button>
+                </div>
             </div>
         </div>
     );

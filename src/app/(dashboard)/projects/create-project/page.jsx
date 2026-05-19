@@ -89,7 +89,8 @@ export default function CreateProject() {
     );
 
     const [formData, setFormData] = useState({
-        vendorName: "",
+        clientName: "",
+        clientId: "",
         projectName: "",
         projectDescription: "",
         projectOwner: "",
@@ -131,6 +132,24 @@ export default function CreateProject() {
 
         return rawTeams.map((team, index) => normalizeTeam(team, index));
     }, [teamsResponse]);
+
+    const { data: clientsResponse, isLoading: isClientsLoading } = useQuery({
+        queryKey: ["all-clients"],
+        queryFn: () => apiGet("/api/project-manager/client-management/all"),
+    });
+
+    const clientOptions = useMemo(() => {
+        const rawClients = Array.isArray(clientsResponse?.data)
+            ? clientsResponse.data
+            : Array.isArray(clientsResponse?.data?.data)
+                ? clientsResponse.data.data
+                : [];
+
+        return rawClients.map((client) => ({
+            id: String(client.id),
+            name: client.name || "-",
+        }));
+    }, [clientsResponse]);
 
     const {
         data: projectDetails,
@@ -191,7 +210,8 @@ export default function CreateProject() {
 
         setFormData((prev) => ({
             ...prev,
-            vendorName: projectDetails.vendorName || "",
+            clientName: projectDetails.clientName || projectDetails.vendorName || "",
+            clientId: projectDetails.clientId || projectDetails.vendorId || "",
             projectName: projectDetails.name || "",
             projectDescription: projectDetails.description || "",
             projectOwner: String(
@@ -294,7 +314,7 @@ export default function CreateProject() {
 
             const nextErrors = {};
 
-            if (!formData.vendorName.trim()) nextErrors.vendorName = "Vendor name is required";
+            if (!formData.clientId) nextErrors.clientId = "Client is required";
             if (!formData.projectName.trim()) nextErrors.projectName = "Project name is required";
             if (!formData.projectOwner) nextErrors.projectOwner = "Project manager is required";
             if (!formData.assignedTeam) nextErrors.assignedTeam = "Assigned team is required";
@@ -310,7 +330,8 @@ export default function CreateProject() {
             const basePayload = {
                 name: formData.projectName.trim(),
                 description: formData.projectDescription.trim(),
-                vendorName: formData.vendorName.trim(),
+                clientId: formData.clientId,
+                clientName: formData.clientName,
                 startDate: new Date(formData.startDate).toISOString(),
                 assignTeamId:
                     formData.assignedTeam || getProjectAssignedTeamId(projectDetails),
@@ -332,7 +353,8 @@ export default function CreateProject() {
                 const payload = new FormData();
                 payload.append("name", basePayload.name);
                 payload.append("description", basePayload.description);
-                payload.append("vendorName", basePayload.vendorName);
+                payload.append("clientId", basePayload.clientId);
+                payload.append("clientName", basePayload.clientName);
                 payload.append("startDate", basePayload.startDate);
                 payload.append("assignTeamId", basePayload.assignTeamId);
 
@@ -398,16 +420,44 @@ export default function CreateProject() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-700">
-                                        Vendor Name
+                                        Client Name
                                     </label>
-                                    <Input
-                                        name="vendorName"
-                                        value={formData.vendorName}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g., G4 Marketing Campaign"
-                                    />
-                                    {errors.vendorName && (
-                                        <p className="text-xs text-red-500">{errors.vendorName}</p>
+                                    <Select
+                                        value={formData.clientId}
+                                        onValueChange={(value) => {
+                                            const selectedClient = clientOptions.find(v => v.id === value);
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                clientId: value,
+                                                clientName: selectedClient?.name || "",
+                                            }));
+                                            if (errors.clientId) {
+                                                setErrors(prev => ({ ...prev, clientId: "" }));
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue
+                                                placeholder={
+                                                    isClientsLoading
+                                                        ? "Loading clients..."
+                                                        : "Select client"
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {clientOptions.map((client) => (
+                                                <SelectItem
+                                                    key={client.id}
+                                                    value={client.id}
+                                                >
+                                                    {client.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.clientId && (
+                                        <p className="text-xs text-red-500">{errors.clientId}</p>
                                     )}
                                 </div>
                                 <div className="space-y-2">
