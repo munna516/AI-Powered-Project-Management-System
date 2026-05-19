@@ -140,6 +140,8 @@ function getHeaders(customHeaders = {}, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
+  headers["ngrok-skip-browser-warning"] = "69420";
+
   return headers;
 }
 

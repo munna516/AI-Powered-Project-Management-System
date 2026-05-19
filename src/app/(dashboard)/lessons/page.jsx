@@ -24,6 +24,7 @@ import { FiSearch, FiEdit2, FiEye, FiX, FiDownload } from "react-icons/fi";
 import toast from "react-hot-toast";
 import Loading from "@/components/Loading/Loading";
 import { apiGet, apiPatch } from "@/lib/api";
+import { downloadCsv } from "@/lib/csv";
 
 const formatDate = (value) => {
     if (!value) return "Not available";
@@ -187,6 +188,21 @@ export default function Lessons() {
     };
 
     const handleExport = () => {
+        downloadCsv({
+            rows: filteredLessons,
+            filename: "lessons_learned_export.csv",
+            columns: [
+                { header: "Project ID", key: "projectId" },
+                { header: "Project Name", key: "projectName" },
+                { header: "Title", key: "title" },
+                { header: "Description", key: "description" },
+                { header: "Client", key: "client" },
+                { header: "Owner", key: "owner" },
+                { header: "Mail", key: "mail" },
+                { header: "Source", key: "source" },
+                { header: "Date", key: "date" }
+            ]
+        });
         toast.success("Lessons learned data exported successfully!");
     };
 

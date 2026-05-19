@@ -45,6 +45,7 @@ const getRawList = (response) =>
 
 const normalizeMeeting = (meeting, index) => ({
   id: meeting?.id || index,
+  title: meeting?.title || "N/A",
   date: formatDate(meeting?.meetingDate || meeting?.createdAt),
   link: meeting?.videoPlayUrl || meeting?.meetingUrl || "N/A",
   platform: meeting?.platform || "Zoom",
@@ -58,6 +59,7 @@ export default function MeetingSection({
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
   const [meetingForm, setMeetingForm] = useState({
+    title: "",
     videoPlayUrl: "",
     file: null,
   });
@@ -70,7 +72,7 @@ export default function MeetingSection({
   const labelClass = "mb-1.5 block text-sm font-medium text-slate-900";
 
   const resetMeetingForm = () => {
-    setMeetingForm({ videoPlayUrl: "", file: null });
+    setMeetingForm({ title: "", videoPlayUrl: "", file: null });
     setEditingMeetingId(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -153,6 +155,9 @@ export default function MeetingSection({
 
     const payload = new FormData();
     payload.append("projectId", projectId);
+    if (meetingForm.title.trim()) {
+      payload.append("title", meetingForm.title.trim());
+    }
     if (meetingForm.videoPlayUrl.trim()) {
       payload.append("meetingUrl", meetingForm.videoPlayUrl.trim());
       payload.append("videoPlayUrl", meetingForm.videoPlayUrl.trim());
@@ -174,6 +179,7 @@ export default function MeetingSection({
   const handleEdit = (meeting) => {
     setEditingMeetingId(meeting.id);
     setMeetingForm({
+      title: meeting.title === "N/A" ? "" : meeting.title,
       videoPlayUrl: meeting.link === "N/A" ? "" : meeting.link,
       file: null,
     });
@@ -214,6 +220,21 @@ export default function MeetingSection({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div>
+              <label className={labelClass}>Meeting Title</label>
+              <input
+                type="text"
+                value={meetingForm.title}
+                onChange={(e) =>
+                  setMeetingForm((p) => ({
+                    ...p,
+                    title: e.target.value,
+                  }))
+                }
+                placeholder="e.g. Weekly Sync"
+                className={inputBaseClass}
+              />
+            </div>
             <div>
               <label className={labelClass}>Select Transcript File</label>
               <input
@@ -282,6 +303,12 @@ export default function MeetingSection({
           {selectedMeeting && (
             <div className="space-y-4">
               <div className="grid grid-cols-3 items-start gap-4">
+                <span className="text-sm font-medium text-slate-500">Title</span>
+                <span className="col-span-2 text-sm text-slate-900">
+                  {selectedMeeting.title}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 items-start gap-4">
                 <span className="text-sm font-medium text-slate-500">Date</span>
                 <span className="col-span-2 text-sm text-slate-900">
                   {selectedMeeting.date}
@@ -331,6 +358,9 @@ export default function MeetingSection({
               <TableHeader className="bg-[#6051E2]">
                 <TableRow className="border-b-0 hover:bg-[#6051E2]">
                   <TableHead className="px-4 py-3 font-semibold text-white">
+                    Title
+                  </TableHead>
+                  <TableHead className="px-4 py-3 font-semibold text-white">
                     Date
                   </TableHead>
                   <TableHead className="px-4 py-3 font-semibold text-white">
@@ -347,7 +377,7 @@ export default function MeetingSection({
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-6 text-center text-slate-500">
+                    <TableCell colSpan={5} className="py-6 text-center text-slate-500">
                       Loading meetings...
                     </TableCell>
                   </TableRow>
@@ -361,6 +391,9 @@ export default function MeetingSection({
                         setViewDialogOpen(true);
                       }}
                     >
+                      <TableCell className="px-4 py-3 text-slate-800">
+                        {meeting.title}
+                      </TableCell>
                       <TableCell className="px-4 py-3 text-slate-800">
                         {meeting.date}
                       </TableCell>
@@ -415,7 +448,7 @@ export default function MeetingSection({
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-6 text-center text-slate-500">
+                    <TableCell colSpan={5} className="py-6 text-center text-slate-500">
                       N/A
                     </TableCell>
                   </TableRow>

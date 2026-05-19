@@ -19,6 +19,7 @@ import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Date
 import PageHeader from "@/components/PageHeader/PageHeader";
 import Loading from "@/components/Loading/Loading";
 import { apiGet } from "@/lib/api";
+import { downloadCsv } from "@/lib/csv";
 
 const tabLabelMap = {
     all: "All",
@@ -39,6 +40,10 @@ const tabs = [
 ];
 
 const normalizeTabId = (value) => {
+    if (Array.isArray(value)) {
+        if (value.length > 1) return "all";
+        value = value[0];
+    }
     const normalized = String(value || "").trim().toLowerCase();
 
     switch (normalized) {
@@ -63,6 +68,10 @@ const normalizeTabId = (value) => {
 };
 
 const normalizeTabType = (value) => {
+    if (Array.isArray(value)) {
+        if (value.length > 1) return "All Type";
+        value = value[0];
+    }
     const normalized = String(value || "").trim().toLowerCase();
 
     switch (normalized) {
@@ -113,10 +122,20 @@ const normalizeRaiddItem = (item, index) => {
         item?.updatedAt ||
         null;
 
+    const rawDueDate = item?.decisionDueDate || item?.dueDate || item?.due_date;
+    const type = normalizeTabType(item?.type);
+    
+    let formattedDueDate = formatDate(rawDueDate);
+    if (type === "Decision" && formattedDueDate === "Not available") {
+        formattedDueDate = "Pending due date";
+    } else if (type !== "Decision") {
+        formattedDueDate = "Not available";
+    }
+
     return {
         id: String(item?.id || index),
         tabType: normalizeTabId(item?.type),
-        type: normalizeTabType(item?.type),
+        type,
         projectId: String(item?.projectId || item?.project?.id || "Not available"),
         projectName: item?.project?.name || "Not available",
         vendorName: item?.project?.vendorName || item?.project?.vendor?.name || "Not available",
@@ -127,7 +146,7 @@ const normalizeRaiddItem = (item, index) => {
             : item?.description || "Not available",
         rawDate,
         date: formatDate(rawDate),
-        dueDate: formatDate(item?.decisionDueDate || item?.dueDate || item?.due_date),
+        dueDate: formattedDueDate,
     };
 };
 
@@ -135,6 +154,8 @@ const getStatusStyle = (status) => {
     const statusLower = String(status || "").toLowerCase();
 
     switch (statusLower) {
+        case "all type":
+            return "bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 shadow-sm";
         case "risk":
             return "bg-red-100 text-red-700";
         case "issue":
@@ -205,6 +226,21 @@ export default function RAIDD() {
     }, [dateFilterState]);
 
     const handleExport = () => {
+        downloadCsv({
+            rows: filteredData,
+            filename: `raidd_export_${activeTab}.csv`,
+            columns: [
+                { header: "Type", key: "type" },
+                { header: "Project ID", key: "projectId" },
+                { header: "Project Name", key: "projectName" },
+                { header: "Vendor Name", key: "vendorName" },
+                { header: "Title", key: "title" },
+                { header: "Description", key: "description" },
+                { header: "Status", key: "status" },
+                { header: "Date", key: "date" },
+                { header: "Due Date", key: "dueDate" }
+            ]
+        });
         toast.success(`${tabLabelMap[activeTab] || formatLabel(activeTab)} data exported successfully!`);
     };
 
