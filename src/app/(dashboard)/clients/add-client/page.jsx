@@ -335,11 +335,7 @@ export default function AddVendor() {
         if (!formData.phoneNumber.trim()) {
             newErrors.phoneNumber = "Phone number is required";
         }
-        if (!formData.numberOfProjects.trim()) {
-            newErrors.numberOfProjects = "Number of projects is required";
-        } else if (isNaN(Number(formData.numberOfProjects))) {
-            newErrors.numberOfProjects = "Please enter a valid number";
-        }
+
         if (!photo) {
             newErrors.photo = "Photo is required";
         }
@@ -398,7 +394,7 @@ export default function AddVendor() {
             payload.append("designation", formData.designation);
             payload.append("email", formData.email);
             payload.append("phoneNumber", formData.phoneNumber);
-            payload.append("numberOfProjects", Number(formData.numberOfProjects) || 0);
+
             payload.append("meetingLinks", JSON.stringify(validMeetingLinks));
             
             payload.append("contactPerson", formData.contactPerson);
@@ -534,24 +530,7 @@ export default function AddVendor() {
                         )}
                     </div>
 
-                    {/* Number of Projects */}
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-slate-700">
-                            Number of projects <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                            type="number"
-                            name="numberOfProjects"
-                            min="0"
-                            value={formData.numberOfProjects}
-                            onChange={handleInputChange}
-                            placeholder="03"
-                            className={`bg-white placeholder:text-slate-400 ${errors.numberOfProjects ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                        />
-                        {errors.numberOfProjects && (
-                            <p className="text-xs text-red-500">{errors.numberOfProjects}</p>
-                        )}
-                    </div>
+
 
                     {/* Upload Photo */}
                     <div className="space-y-2">

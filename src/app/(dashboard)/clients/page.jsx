@@ -255,7 +255,7 @@ export default function Vendors() {
                                                 {vendor.name}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-sm lg:text-base">
-                                                {vendor.designation}
+                                                {vendor.designation.length > 20 ? vendor.designation.slice(0, 20) + "..." : vendor.designation}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-600 text-sm lg:text-base">
                                                 {vendor.email}

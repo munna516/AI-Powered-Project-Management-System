@@ -69,11 +69,16 @@ export default function MeetingManagement() {
     const platform = m?.platform ?? m?.source ?? m?.meetingPlatform ?? m?.meetingSource ?? "Zoom";
     const recordingLink = m?.videoPlayUrl ?? m?.meetingRecordingLink ?? m?.recording_url ?? m?.link ?? m?.url ?? "";
 
+    const projectTitle = m?.project?.name || "Not available";
+    const meetingTitle = m?.title || "Not available";
+
     return {
       id: String(id),
       dateTime,
       platform: String(platform || ""),
       recordingLink: String(recordingLink || ""),
+      projectTitle,
+      meetingTitle,
     };
   };
 
@@ -141,7 +146,7 @@ export default function MeetingManagement() {
       filtered = filtered.filter(
         (item) =>
           String(item.platform || "").toLowerCase().includes(searchLower) ||
-          String(item.dateTime || "").toLowerCase().includes(searchLower) ||
+          String(item.projectTitle || "").toLowerCase().includes(searchLower) ||
           String(item.recordingLink || "").toLowerCase().includes(searchLower)
       );
     }
@@ -325,6 +330,7 @@ export default function MeetingManagement() {
             <Table>
               <TableHeader className="bg-[#6051E2] text-white">
                 <TableRow className="border-b-0 hover:bg-[#6051E2]">
+                  <TableHead className="py-3 px-4 text-white font-semibold">Project Title</TableHead>
                   <TableHead className="py-3 px-4 text-white font-semibold">Date</TableHead>
                   <TableHead className="py-3 px-4 text-white font-semibold">Platform</TableHead>
                   <TableHead className="py-3 px-4 text-white font-semibold">Meeting recordings link</TableHead>
@@ -335,7 +341,7 @@ export default function MeetingManagement() {
                 {filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={4}
+                      colSpan={5}
                       className="text-center py-8 text-slate-500"
                     >
                       No data found
@@ -347,6 +353,9 @@ export default function MeetingManagement() {
                       key={item.id}
                       className="border-b border-slate-100 hover:bg-slate-50"
                     >
+                      <TableCell className="py-3 px-4 text-slate-800">
+                        {item.projectTitle}
+                      </TableCell>
                       <TableCell className="py-3 px-4 text-slate-800">
                         {formatMeetingDate(item.dateTime)}
                       </TableCell>
@@ -377,13 +386,6 @@ export default function MeetingManagement() {
                             <FiEye className="h-4 w-4" />
                           </button>
 
-                          <span
-                            className="text-slate-400"
-                            title="Delete not wired"
-                            aria-label="Delete"
-                          >
-                            <FiTrash2 className="h-4 w-4 cursor-not-allowed opacity-60" />
-                          </span>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -408,7 +410,11 @@ export default function MeetingManagement() {
                   >
                     <div className="flex items-start justify-between">
                       <div className="space-y-1 flex-1">
-                        <p className="text-xs text-slate-500">Date</p>
+                        <p className="text-xs text-slate-500">Project Title</p>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {item.projectTitle}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-2">Date</p>
                         <p className="text-sm font-semibold text-slate-900">
                           {formatMeetingDate(item.dateTime)}
                         </p>

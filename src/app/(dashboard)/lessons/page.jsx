@@ -54,7 +54,7 @@ const normalizeLesson = (lesson, index) => ({
     rawDate: lesson?.loggedDate || lesson?.created_at || lesson?.createdAt || null,
     logger: lesson?.source || "Not available",
     title: lesson?.title || "Not available",
-    client: lesson?.clientName || "Not available",
+    client: lesson?.clientName || lesson?.project?.client?.name || "Not available",
     description: lesson?.description || "Not available",
 });
 
@@ -282,7 +282,7 @@ export default function Lessons() {
                                         Project Name
                                     </TableHead>
                                     <TableHead className="py-3 px-4 text-white font-semibold">
-                                        Owner
+                                        Clients
                                     </TableHead>
                                     <TableHead className="py-3 px-4 text-white font-semibold">
                                         Lessons Learned by Logger
@@ -319,7 +319,7 @@ export default function Lessons() {
                                                 {lesson.projectName}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 text-slate-800">
-                                                {lesson.owner}
+                                                {lesson.client}
                                             </TableCell>
 
 
@@ -379,9 +379,9 @@ export default function Lessons() {
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
                                             <div>
-                                                <p className="text-slate-500">Owner</p>
+                                                <p className="text-slate-500">Clients</p>
                                                 <p className="text-slate-800 font-medium">
-                                                    {lesson.owner}
+                                                    {lesson.client}
                                                 </p>
                                             </div>
                                             <div>
