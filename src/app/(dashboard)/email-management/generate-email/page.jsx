@@ -16,8 +16,19 @@ const UNIFIED_INBOX_KEY = ["unified-inbox"];
 function resolveGeneratedReply(data, emailIdFromQuery) {
     if (!data) return null;
 
+    const formatReply = (item) => {
+        if (!item || !item.generatedReply) return null;
+        if (typeof item.generatedReply === "string") {
+            return {
+                subject: item.subject ? `Re: ${item.subject}` : "Generated Reply",
+                body: item.generatedReply,
+            };
+        }
+        return item.generatedReply;
+    };
+
     if (!Array.isArray(data) && data.generatedReply) {
-        return data.generatedReply;
+        return formatReply(data);
     }
 
     const list = Array.isArray(data) ? data : data?.data;
@@ -27,11 +38,11 @@ function resolveGeneratedReply(data, emailIdFromQuery) {
         const match = list.find(
             (item) => String(item?.id) === String(emailIdFromQuery)
         );
-        if (match?.generatedReply) return match.generatedReply;
+        if (match?.generatedReply) return formatReply(match);
     }
 
     const withReply = list.find((item) => item?.generatedReply);
-    return withReply?.generatedReply ?? list[0]?.generatedReply ?? null;
+    return withReply ? formatReply(withReply) : formatReply(list[0]);
 }
 
 function GenerateEmailContent() {
@@ -54,7 +65,19 @@ function GenerateEmailContent() {
         onSuccess: (response) => {
             const newReply = response?.data?.data || response?.data;
             if (newReply) {
-                setRegeneratedReply(newReply);
+                if (typeof newReply === "string") {
+                    setRegeneratedReply({
+                        subject: "Regenerated AI Reply",
+                        body: newReply
+                    });
+                } else if (newReply.generatedReply && typeof newReply.generatedReply === "string") {
+                    setRegeneratedReply({
+                        subject: newReply.subject ? `Re: ${newReply.subject}` : "Regenerated AI Reply",
+                        body: newReply.generatedReply
+                    });
+                } else {
+                    setRegeneratedReply(newReply);
+                }
                 toast.success("AI Reply regenerated successfully!");
             }
         },
