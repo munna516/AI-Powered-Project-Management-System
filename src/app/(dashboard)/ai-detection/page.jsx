@@ -166,7 +166,8 @@ const normalizeSourceType = (value) => {
     normalized === "meetings-transcript" ||
     normalized === "meeting-transcript" ||
     normalized === "transcript" ||
-    normalized === "meetingtranscript"
+    normalized === "meetingtranscript" ||
+    normalized === "meeting"
   ) {
     return "meetings-transcript";
   }
