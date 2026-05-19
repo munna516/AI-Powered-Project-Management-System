@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Users, TrendingUp, Link2, Trash2 } from "lucide-react";
+import { FileText, Users, TrendingUp, Link2, Trash2, Copy } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiMoreVertical, FiPlus } from "react-icons/fi";
 import {
@@ -161,6 +161,34 @@ const renderTextWithBullets = (text) => {
     }
 
     return <p className="text-sm text-slate-600 leading-relaxed">{points[0]}</p>;
+};
+
+const handleCopy = (text) => {
+    if (!text || text === "N/A") return;
+
+    let points = [];
+
+    if (Array.isArray(text)) {
+        if (text.length === 1 && typeof text[0] === 'string' && (text[0].includes("•") || text[0].includes("🔹"))) {
+            points = text[0].split(/•|🔹/).map(p => p.trim()).filter(p => p.length > 0);
+        } else {
+            points = text.map(t => String(t).trim()).filter(t => t.length > 0);
+        }
+    } else if (typeof text === 'string') {
+        if (text.includes("•") || text.includes("🔹")) {
+            points = text.split(/•|🔹/).map(p => p.trim()).filter(p => p.length > 0);
+        } else {
+            points = [text.trim()];
+        }
+    } else {
+        points = [String(text).trim()];
+    }
+
+    const copyText = points.map(p => `• ${p.replace(/^[•🔹\s]+/, '')}`).join('\n');
+
+    navigator.clipboard.writeText(copyText)
+        .then(() => toast.success("Copied to clipboard!"))
+        .catch(() => toast.error("Failed to copy"));
 };
 
 export default function ProjectDetails() {
@@ -401,9 +429,8 @@ export default function ProjectDetails() {
                             <DropdownMenuItem
                                 variant="destructive"
                                 disabled={project.status === "Cancelled"}
-                                className={`cursor-pointer text-red-600 hover:text-red-600 hover:bg-red-50 border-slate-200 outline-none ${
-                                    project.status === "Cancelled" ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
-                                }`}
+                                className={`cursor-pointer text-red-600 hover:text-red-600 hover:bg-red-50 border-slate-200 outline-none ${project.status === "Cancelled" ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
+                                    }`}
                                 onClick={handleCancelProjectClick}
                             >
                                 <Trash2 className="h-4 w-4" />
@@ -649,11 +676,22 @@ export default function ProjectDetails() {
                     {/* Project Summary */}
                     <Card>
                         <CardContent className="p-4 sm:p-6">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-2 h-2 rounded-full bg-[#6051E2]"></div>
-                                <h3 className="text-base font-semibold text-slate-900">
-                                    Project AI Summary
-                                </h3>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-[#6051E2]"></div>
+                                    <h3 className="text-base font-semibold text-slate-900">
+                                        Project AI Summary
+                                    </h3>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-400 cursor-pointer hover:text-[#6051E2] hover:bg-[#6051E2]/10 transition-colors"
+                                    onClick={() => handleCopy(Array.isArray(project?.projectAiSummary) ? project?.projectAiSummary[0] : project?.projectAiSummary)}
+                                    title="Copy summary"
+                                >
+                                    <Copy className="h-4 w-4" />
+                                </Button>
                             </div>
                             {renderTextWithBullets(Array.isArray(project?.projectAiSummary) ? project?.projectAiSummary[0] : project?.projectAiSummary)}
                         </CardContent>
@@ -669,11 +707,22 @@ export default function ProjectDetails() {
                                         Last Meeting Summary
                                     </h3>
                                 </div>
-                                {project.lastMeetingDate && (
-                                    <span className="text-xs font-medium text-slate-500">
-                                        {project.lastMeetingDate}
-                                    </span>
-                                )}
+                                <div className="flex items-center gap-3">
+                                    {project.lastMeetingDate && (
+                                        <span className="text-xs font-medium text-slate-500">
+                                            {project.lastMeetingDate}
+                                        </span>
+                                    )}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 cursor-pointer text-slate-400 hover:text-[#6051E2] hover:bg-[#6051E2]/10 transition-colors"
+                                        onClick={() => handleCopy(project?.lastMeetingSummary)}
+                                        title="Copy summary"
+                                    >
+                                        <Copy className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </div>
                             {renderTextWithBullets(project?.lastMeetingSummary)}
                         </CardContent>

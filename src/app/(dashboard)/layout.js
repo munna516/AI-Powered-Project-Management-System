@@ -16,9 +16,9 @@ export default function DashboardLayout({ children }) {
             <TokenGuard />
             <Sidebar bgColor="bg-[#201B51]" />
 
-            <div className={`flex-1 flex flex-col min-h-0 ${isNotificationsPage ? "overflow-y-auto" : ""}`}>
+            <div className={`flex-1 flex flex-col min-h-0 ${isNotificationsPage ? "overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" : ""}`}>
                 {!hideTopNavbar && <TopNavbar />}
-                <main className={`flex-1 px-4 pb-8 md:px-10 md:pb-8 ${isChatbotPage ? "pt-2 md:pt-4 overflow-hidden h-full" : "pt-5 md:pt-10 overflow-y-auto"}`}>
+                <main className={`flex-1 px-4 pb-8 md:px-10 md:pb-8 ${isChatbotPage ? "pt-2 md:pt-4 overflow-hidden h-full" : "pt-5 md:pt-10 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"}`}>
                     <div className={`w-full ${isChatbotPage ? "h-full" : ""}`}>{children}</div>
                 </main>
             </div>

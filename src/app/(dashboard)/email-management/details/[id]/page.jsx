@@ -173,6 +173,7 @@ export default function EmailDetails() {
                     if (typeof t === "string") return t.trim();
                     if (t && typeof t === "object") {
                         return (
+                            t.data ||
                             t.title ||
                             t.name ||
                             t.content ||
@@ -188,13 +189,25 @@ export default function EmailDetails() {
         if (typeof emailData?.decisions === "string" && emailData.decisions.trim()) {
             aggregated.decisions.push(emailData.decisions.trim());
         } else if (Array.isArray(emailData?.decisions)) {
-            aggregated.decisions.push(...emailData.decisions.filter(Boolean));
+            aggregated.decisions.push(
+                ...emailData.decisions.map(d => typeof d === 'object' ? d.data || d.title || '' : d).filter(Boolean)
+            );
         }
 
         if (Array.isArray(fullAi)) {
             fullAi.forEach((entry) => ingestRaiddBlock(entry?.raiddAnalysis));
         } else if (fullAi && typeof fullAi === "object") {
             ingestRaiddBlock(fullAi.raiddAnalysis);
+        }
+
+        const raiddDatas = emailData?.raiddDatas;
+        if (raiddDatas) {
+            const extractData = (arr) => Array.isArray(arr) ? arr.map(item => item?.data || item).filter(Boolean) : [];
+            aggregated.risks.push(...extractData(raiddDatas.projectRisks || raiddDatas.risks));
+            aggregated.assumptions.push(...extractData(raiddDatas.projectAssumptions || raiddDatas.assumptions));
+            aggregated.issues.push(...extractData(raiddDatas.projectIssues || raiddDatas.issues));
+            aggregated.decisions.push(...extractData(raiddDatas.projectDecisions || raiddDatas.decisions));
+            aggregated.dependencies.push(...extractData(raiddDatas.projectDependencies || raiddDatas.dependencies));
         }
 
         const deduped = Object.fromEntries(

@@ -86,6 +86,14 @@ const getPhaseIcon = (phaseName) => {
 
 const normalizeProject = (project) => {
     const normalizedStatus = normalizeStatus(project.status);
+    
+    const weeklyAiSummaryObj = Array.isArray(project.weeklyAiSummaries) && project.weeklyAiSummaries.length > 0 
+        ? project.weeklyAiSummaries[0] 
+        : null;
+
+    const weeklyAiSummary = weeklyAiSummaryObj?.weeklyAiSummary || project.weeklyAiSummary || "No summary available for this project yet.";
+    const weeklySummaryDate = weeklyAiSummaryObj?.createdAt || project.weeklySummaryDate || null;
+
     return {
         id: project.id,
         title: project.name || "Untitled Project",
@@ -96,10 +104,8 @@ const normalizeProject = (project) => {
         startDate: project.startDate || null,
         endDate: project.endDate || null,
         createdAt: project.createdAt || null,
-        weeklyAiSummary:
-            project.weeklyAiSummary ||
-            "No summary available for this project yet.",
-        weeklySummaryDate: project.weeklySummaryDate || null,
+        weeklyAiSummary,
+        weeklySummaryDate,
         timeline: getTimelineItems(project, normalizedStatus),
     };
 };

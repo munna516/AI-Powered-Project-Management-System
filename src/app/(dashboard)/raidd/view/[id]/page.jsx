@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FiArrowLeft, FiFlag, FiEdit, FiPlus, FiUser, FiCalendar } from "react-icons/fi";
+import { FiArrowLeft, FiFlag, FiEdit, FiPlus, FiUser, FiCalendar, FiCopy } from "react-icons/fi";
 import { HiOutlineSparkles } from "react-icons/hi2";
 import { MdOutlineEmail } from "react-icons/md";
 import Loading from "@/components/Loading/Loading";
@@ -33,11 +33,38 @@ const normalizeRaiddDetails = (item) => {
             .join(" ")
             .trim() || "Not available";
 
+    const isBulk = Array.isArray(item?.type) && item.type.length > 1;
+
+    let parsedDescription = item?.description || "Not available";
+    
+    if (isBulk) {
+        const groupedDescription = {};
+        if (item.risks && item.risks.length > 0) {
+            groupedDescription["Risks"] = item.risks.map(r => r.data || r);
+        }
+        if (item.issues && item.issues.length > 0) {
+            groupedDescription["Issues"] = item.issues.map(i => i.data || i);
+        }
+        if (item.assumptions && item.assumptions.length > 0) {
+            groupedDescription["Assumptions"] = item.assumptions.map(a => a.data || a);
+        }
+        if (item.decisions && item.decisions.length > 0) {
+            groupedDescription["Decisions"] = item.decisions.map(d => d.data || d);
+        }
+        if (item.dependencies && item.dependencies.length > 0) {
+            groupedDescription["Dependencies"] = item.dependencies.map(d => d.data || d);
+        }
+        
+        if (Object.keys(groupedDescription).length > 0) {
+            parsedDescription = groupedDescription;
+        }
+    }
+
     return {
         id: String(item?.id || ""),
-        type: formatLabel(item?.type),
+        type: isBulk ? "All Type" : formatLabel(item?.type),
         title: item?.title || "Not available",
-        description: item?.description || "Not available",
+        description: parsedDescription,
         projectId: item?.project?.id || item?.projectId || "Not available",
         projectName: item?.project?.name || "Not available",
         projectDescription: item?.project?.description || "Not available",
@@ -125,6 +152,28 @@ export default function ViewRAIDD() {
         setIsEditModalOpen(true);
     };
 
+    const handleCopyDescription = () => {
+        if (!raiddData?.description) return;
+        
+        let textToCopy = "";
+        if (typeof raiddData.description === "object" && raiddData.description !== null) {
+            textToCopy = Object.entries(raiddData.description)
+                .map(([key, value]) => {
+                    const items = Array.isArray(value) ? value : [value];
+                    if (items.length === 0) return "";
+                    return `${key.toUpperCase()}:\n${items.map(item => `- ${String(item)}`).join('\n')}`;
+                })
+                .filter(Boolean)
+                .join("\n\n");
+        } else {
+            textToCopy = String(raiddData.description);
+        }
+
+        navigator.clipboard.writeText(textToCopy)
+            .then(() => toast.success("Description copied successfully!"))
+            .catch(() => toast.error("Failed to copy description"));
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
         const payload = {};
@@ -179,14 +228,16 @@ export default function ViewRAIDD() {
                     <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
                         Project Description
                     </h2>
-                    <Button
-                        onClick={handleOpenDateEdit}
-                        variant="outline"
-                        className="flex items-center gap-2 border-[#6051E2]/20 text-[#6051E2] hover:bg-[#6051E2]/5 font-semibold cursor-pointer"
-                    >
-                        <FiPlus className="h-4 w-4" />
-                        Add Decision Due Date
-                    </Button>
+                    {raiddData.type === "Decision" && (
+                        <Button
+                            onClick={handleOpenDateEdit}
+                            variant="outline"
+                            className="flex items-center gap-2 border-[#6051E2]/20 text-[#6051E2] hover:bg-[#6051E2]/5 font-semibold cursor-pointer"
+                        >
+                            <FiPlus className="h-4 w-4" />
+                            Add Decision Due Date
+                        </Button>
+                    )}
                 </div>
                 <Card className="border-slate-200 bg-[#EFEEFC]">
                     <CardContent className="space-y-4 p-6">
@@ -204,9 +255,11 @@ export default function ViewRAIDD() {
                                 <span className="font-medium text-slate-900">{raiddData.vendorName}</span>
                             </p>
                         </div>
-                        <p className="text-sm leading-relaxed text-slate-600 sm:text-base">
-                            {raiddData.projectDescription}
-                        </p>
+                        {raiddData.projectDescription && raiddData.projectDescription !== "Not available" && (
+                            <p className="text-sm leading-relaxed text-slate-600 sm:text-base">
+                                {raiddData.projectDescription}
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -221,9 +274,19 @@ export default function ViewRAIDD() {
                 <div className="lg:col-span-2">
                     <Card className="bg-[#EFEEFC] p-4 sm:p-5">
                         <CardContent className="space-y-4 p-0">
-                            <h3 className="text-base font-semibold text-slate-900 sm:text-lg">
-                                AI {raiddData.type}
-                            </h3>
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-base font-semibold text-slate-900 sm:text-lg">
+                                    AI {raiddData.type}
+                                </h3>
+                                <button
+                                    onClick={handleCopyDescription}
+                                    title="Copy Description"
+                                    className="flex items-center gap-1.5 text-xs font-medium text-[#6051E2] hover:text-white bg-[#6051E2]/10 hover:bg-[#6051E2] px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+                                >
+                                    <FiCopy className="h-3.5 w-3.5" />
+                                    <span>Copy</span>
+                                </button>
+                            </div>
                             <div className="rounded-lg p-3">
                                 <div className="flex items-start gap-2">
                                     <HiOutlineSparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
@@ -325,60 +388,62 @@ export default function ViewRAIDD() {
                         </CardContent>
                     </Card>
 
-                    <Card className="border border-primary/50 p-4 sm:p-5">
-                        <CardContent className="space-y-4 p-0">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <FiFlag className="h-4 w-4 text-[#6051E2]" />
-                                    <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
-                                        Decision Details
-                                    </h3>
-                                </div>
-                                <button
-                                    onClick={handleOpenOwnerEdit}
-                                    className="text-slate-400 hover:text-[#6051E2] transition cursor-pointer"
-                                >
-                                    <FiEdit className="h-4 w-4" />
-                                </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 sm:h-12 sm:w-12">
-                                        <FiUser className="h-5 w-5" />
+                    {raiddData.type === "Decision" && (
+                        <Card className="border border-primary/50 p-4 sm:p-5">
+                            <CardContent className="space-y-4 p-0">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <FiFlag className="h-4 w-4 text-[#6051E2]" />
+                                        <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
+                                            Decision Details
+                                        </h3>
                                     </div>
-                                    <div>
-                                        <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                                            Decision Owner
-                                        </p>
-                                        <p className="font-semibold text-slate-900 text-sm sm:text-base">
-                                            {raiddData.decisionOwner}
-                                        </p>
-                                    </div>
+                                    <button
+                                        onClick={handleOpenOwnerEdit}
+                                        className="text-slate-400 hover:text-[#6051E2] transition cursor-pointer"
+                                    >
+                                        <FiEdit className="h-4 w-4" />
+                                    </button>
                                 </div>
 
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 sm:h-12 sm:w-12">
-                                        <FiCalendar className="h-5 w-5" />
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 sm:h-12 sm:w-12">
+                                            <FiUser className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                                                Decision Owner
+                                            </p>
+                                            <p className="font-semibold text-slate-900 text-sm sm:text-base">
+                                                {raiddData.decisionOwner}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                                            Decision Due Date
-                                        </p>
-                                        <p className="font-semibold text-slate-900 text-sm sm:text-base">
-                                            {raiddData.decisionDueDate
-                                                ? new Date(raiddData.decisionDueDate).toLocaleDateString("en-GB", {
-                                                    day: "2-digit",
-                                                    month: "short",
-                                                    year: "numeric",
-                                                })
-                                                : "Not set"}
-                                        </p>
+
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 sm:h-12 sm:w-12">
+                                            <FiCalendar className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                                                Decision Due Date
+                                            </p>
+                                            <p className="font-semibold text-slate-900 text-sm sm:text-base">
+                                                {raiddData.decisionDueDate
+                                                    ? new Date(raiddData.decisionDueDate).toLocaleDateString("en-GB", {
+                                                        day: "2-digit",
+                                                        month: "short",
+                                                        year: "numeric",
+                                                    })
+                                                    : "Pending due date"}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
 

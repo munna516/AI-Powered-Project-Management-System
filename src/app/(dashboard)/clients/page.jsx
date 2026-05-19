@@ -46,7 +46,7 @@ export default function Vendors() {
 
     const { data: vendors, isLoading: isVendorsLoading } = useQuery({
         queryKey: ["vendors"],
-        queryFn: () => apiGet("/api/project-manager/vendor-management/all"),
+        queryFn: () => apiGet("/api/project-manager/client-management/all"),
     });
 
     const vendorList = useMemo(() => {
@@ -76,7 +76,7 @@ export default function Vendors() {
 
     const deleteVendorMutation = useMutation({
         mutationFn: async (vendorId) =>
-            apiDelete(`/api/project-manager/vendor-management/${vendorId}`),
+            apiDelete(`/api/project-manager/client-management/${vendorId}`),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["vendors"] });
             await Swal.fire({
@@ -97,7 +97,7 @@ export default function Vendors() {
     });
 
     const handleAddVendor = () => {
-        router.push("/vendors/add-vendor");
+        router.push("/clients/add-client");
     };
 
     const handleEditVendor = (vendor) => {
@@ -105,7 +105,7 @@ export default function Vendors() {
             vendorId: String(vendor.id),
         });
 
-        router.push(`/vendors/add-vendor?${params.toString()}`);
+        router.push(`/clients/add-client?${params.toString()}`);
     };
 
     const handleDeleteVendor = async (vendorId) => {
@@ -127,7 +127,7 @@ export default function Vendors() {
     const handleExport = () => {
         downloadCsv({
             rows: filteredVendors,
-            filename: "vendors_export.csv",
+            filename: "clients_export.csv",
             columns: [
                 { header: "Name", key: "name" },
                 { header: "Designation", key: "designation" },
@@ -136,7 +136,7 @@ export default function Vendors() {
                 { header: "Status", key: "status" }
             ]
         });
-        toast.success("Vendors data exported successfully!");
+        toast.success("Clients data exported successfully!");
     };
 
     const filteredVendors = useMemo(() => {
@@ -180,12 +180,12 @@ export default function Vendors() {
         <div className="w-full">
             <div className="space-y-4 sm:space-y-6">
                 <PageHeader
-                    title="Vendor Management"
+                    title="Client Management"
                     description="AI powered insights for all your projects"
-                    searchPlaceholder="Search vendors"
+                    searchPlaceholder="Search clients"
                     searchValue={searchValue}
                     onSearchChange={(e) => setSearchValue(e.target.value)}
-                    buttonLabel="Add Vendor"
+                    buttonLabel="Add Client"
                     buttonIcon={<FiPlus className="h-4 w-4" />}
                     onButtonClick={handleAddVendor}
                 />
@@ -224,7 +224,7 @@ export default function Vendors() {
                                 <TableHeader className="bg-[#6051E2] text-white">
                                     <TableRow className="border-b-0">
                                         <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-sm lg:text-base">
-                                            Vendor Name
+                                            Client Name
                                         </TableHead>
                                         <TableHead className="py-3 px-4 lg:py-4 lg:px-6 text-white font-semibold text-sm lg:text-base">
                                             Designation
@@ -249,7 +249,7 @@ export default function Vendors() {
                                         <TableRow
                                             key={vendor.id}
                                             className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50"
-                                            onClick={() => router.push(`/vendors/view/${vendor.id}`)}
+                                            onClick={() => router.push(`/clients/view/${vendor.id}`)}
                                         >
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm lg:text-base">
                                                 {vendor.name}
@@ -271,7 +271,7 @@ export default function Vendors() {
                                                         className="text-primary hover:text-primary/80 transition cursor-pointer"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            router.push(`/vendors/view/${vendor.id}`);
+                                                            router.push(`/clients/view/${vendor.id}`);
                                                         }}
                                                         title="View details"
                                                         aria-label="View details"
@@ -312,7 +312,7 @@ export default function Vendors() {
                                 <TableHeader className="bg-[#6051E2] text-white">
                                     <TableRow className="border-b-0">
                                         <TableHead className="py-3 px-4 text-white font-semibold text-sm">
-                                            Vendor Name
+                                            Client Name
                                         </TableHead>
                                         <TableHead className="py-3 px-4 text-white font-semibold text-sm">
                                             Designation
@@ -334,7 +334,7 @@ export default function Vendors() {
                                         <TableRow
                                             key={vendor.id}
                                             className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50"
-                                            onClick={() => router.push(`/vendors/view/${vendor.id}`)}
+                                            onClick={() => router.push(`/clients/view/${vendor.id}`)}
                                         >
                                             <TableCell className="py-3 px-4 text-slate-800 text-sm">
                                                 <div>
@@ -356,7 +356,7 @@ export default function Vendors() {
                                                         className="text-primary hover:text-primary/80 transition cursor-pointer"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            router.push(`/vendors/view/${vendor.id}`);
+                                                            router.push(`/clients/view/${vendor.id}`);
                                                         }}
                                                         title="View details"
                                                         aria-label="View details"
@@ -468,7 +468,7 @@ export default function Vendors() {
                         {/* Empty State */}
                         {filteredVendors.length === 0 && (
                             <div className="text-center py-8 sm:py-10 text-slate-500 text-sm sm:text-base">
-                                No vendors found matching your search.
+                                No clients found matching your search.
                             </div>
                         )}
                     </CardContent>

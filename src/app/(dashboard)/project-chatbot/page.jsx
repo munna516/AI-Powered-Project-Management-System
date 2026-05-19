@@ -77,9 +77,7 @@ export default function ProjectChatbot() {
                 ? projectsResponse.data.data
                 : [];
 
-        // Prefer projectId over id — backend project-manager routes use projectId; using id first
-        // can collapse multiple projects to the same key if id is not the management id.
-        return rawProjects
+        const mappedProjects = rawProjects
             .map((p) => ({
                 id: String(p?.projectId ?? p?.id ?? ""),
                 name:
@@ -89,6 +87,11 @@ export default function ProjectChatbot() {
                     `Project ${p?.projectId ?? p?.id ?? ""}`,
             }))
             .filter((p) => p.id);
+
+        return [
+            { id: "global", name: "Global Chatbot" },
+            ...mappedProjects
+        ];
     }, [projectsResponse]);
 
     const {
@@ -102,7 +105,7 @@ export default function ProjectChatbot() {
         queryKey: [...CHAT_QUERY_KEY, selectedProjectId],
         queryFn: () =>
             apiGet("/api/project-manager/project-chatbot/all", {
-                params: { projectId: selectedProjectId },
+                params: selectedProjectId === "global" ? undefined : { projectId: selectedProjectId },
             }),
         enabled: Boolean(selectedProjectId),
         refetchInterval: awaitingReplyMeta ? 3000 : false,
@@ -117,7 +120,9 @@ export default function ProjectChatbot() {
 
         const scoped = rawMessages.filter((m) => {
             const pid = m?.projectId ?? m?.project?.id;
-            if (pid == null || pid === "") return true;
+            if (selectedProjectId === "global") {
+                return pid == null || pid === "";
+            }
             return String(pid) === String(selectedProjectId);
         });
 
@@ -265,7 +270,9 @@ export default function ProjectChatbot() {
         const payload = new FormData();
         payload.append("content", inputValue.trim());
         payload.append("sender", "USER");
-        payload.append("projectId", selectedProjectId);
+        if (selectedProjectId !== "global") {
+            payload.append("projectId", selectedProjectId);
+        }
 
         if (selectedFile) {
             payload.append("document", selectedFile);
@@ -380,6 +387,18 @@ export default function ProjectChatbot() {
                         ) : (
                             projects.map((project) => {
                                 const active = project.id === selectedProjectId;
+                                const isGlobal = project.id === "global";
+                                
+                                let bgClass = active
+                                    ? "bg-[#6051E2] text-white shadow-sm"
+                                    : "text-slate-600 hover:bg-white/80 hover:text-blue-900 hover:shadow-sm";
+                                    
+                                if (isGlobal) {
+                                    bgClass = active
+                                        ? "bg-emerald-600 text-white shadow-sm"
+                                        : "bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm";
+                                }
+
                                 return (
                                     <button
                                         key={project.id}
@@ -392,19 +411,10 @@ export default function ProjectChatbot() {
                                             setSelectedFile(null);
                                             if (fileInputRef.current) fileInputRef.current.value = "";
                                         }}
-                                        className={`w-full group relative flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium transition-all duration-200 cursor-pointer overflow-hidden ${active
-                                            ? "bg-[#6051E2] text-white shadow-lg shadow-[#6051E2]/20 translate-x-1"
-                                            : "text-slate-600 hover:bg-white/80 hover:text-blue-900 hover:shadow-sm"
-                                            }`}
+                                        className={`w-full group relative flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-medium cursor-pointer ${bgClass}`}
                                     >
-                                        <div className={`h-2 w-2 rounded-full transition-all duration-300 ${active ? "bg-white scale-125" : "bg-slate-300 group-hover:bg-[#6051E2]"
-                                            }`} />
+                                        <div className={`h-2 w-2 rounded-full ${active || isGlobal ? "bg-white" : "bg-slate-300 group-hover:bg-[#6051E2]"}`} />
                                         <span className="truncate flex-1">{project.name}</span>
-                                        {active && isFetching && (
-                                            <div className="absolute right-3 opacity-50">
-                                                <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                            </div>
-                                        )}
                                     </button>
                                 );
                             })
@@ -425,7 +435,7 @@ export default function ProjectChatbot() {
                                 </div>
                                 <div className="space-y-1">
                                     <h3 className="text-lg font-bold text-slate-800">Ready to assist</h3>
-                                    <p className="text-sm text-slate-500 font-medium">Please select a project from the sidebar to begin our session.</p>
+                                    <p className="text-sm text-slate-500 font-medium">Please select a session from the sidebar to begin our conversation.</p>
                                 </div>
                             </div>
                         ) : messages.length === 0 ? (

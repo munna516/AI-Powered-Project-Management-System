@@ -38,6 +38,36 @@ const raiddOptions = [
   { value: "dependency", label: "Dependency" },
 ];
 
+const categoryToKeys = {
+  "risk": ["projectRisks", "risks"],
+  "issue": ["projectIssues", "issues"],
+  "assumption": ["projectAssumptions", "assumptions"],
+  "decision": ["projectDecisions", "decisions"],
+  "dependency": ["projectDependencies", "dependencies"],
+};
+
+const extractRaiddIds = (rawItem, categories) => {
+  const raiddIds = [];
+  const raiddData = rawItem?.raiddData;
+  if (!raiddData) return raiddIds;
+
+  const cats = Array.isArray(categories) ? categories : [categories];
+  cats.forEach(cat => {
+    const keys = categoryToKeys[String(cat).toLowerCase()];
+    if (keys) {
+      keys.forEach(key => {
+        const arr = raiddData[key];
+        if (Array.isArray(arr)) {
+          arr.forEach(obj => {
+            if (obj && obj.id) raiddIds.push(obj.id);
+          });
+        }
+      });
+    }
+  });
+  return raiddIds;
+};
+
 const initialApprovalState = {
   itemId: "",
   projectId: "",
@@ -45,6 +75,8 @@ const initialApprovalState = {
   detectedRaiddCategories: [],
   isCategoryFixed: false,
   isBulk: false,
+  rawItem: null,
+  selectedRaiddIds: [],
 };
 
 const normalizeRaiddCategoryLabel = (value) => {
@@ -72,6 +104,11 @@ const normalizeRaiddCategoryLabel = (value) => {
 
 const deriveRaiddAnalysisFromData = (raiddData) => {
   const keyToLabel = {
+    projectRisks: "Risk",
+    projectIssues: "Issue",
+    projectAssumptions: "Assumption",
+    projectDecisions: "Decision",
+    projectDependencies: "Dependency",
     risks: "Risk",
     issues: "Issue",
     assumptions: "Assumption",
@@ -90,7 +127,13 @@ const deriveRaiddAnalysisFromData = (raiddData) => {
   const pushRaiddValue = (label, raw) => {
     if (raw == null) return;
     if (Array.isArray(raw)) {
-      aggregatedByLabel[label].push(...raw.filter(Boolean));
+      raw.filter(Boolean).forEach((item) => {
+        if (typeof item === 'object' && item.data) {
+          aggregatedByLabel[label].push(item.data.trim());
+        } else if (typeof item === 'string' && item.trim()) {
+          aggregatedByLabel[label].push(item.trim());
+        }
+      });
     } else if (typeof raw === "string" && raw.trim()) {
       aggregatedByLabel[label].push(raw.trim());
     }
@@ -193,6 +236,7 @@ const normalizeDetection = (item, index) => {
     raiddAnalysis: raiddCategories,
     raiddDetailsByCategory: derived.raiddDetailsByCategory,
     dateTime: item?.createdAt || item?.updatedAt || null,
+    rawItem: item,
   };
 };
 
@@ -315,6 +359,33 @@ export default function AiDetection() {
     endDate: null,
   });
   const queryClient = useQueryClient();
+
+  const getAvailableItemsForApproval = () => {
+    const rawItem = approveModalState.rawItem;
+    if (!rawItem || !rawItem.raiddData) return [];
+
+    const cats = approveModalState.isBulk 
+       ? approveModalState.detectedRaiddCategories.map(getRaiddOptionValue) 
+       : [approveModalState.raiddCategory];
+
+    const items = [];
+    cats.forEach(cat => {
+      const keys = categoryToKeys[String(cat).toLowerCase()];
+      if (keys) {
+        keys.forEach(key => {
+          const arr = rawItem.raiddData[key];
+          if (Array.isArray(arr)) {
+            arr.forEach(obj => {
+              if (obj && obj.id) {
+                items.push({ id: obj.id, text: obj.data, category: normalizeRaiddCategoryLabel(cat) });
+              }
+            });
+          }
+        });
+      }
+    });
+    return items;
+  };
 
   const {
     data: detectionsResponse,
@@ -466,6 +537,11 @@ export default function AiDetection() {
         : getRaiddOptionValue(detectedCategories[0]);
     }
 
+    const selectedRaiddIds = extractRaiddIds(
+      selectedItem?.rawItem, 
+      isBulk ? detectedCategories.map(getRaiddOptionValue) : [raiddCategory]
+    );
+
     setApproveModalState({
       itemId: String(id),
       projectId: "",
@@ -473,6 +549,8 @@ export default function AiDetection() {
       detectedRaiddCategories: detectedCategories,
       isCategoryFixed: !!specificCategory || isBulk,
       isBulk,
+      rawItem: selectedItem?.rawItem,
+      selectedRaiddIds,
     });
   };
 
@@ -500,13 +578,20 @@ export default function AiDetection() {
 
     setIsApproving(true);
     try {
-      // Send categories as an array if bulk, otherwise as a single string
+      const checkedItems = getAvailableItemsForApproval().filter(itemObj => approveModalState.selectedRaiddIds.includes(itemObj.id));
+      const activeTypes = Array.from(new Set(checkedItems.map(itemObj => getRaiddOptionValue(itemObj.category).toLowerCase())));
+
+      if (activeTypes.length === 0) {
+        toast.error("Please select at least one item to approve.");
+        setIsApproving(false);
+        return;
+      }
+
       const payload = {
         projectId: approveModalState.projectId,
         aiDetectionId: approveModalState.itemId,
-        type: approveModalState.isBulk
-          ? categories.map(cat => String(cat).toUpperCase())
-          : String(categories[0]).toUpperCase()
+        type: activeTypes,
+        raiddIds: approveModalState.selectedRaiddIds
       };
 
       await approveDetectionMutation.mutateAsync(payload);
@@ -638,6 +723,7 @@ export default function AiDetection() {
                     setApproveModalState((prev) => ({
                       ...prev,
                       raiddCategory: value,
+                      selectedRaiddIds: extractRaiddIds(prev.rawItem, [value]),
                     }))
                   }
                 >
@@ -661,6 +747,40 @@ export default function AiDetection() {
                 </Select>
               </div>
             )}
+
+            <div className="space-y-3">
+              <label className="text-sm font-semibold text-slate-700">
+                Select Items to Approve
+              </label>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                {getAvailableItemsForApproval().length > 0 ? getAvailableItemsForApproval().map((itemObj, idx) => (
+                  <div key={itemObj.id || idx} className="flex items-start gap-3 p-3 rounded-lg border border-slate-100 bg-white hover:bg-slate-50 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#6051E2] focus:ring-[#6051E2] cursor-pointer"
+                      checked={approveModalState.selectedRaiddIds.includes(itemObj.id)}
+                      onChange={() => {
+                        setApproveModalState(prev => {
+                          const isSelected = prev.selectedRaiddIds.includes(itemObj.id);
+                          return {
+                            ...prev,
+                            selectedRaiddIds: isSelected 
+                              ? prev.selectedRaiddIds.filter(id => id !== itemObj.id)
+                              : [...prev.selectedRaiddIds, itemObj.id]
+                          };
+                        });
+                      }}
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">{itemObj.category}</span>
+                      <span className="text-sm text-slate-700 leading-relaxed">{itemObj.text}</span>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="text-sm text-slate-500 italic">No selectable items found.</p>
+                )}
+              </div>
+            </div>
           </div>
 
           <DialogFooter className="flex flex-row gap-3 pt-4 border-t border-slate-100">
