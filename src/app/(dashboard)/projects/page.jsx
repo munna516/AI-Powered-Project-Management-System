@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/PageHeader/PageHeader";
 import DateFilter, { getDateRangeFromFilter } from "@/components/DateFilter/Datefilter";
-import { FiStar, FiPlus, FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiStar, FiPlus, FiEdit2, FiTrash2, FiCopy } from "react-icons/fi";
 import { CalendarClock, PlayCircle, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Loading from "@/components/Loading/Loading";
@@ -392,13 +392,27 @@ export default function Projects() {
                                         <h2 className="text-lg sm:text-xl font-bold text-slate-900">
                                             {project.title}
                                         </h2>
-                                        <span
-                                            className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusTagStyle(
-                                                project.status
-                                            )} self-start sm:self-auto`}
-                                        >
-                                            {getStatusTagLabel(project.status)}
-                                        </span>
+                                        <div className="flex items-center gap-3 self-start sm:self-auto">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigator.clipboard.writeText(project.id);
+                                                    toast.success("Project ID copied!");
+                                                }}
+                                                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md transition-colors cursor-pointer"
+                                                title="Copy Project ID"
+                                            >
+                                                <FiCopy className="h-3 w-3" />
+                                                <span>Copy ID</span>
+                                            </button>
+                                            <span
+                                                className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusTagStyle(
+                                                    project.status
+                                                )}`}
+                                            >
+                                                {getStatusTagLabel(project.status)}
+                                            </span>
+                                        </div>
                                     </div>
 
                                     {/* Timeline & Milestone and Weekly AI Summary */}

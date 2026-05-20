@@ -20,10 +20,18 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { FiSearch, FiEdit2, FiEye, FiX, FiDownload } from "react-icons/fi";
+import { FiSearch, FiEdit2, FiEye, FiX, FiDownload, FiTrash2 } from "react-icons/fi";
 import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 import Loading from "@/components/Loading/Loading";
-import { apiGet, apiPatch } from "@/lib/api";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { apiGet, apiPatch, apiPost, apiDelete } from "@/lib/api";
 import { downloadCsv } from "@/lib/csv";
 
 const formatDate = (value) => {
@@ -70,6 +78,30 @@ export default function Lessons() {
         startDate: null,
         endDate: null,
     });
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [createFormData, setCreateFormData] = useState({
+        projectId: "",
+        source: "",
+        loggedDate: "",
+        description: "",
+    });
+
+    const { data: projectsResponse, isLoading: isProjectsLoading } = useQuery({
+        queryKey: ["all-projects"],
+        queryFn: () => apiGet("/api/project-manager/project-management/my-projects"),
+    });
+
+    const projects = useMemo(() => {
+        const rawProjects = Array.isArray(projectsResponse?.data)
+            ? projectsResponse.data
+            : Array.isArray(projectsResponse?.data?.data)
+                ? projectsResponse.data.data
+                : [];
+        return rawProjects.map(p => ({
+            id: p?.id || p?.projectId,
+            name: p?.name || p?.projectName,
+        }));
+    }, [projectsResponse]);
 
     const {
         data: lessonsResponse,
@@ -107,6 +139,36 @@ export default function Lessons() {
         },
         onError: (mutationError) => {
             toast.error(mutationError?.message || "Failed to update lesson learned.");
+        },
+    });
+
+    const createLessonMutation = useMutation({
+        mutationFn: (payload) =>
+            apiPost(`/api/project-manager/lesson-learn/create`, payload),
+        onSuccess: async () => {
+            toast.success("Lesson learned created successfully!");
+            await queryClient.invalidateQueries({ queryKey: ["lesson-learn"] });
+            setIsCreateModalOpen(false);
+            setCreateFormData({
+                projectId: "",
+                source: "",
+                loggedDate: "",
+                description: "",
+            });
+        },
+        onError: (mutationError) => {
+            toast.error(mutationError?.message || "Failed to create lesson learned.");
+        },
+    });
+
+    const deleteLessonMutation = useMutation({
+        mutationFn: (id) => apiDelete(`/api/project-manager/lesson-learn/${id}`),
+        onSuccess: async () => {
+            toast.success("Lesson learned deleted successfully!");
+            await queryClient.invalidateQueries({ queryKey: ["lesson-learn"] });
+        },
+        onError: (mutationError) => {
+            toast.error(mutationError?.message || "Failed to delete lesson learned.");
         },
     });
 
@@ -187,6 +249,39 @@ export default function Lessons() {
         setEditedData(null);
     };
 
+    const handleCreateSubmit = () => {
+        if (!createFormData.projectId || !createFormData.source || !createFormData.loggedDate || !createFormData.description) {
+            toast.error("Please fill in all fields.");
+            return;
+        }
+
+        const date = new Date(`${createFormData.loggedDate}T00:00:00Z`);
+        
+        createLessonMutation.mutate({
+            projectId: createFormData.projectId,
+            source: createFormData.source,
+            loggedDate: date.toISOString(),
+            description: createFormData.description,
+        });
+    };
+
+    const handleDelete = async (id) => {
+        const result = await Swal.fire({
+            title: "Delete this lesson learned?",
+            text: "This action cannot be undone.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Yes, delete",
+            cancelButtonText: "Cancel",
+            reverseButtons: true,
+            confirmButtonColor: "#dc2626",
+        });
+
+        if (result.isConfirmed) {
+            deleteLessonMutation.mutate(id);
+        }
+    };
+
     const handleExport = () => {
         downloadCsv({
             rows: filteredLessons,
@@ -250,14 +345,22 @@ export default function Lessons() {
                     initialFilter="all"
                 />
 
-                {/* Export Button - Right Side */}
-                <Button
-                    onClick={handleExport}
-                    className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex items-center gap-2 w-full sm:w-auto"
-                >
-                    <FiDownload className="h-4 w-4" />
-                    Export
-                </Button>
+                {/* Right Side Buttons */}
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <Button
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="bg-white border border-[#6051E2] text-[#6051E2] hover:bg-slate-50 px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex-1 sm:flex-none whitespace-nowrap"
+                    >
+                        + Add Lesson Learned
+                    </Button>
+                    <Button
+                        onClick={handleExport}
+                        className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-4 py-2 h-9 sm:h-10 text-sm font-medium cursor-pointer flex items-center gap-2 flex-1 sm:flex-none"
+                    >
+                        <FiDownload className="h-4 w-4" />
+                        Export
+                    </Button>
+                </div>
             </div>
 
             {/* Show selected custom range */}
@@ -290,9 +393,8 @@ export default function Lessons() {
                                     <TableHead className="py-3 px-4 text-white font-semibold">
                                         Date
                                     </TableHead>
-
-                                    <TableHead className="py-3 px-4 text-white font-semibold">
-                                        Lesson Learned
+                                    <TableHead className="py-3 px-4 text-white font-semibold text-center">
+                                        Actions
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -310,7 +412,8 @@ export default function Lessons() {
                                     filteredLessons.map((lesson, index) => (
                                         <TableRow
                                             key={lesson.id}
-                                            className="border-b border-slate-100 hover:bg-slate-50"
+                                            className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                                            onClick={() => handleViewLesson(lesson.id)}
                                         >
                                             <TableCell className="py-3 px-4 text-slate-800">
                                                 {index + 1}
@@ -330,14 +433,24 @@ export default function Lessons() {
                                                 {lesson.date}
                                             </TableCell>
                                             <TableCell className="py-3 px-4">
-                                                <button
-                                                    onClick={() => handleViewLesson(lesson.id)}
-                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#6051E2]/20 bg-[#6051E2]/10 text-[#6051E2] transition-colors hover:bg-[#6051E2] hover:text-white cursor-pointer"
-                                                    aria-label="View lesson"
-                                                    title="View lesson"
-                                                >
-                                                    <FiEye className="h-4 w-4" />
-                                                </button>
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleViewLesson(lesson.id); }}
+                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#6051E2]/20 bg-[#6051E2]/10 text-[#6051E2] transition-colors hover:bg-[#6051E2] hover:text-white cursor-pointer"
+                                                        aria-label="View lesson"
+                                                        title="View lesson"
+                                                    >
+                                                        <FiEye className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDelete(lesson.id); }}
+                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-600 hover:text-white cursor-pointer"
+                                                        aria-label="Delete lesson"
+                                                        title="Delete lesson"
+                                                    >
+                                                        <FiTrash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -357,7 +470,8 @@ export default function Lessons() {
                                 {filteredLessons.map((lesson, index) => (
                                     <div
                                         key={lesson.id}
-                                        className="p-4 space-y-3 hover:bg-slate-50 transition-colors"
+                                        className="p-4 space-y-3 hover:bg-slate-50 transition-colors cursor-pointer"
+                                        onClick={() => handleViewLesson(lesson.id)}
                                     >
                                         <div className="flex items-start justify-between">
                                             <div className="space-y-1">
@@ -368,14 +482,24 @@ export default function Lessons() {
                                                     ID: {index + 1}
                                                 </p>
                                             </div>
-                                            <button
-                                                onClick={() => handleViewLesson(lesson.id)}
-                                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#6051E2]/20 bg-[#6051E2]/10 text-[#6051E2] transition-colors hover:bg-[#6051E2] hover:text-white cursor-pointer"
-                                                aria-label="View lesson"
-                                                title="View lesson"
-                                            >
-                                                <FiEye className="h-4 w-4" />
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleViewLesson(lesson.id); }}
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#6051E2]/20 bg-[#6051E2]/10 text-[#6051E2] transition-colors hover:bg-[#6051E2] hover:text-white cursor-pointer"
+                                                    aria-label="View lesson"
+                                                    title="View lesson"
+                                                >
+                                                    <FiEye className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(lesson.id); }}
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-600 hover:text-white cursor-pointer"
+                                                    aria-label="Delete lesson"
+                                                    title="Delete lesson"
+                                                >
+                                                    <FiTrash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
                                             <div>
@@ -499,6 +623,81 @@ export default function Lessons() {
                                 </Button>
                             </div>
                         )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Create Lesson Modal */}
+            <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+                <DialogContent className="max-w-md bg-white p-6 rounded-xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold text-slate-900">
+                            Add Lesson Learned
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-4 mt-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Select Project</label>
+                            <Select
+                                value={createFormData.projectId}
+                                onValueChange={(val) => setCreateFormData(prev => ({ ...prev, projectId: val }))}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder={isProjectsLoading ? "Loading projects..." : "Choose a project"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {projects.map(p => (
+                                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Source</label>
+                            <Input
+                                placeholder="e.g. Project Retrospective Meeting"
+                                value={createFormData.source}
+                                onChange={(e) => setCreateFormData(prev => ({ ...prev, source: e.target.value }))}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Logged Date</label>
+                            <Input
+                                type="date"
+                                value={createFormData.loggedDate}
+                                onChange={(e) => setCreateFormData(prev => ({ ...prev, loggedDate: e.target.value }))}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Description</label>
+                            <Textarea
+                                placeholder="Enter description..."
+                                value={createFormData.description}
+                                onChange={(e) => setCreateFormData(prev => ({ ...prev, description: e.target.value }))}
+                                className="min-h-[100px]"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 mt-6 border-t pt-4">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsCreateModalOpen(false)}
+                            className="cursor-pointer"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreateSubmit}
+                            disabled={createLessonMutation.isPending}
+                            className="bg-[#6051E2] hover:bg-[#4a3db8] text-white cursor-pointer"
+                        >
+                            {createLessonMutation.isPending ? "Creating..." : "Create"}
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>

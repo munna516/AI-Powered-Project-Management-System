@@ -27,7 +27,7 @@ import { apiDelete, apiGet, apiPost } from "@/lib/api";
 
 const tabs = [
   { id: "email", label: "Email" },
-  { id: "meetings-transcript", label: "Meeting transcript" },
+  { id: "meeting-transcript", label: "Meeting transcript" },
 ];
 
 const raiddOptions = [
@@ -166,9 +166,10 @@ const normalizeSourceType = (value) => {
     normalized === "meetings-transcript" ||
     normalized === "meeting-transcript" ||
     normalized === "transcript" ||
-    normalized === "meetingtranscript"
+    normalized === "meetingtranscript" ||
+    normalized === "meeting"
   ) {
-    return "meetings-transcript";
+    return "meeting-transcript";
   }
   return normalized;
 };
@@ -848,7 +849,9 @@ export default function AiDetection() {
 
                         <div className="flex items-center gap-4 text-xs font-bold text-slate-400">
                           {item.dateTime && <span>{formatDateTime(item.dateTime)}</span>}
-                          <span className="uppercase tracking-widest text-[#6051E2]/60">{item.type}</span>
+                          <span className="uppercase tracking-widest text-[#6051E2]/60">
+                            {item.type.replace(/-/g, " ")}
+                          </span>
                         </div>
                       </div>
 
