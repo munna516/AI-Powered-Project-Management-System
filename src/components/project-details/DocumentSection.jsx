@@ -236,7 +236,7 @@ export default function DocumentSection({
         <DialogContent className="max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-left">
-              {editingDocumentId ? "Update Document" : "Upload Document"}
+              {editingDocumentId ? "Update Document" : "Upload Document to Auto Summaries"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -255,7 +255,7 @@ export default function DocumentSection({
               </div>
             </div>
             <div>
-              <label className={labelClass}>Upload Document</label>
+              <label className={labelClass}>Upload Document to Auto Summaries</label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -290,7 +290,7 @@ export default function DocumentSection({
                   : "Uploading..."
                 : editingDocumentId
                   ? "Update Document"
-                  : "Upload Document"}
+                  : "Upload Document to Auto Summaries"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -368,7 +368,7 @@ export default function DocumentSection({
                     Document Name
                   </TableHead>
                   <TableHead className="px-4 py-3 font-semibold text-white">
-                    Document Url
+                    Original Documents
                   </TableHead>
                   <TableHead className="px-4 py-3 text-right font-semibold text-white">
                     Action

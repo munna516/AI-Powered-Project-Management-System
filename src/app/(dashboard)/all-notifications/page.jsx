@@ -10,6 +10,7 @@ import { apiGet, apiPatch } from "@/lib/api";
 import Loading from "@/components/Loading/Loading";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/PageHeader/PageHeader";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const NOTIFICATIONS_QUERY_KEY = ["notifications"];
 
@@ -57,6 +58,7 @@ export default function AllNotifications() {
     const queryClient = useQueryClient();
     const [searchValue, setSearchValue] = useState("");
     const [filter, setFilter] = useState("all"); // all, unread, read
+    const [selectedNotification, setSelectedNotification] = useState(null);
 
     const { data: notificationsResponse, isLoading, isError, error } = useQuery({
         queryKey: NOTIFICATIONS_QUERY_KEY,
@@ -171,7 +173,13 @@ export default function AllNotifications() {
                                 {items.map((n) => (
                                     <Card
                                         key={n.id}
-                                        className={`group transition-all duration-300 hover:shadow-md border-slate-200 ${!n.isRead 
+                                        onClick={() => {
+                                            setSelectedNotification(n);
+                                            if (!n.isRead) {
+                                                readSingleMutation.mutate(n.id);
+                                            }
+                                        }}
+                                        className={`group transition-all duration-300 hover:shadow-md border-slate-200 cursor-pointer ${!n.isRead 
                                             ? "bg-[#6051E2]/8 border-l-4 border-l-[#6051E2]" 
                                             : "bg-white shadow-sm"
                                         }`}
@@ -217,6 +225,43 @@ export default function AllNotifications() {
                     ))
                 )}
             </div>
+
+            <Dialog open={!!selectedNotification} onOpenChange={(open) => !open && setSelectedNotification(null)}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>{selectedNotification?.title || "Meeting Summary"}</DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4 space-y-4 text-sm text-slate-700">
+                        {selectedNotification?.type && (
+                            <div>
+                                <span className="font-semibold text-slate-900">Type: </span>
+                                {selectedNotification.type}
+                            </div>
+                        )}
+                        {(selectedNotification?.message || selectedNotification?.content) && (
+                            <div>
+                                <span className="font-semibold text-slate-900">Message: </span>
+                                {selectedNotification.message || selectedNotification.content}
+                            </div>
+                        )}
+                        {selectedNotification?.link && (
+                            <div>
+                                <span className="font-semibold text-slate-900">Link: </span>
+                                <a href={selectedNotification.link} target="_blank" rel="noreferrer" className="text-[#6051E2] hover:underline break-all">
+                                    {selectedNotification.link}
+                                </a>
+                            </div>
+                        )}
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-900 mb-2 mt-4">Project Summary</h2>
+                            <div className="whitespace-pre-wrap">{selectedNotification?.previousProjectSummary || "Not Found"}</div>
+                        </div>
+                        {!selectedNotification?.title && !selectedNotification?.message && !selectedNotification?.content && !selectedNotification?.previousProjectSummary && (
+                            <div>No summary available.</div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

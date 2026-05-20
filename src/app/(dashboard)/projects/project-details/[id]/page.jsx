@@ -53,7 +53,7 @@ const projectData = {
 const tabs = [
     { id: "task", label: "Task list", buttonLabel: "Add Task" },
     { id: "meeting", label: "Meeting List", buttonLabel: "Upload Meeting" },
-    { id: "document", label: "Document List", buttonLabel: "Upload Document" },
+    { id: "document", label: "Document List", buttonLabel: "Upload Document to Auto Summaries" },
 ];
 
 
@@ -570,7 +570,7 @@ export default function ProjectDetails() {
                                             {project.title}
                                         </h2>
                                         <p className="text-sm text-slate-600 mt-1">
-                                            Project ID: {project.id}
+                                            Project ID: {String(project.id).slice(-8)}
                                         </p>
                                     </div>
                                     <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium border border-green-200 self-start">

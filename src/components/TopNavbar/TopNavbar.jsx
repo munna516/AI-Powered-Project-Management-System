@@ -10,6 +10,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -44,6 +50,7 @@ export default function TopNavbar() {
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [selectedNotification, setSelectedNotification] = useState(null);
 
   const { data: profileData } = useQuery({
     queryKey: PROFILE_QUERY_KEY,
@@ -87,9 +94,13 @@ export default function TopNavbar() {
   const notifications = useMemo(() => {
     return rawNotifications.map(n => ({
       id: n.id || n._id,
+      title: n.title,
+      type: n.type,
+      link: n.link,
       message: n.message || n.content || "",
       timestamp: formatRelativeTime(n.createdAt),
-      isRead: n.status === "READ"
+      isRead: n.status === "READ",
+      previousProjectSummary: n.previousProjectSummary
     }));
   }, [rawNotifications]);
 
@@ -143,7 +154,14 @@ export default function TopNavbar() {
             ) : (
               notifications.map((notification, index) => (
                 <div key={notification.id} className="group/item">
-                  <div className={`px-3 sm:px-4 py-4 hover:bg-slate-50 transition-colors cursor-pointer relative ${!notification.isRead ? 'bg-[#6051E2]/5' : ''}`}>
+                  <div 
+                    onClick={() => {
+                        setSelectedNotification(notification);
+                        if (!notification.isRead) {
+                            readSingleMutation.mutate(notification.id);
+                        }
+                    }}
+                    className={`px-3 sm:px-4 py-4 hover:bg-slate-50 transition-colors cursor-pointer relative ${!notification.isRead ? 'bg-[#6051E2]/5' : ''}`}>
                     {!notification.isRead && (
                       <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#6051E2] rounded-r-full" />
                     )}
@@ -219,6 +237,43 @@ export default function TopNavbar() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Dialog open={!!selectedNotification} onOpenChange={(open) => !open && setSelectedNotification(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedNotification?.title || "Meeting Summary"}</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 space-y-4 text-sm text-slate-700">
+            {selectedNotification?.type && (
+                <div>
+                    <span className="font-semibold text-slate-900">Type: </span>
+                    {selectedNotification.type}
+                </div>
+            )}
+            {selectedNotification?.message && (
+                <div>
+                    <span className="font-semibold text-slate-900">Message: </span>
+                    {selectedNotification.message}
+                </div>
+            )}
+            {selectedNotification?.link && (
+                <div>
+                    <span className="font-semibold text-slate-900">Link: </span>
+                    <a href={selectedNotification.link} target="_blank" rel="noreferrer" className="text-[#6051E2] hover:underline break-all">
+                        {selectedNotification.link}
+                    </a>
+                </div>
+            )}
+            <div>
+                <h2 className="text-lg font-bold text-slate-900 mb-2 mt-4">Project Summary</h2>
+                <div className="whitespace-pre-wrap">{selectedNotification?.previousProjectSummary || "Not Found"}</div>
+            </div>
+            {!selectedNotification?.title && !selectedNotification?.message && !selectedNotification?.previousProjectSummary && (
+                <div>No summary available.</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

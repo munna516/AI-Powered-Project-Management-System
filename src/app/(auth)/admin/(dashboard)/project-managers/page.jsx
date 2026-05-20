@@ -32,6 +32,7 @@ const initialFormData = {
   lastName: "",
   email: "",
   password: "",
+  confirmPassword: "",
 };
 
 const formatRole = (role) =>
@@ -139,10 +140,19 @@ export default function UsersPage() {
 
   const handleDialogChange = (open) => {
     setIsDialogOpen(open);
-    if (!open) {
+    if (open) {
       resetForm();
+    } else {
+      setTimeout(() => resetForm(), 150); // Small delay to let close animation finish before wiping
     }
   };
+
+  const isFormValid =
+    formData.firstName.trim() !== "" &&
+    formData.lastName.trim() !== "" &&
+    /\S+@\S+\.\S+/.test(formData.email) &&
+    formData.password.trim().length >= 6 &&
+    formData.password === formData.confirmPassword;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -174,6 +184,10 @@ export default function UsersPage() {
       nextErrors.password = "Password is required";
     } else if (formData.password.trim().length < 6) {
       nextErrors.password = "Password must be at least 6 characters";
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      nextErrors.confirmPassword = "Passwords do not match";
     }
 
     setErrors(nextErrors);
@@ -283,7 +297,7 @@ export default function UsersPage() {
             className="sm:max-w-[550px] bg-[#EEF2FF] border-none p-0 overflow-hidden text-slate-900"
             showCloseButton={false}
           >
-            <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
+            <form onSubmit={handleSubmit} autoComplete="off" className="p-6 sm:p-8 space-y-6">
               <DialogHeader>
                 <DialogTitle className="text-xl font-bold text-slate-900">
                   Manager Profile
@@ -337,6 +351,7 @@ export default function UsersPage() {
                     placeholder="manager@example.com"
                     value={formData.email}
                     onChange={handleInputChange}
+                    autoComplete="off"
                     className="bg-white border-none py-2.5 h-11 text-slate-700"
                   />
                   {errors.email && (
@@ -354,11 +369,30 @@ export default function UsersPage() {
                     placeholder="Enter password"
                     value={formData.password}
                     onChange={handleInputChange}
+                    autoComplete="new-password"
                     className="bg-white border-none py-2.5 h-11 text-slate-700"
                   />
                   {errors.password && (
                     <p className="text-xs text-red-500">{errors.password}</p>
                   )}
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <label className="text-sm font-medium text-slate-700 block">
+                    Confirm Password
+                  </label>
+                  <Input
+                    type="password"
+                    name="confirmPassword"
+                    placeholder="Confirm password"
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    autoComplete="new-password"
+                    className="bg-white border-none py-2.5 h-11 text-slate-700"
+                  />
+                  {(errors.confirmPassword || (formData.confirmPassword && formData.password !== formData.confirmPassword)) ? (
+                    <p className="text-xs text-red-500">Passwords do not match</p>
+                  ) : null}
                 </div>
               </div>
 
@@ -373,8 +407,8 @@ export default function UsersPage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={createManagerMutation.isPending}
-                  className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-8 font-medium cursor-pointer"
+                  disabled={createManagerMutation.isPending || !isFormValid}
+                  className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-8 font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {createManagerMutation.isPending ? "Adding..." : "Add"}
                 </Button>

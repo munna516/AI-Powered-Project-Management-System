@@ -330,7 +330,7 @@ export default function EmailDetails() {
                                         ) : (
                                             <>
                                                 <FiMail className="h-4 w-4" /> 
-                                                Draft Email
+                                                Draft Ai Email Response 
                                             </>
                                         )}
                                     </Button>

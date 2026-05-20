@@ -150,6 +150,7 @@ export default function ProjectChatbot() {
                 createdAt: optimisticCreatedAt,
                 documentUrl: "",
                 documentPath: payload?.get?.("document")?.name || "",
+                projectId: selectedProjectId !== "global" ? selectedProjectId : null,
             };
 
             queryClient.setQueryData(queryKey, (current) => {
