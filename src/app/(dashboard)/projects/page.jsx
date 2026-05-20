@@ -396,14 +396,18 @@ export default function Projects() {
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    navigator.clipboard.writeText(project.id);
-                                                    toast.success("Project ID copied!");
+                                                    if (!project.weeklyAiSummary || project.weeklyAiSummary === "No summary available for this project yet.") {
+                                                        toast.error("No summary available to copy.");
+                                                        return;
+                                                    }
+                                                    navigator.clipboard.writeText(project.weeklyAiSummary);
+                                                    toast.success("Weekly AI summary copied!");
                                                 }}
                                                 className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md transition-colors cursor-pointer"
-                                                title="Copy Project ID"
+                                                title="Copy Weekly AI Summary"
                                             >
                                                 <FiCopy className="h-3 w-3" />
-                                                <span>Copy ID</span>
+                                                <span>Copy Summary</span>
                                             </button>
                                             <span
                                                 className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusTagStyle(

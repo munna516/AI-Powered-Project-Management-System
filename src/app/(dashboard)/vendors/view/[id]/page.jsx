@@ -150,7 +150,7 @@ export default function ViewVendor() {
                                             {vendor.projects.map((project, idx) => (
                                                 <TableRow key={project.id || idx} className="hover:bg-slate-50 transition-colors">
                                                     <TableCell className="text-xs font-mono text-slate-600 font-medium">
-                                                        {project.id}
+                                                        {String(project.id).slice(-8)}
                                                     </TableCell>
                                                     <TableCell className="font-semibold text-slate-900">
                                                         {project.name}

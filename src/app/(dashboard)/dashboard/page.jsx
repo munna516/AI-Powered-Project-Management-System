@@ -292,7 +292,7 @@ export default function Dashboard() {
                                             onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
                                         >
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm whitespace-normal break-all font-mono">
-                                                {project.projectId}
+                                                {String(project.projectId).slice(-8)}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm lg:text-base">
                                                 {project.projectName}
@@ -377,7 +377,7 @@ export default function Dashboard() {
                                             onClick={() => router.push(`/projects/project-details/${project.projectId}`)}
                                         >
                                             <TableCell className="py-3 px-4 text-slate-800 text-sm whitespace-normal break-all font-mono">
-                                                {project.projectId}
+                                                {String(project.projectId).slice(-8)}
                                             </TableCell>
                                             <TableCell className="py-3 px-4 text-slate-800 text-sm">
                                                 {project.projectName}
@@ -440,7 +440,7 @@ export default function Dashboard() {
                                                 {project.projectName}
                                             </h3>
                                             <p className="text-xs text-slate-500 mt-1 whitespace-normal break-all font-mono">
-                                                ID: {project.projectId}
+                                                ID: {String(project.projectId).slice(-8)}
                                             </p>
                                         </div>
                                         <span

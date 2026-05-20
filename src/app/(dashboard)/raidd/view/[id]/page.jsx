@@ -228,23 +228,21 @@ export default function ViewRAIDD() {
                     <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
                         Project Description
                     </h2>
-                    {raiddData.type === "Decision" && (
-                        <Button
-                            onClick={handleOpenDateEdit}
-                            variant="outline"
-                            className="flex items-center gap-2 border-[#6051E2]/20 text-[#6051E2] hover:bg-[#6051E2]/5 font-semibold cursor-pointer"
-                        >
-                            <FiPlus className="h-4 w-4" />
-                            Add Decision Due Date
-                        </Button>
-                    )}
+                    <Button
+                        onClick={handleOpenDateEdit}
+                        variant="outline"
+                        className="flex items-center gap-2 border-[#6051E2]/20 text-[#6051E2] hover:bg-[#6051E2]/5 font-semibold cursor-pointer"
+                    >
+                        <FiPlus className="h-4 w-4" />
+                        Add Decision Due Date
+                    </Button>
                 </div>
                 <Card className="border-slate-200 bg-[#EFEEFC]">
                     <CardContent className="space-y-4 p-6">
                         <div className="space-y-2">
                             <p className="text-base text-slate-600">
                                 <span className="font-medium text-slate-700">Project ID:</span>{" "}
-                                <span className="font-medium text-slate-900">{raiddData.projectId}</span>
+                                <span className="font-medium text-slate-900">{String(raiddData.projectId).slice(-8)}</span>
                             </p>
                             <p className="text-base text-slate-600">
                                 <span className="font-medium text-slate-700">Project Name:</span>{" "}
@@ -388,62 +386,60 @@ export default function ViewRAIDD() {
                         </CardContent>
                     </Card>
 
-                    {raiddData.type === "Decision" && (
-                        <Card className="border border-primary/50 p-4 sm:p-5">
-                            <CardContent className="space-y-4 p-0">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <FiFlag className="h-4 w-4 text-[#6051E2]" />
-                                        <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
-                                            Decision Details
-                                        </h3>
+                    <Card className="border border-primary/50 p-4 sm:p-5">
+                        <CardContent className="space-y-4 p-0">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <FiFlag className="h-4 w-4 text-[#6051E2]" />
+                                    <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
+                                        Decision Details
+                                    </h3>
+                                </div>
+                                <button
+                                    onClick={handleOpenOwnerEdit}
+                                    className="text-slate-400 hover:text-[#6051E2] transition cursor-pointer"
+                                >
+                                    <FiEdit className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 sm:h-12 sm:w-12">
+                                        <FiUser className="h-5 w-5" />
                                     </div>
-                                    <button
-                                        onClick={handleOpenOwnerEdit}
-                                        className="text-slate-400 hover:text-[#6051E2] transition cursor-pointer"
-                                    >
-                                        <FiEdit className="h-4 w-4" />
-                                    </button>
+                                    <div>
+                                        <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                                            Decision Owner
+                                        </p>
+                                        <p className="font-semibold text-slate-900 text-sm sm:text-base">
+                                            {raiddData.decisionOwner}
+                                        </p>
+                                    </div>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 sm:h-12 sm:w-12">
-                                            <FiUser className="h-5 w-5" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                                                Decision Owner
-                                            </p>
-                                            <p className="font-semibold text-slate-900 text-sm sm:text-base">
-                                                {raiddData.decisionOwner}
-                                            </p>
-                                        </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 sm:h-12 sm:w-12">
+                                        <FiCalendar className="h-5 w-5" />
                                     </div>
-
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 sm:h-12 sm:w-12">
-                                            <FiCalendar className="h-5 w-5" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                                                Decision Due Date
-                                            </p>
-                                            <p className="font-semibold text-slate-900 text-sm sm:text-base">
-                                                {raiddData.decisionDueDate
-                                                    ? new Date(raiddData.decisionDueDate).toLocaleDateString("en-GB", {
-                                                        day: "2-digit",
-                                                        month: "short",
-                                                        year: "numeric",
-                                                    })
-                                                    : "Pending due date"}
-                                            </p>
-                                        </div>
+                                    <div>
+                                        <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                                            Decision Due Date
+                                        </p>
+                                        <p className="font-semibold text-slate-900 text-sm sm:text-base">
+                                            {raiddData.decisionDueDate
+                                                ? new Date(raiddData.decisionDueDate).toLocaleDateString("en-GB", {
+                                                    day: "2-digit",
+                                                    month: "short",
+                                                    year: "numeric",
+                                                })
+                                                : "Pending due date"}
+                                        </p>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
 

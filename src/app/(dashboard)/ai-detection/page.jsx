@@ -829,6 +829,8 @@ export default function AiDetection() {
                       <div className="w-full flex-1">
                         <div className="mb-3 flex flex-wrap items-center gap-3">
                           <p className="text-sm font-bold text-slate-900 sm:text-base md:text-lg">
+                            {item.type === "email" && "Email Subject: "}
+                            {item.type === "meeting-transcript" && "Meeting Title: "}
                             {item.title}
                           </p>
                           {Array.isArray(item.raiddAnalysis) && item.raiddAnalysis.length > 0 && (
@@ -849,9 +851,6 @@ export default function AiDetection() {
 
                         <div className="flex items-center gap-4 text-xs font-bold text-slate-400">
                           {item.dateTime && <span>{formatDateTime(item.dateTime)}</span>}
-                          <span className="uppercase tracking-widest text-[#6051E2]/60">
-                            {item.type.replace(/-/g, " ")}
-                          </span>
                         </div>
                       </div>
 

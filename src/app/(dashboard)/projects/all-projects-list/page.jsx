@@ -195,7 +195,7 @@ export default function AllProjectsList() {
                                             }`}
                                     >
                                         <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm lg:text-base">
-                                            {project.id}
+                                            {String(project.id).slice(-8)}
                                         </TableCell>
                                         <TableCell className="py-3 px-4 lg:py-4 lg:px-6 text-slate-800 text-sm lg:text-base">
                                             {project.name}
@@ -273,7 +273,7 @@ export default function AllProjectsList() {
                                             }`}
                                     >
                                         <TableCell className="py-3 px-4 text-slate-800 text-sm">
-                                            {project.id}
+                                            {String(project.id).slice(-8)}
                                         </TableCell>
                                         <TableCell className="py-3 px-4 text-slate-800 text-sm">
                                             {project.name}
@@ -328,7 +328,7 @@ export default function AllProjectsList() {
                                             {project.name}
                                         </h3>
                                         <p className="text-xs text-slate-500 mt-1">
-                                            ID: {project.id}
+                                            ID: {String(project.id).slice(-8)}
                                         </p>
                                     </div>
                                     <span

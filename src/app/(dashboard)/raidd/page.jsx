@@ -69,7 +69,7 @@ const normalizeTabId = (value) => {
 
 const normalizeTabType = (value) => {
     if (Array.isArray(value)) {
-        if (value.length > 1) return "All Type";
+        if (value.length > 1) return "All Types";
         value = value[0];
     }
     const normalized = String(value || "").trim().toLowerCase();
@@ -126,10 +126,8 @@ const normalizeRaiddItem = (item, index) => {
     const type = normalizeTabType(item?.type);
     
     let formattedDueDate = formatDate(rawDueDate);
-    if (type === "Decision" && formattedDueDate === "Not available") {
+    if (formattedDueDate === "Not available") {
         formattedDueDate = "Pending due date";
-    } else if (type !== "Decision") {
-        formattedDueDate = "Not available";
     }
 
     return {
@@ -154,7 +152,7 @@ const getStatusStyle = (status) => {
     const statusLower = String(status || "").toLowerCase();
 
     switch (statusLower) {
-        case "all type":
+        case "all types":
             return "bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 shadow-sm";
         case "risk":
             return "bg-red-100 text-red-700";
@@ -354,9 +352,7 @@ export default function RAIDD() {
                                     <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         Type
                                     </TableHead>
-                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
-                                        Vendor Name
-                                    </TableHead>
+
                                     <TableHead className="px-4 py-3 text-sm font-semibold text-white lg:px-6 lg:py-4 lg:text-base">
                                         Date
                                     </TableHead>
@@ -375,8 +371,8 @@ export default function RAIDD() {
                                         className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
                                         onClick={() => router.push(`/raidd/view/${item.id}`)}
                                     >
-                                        <TableCell className="px-4 py-3 text-sm text-slate-800 lg:px-6 lg:py-4 lg:text-base">
-                                            {index + 1}
+                                        <TableCell className="px-4 py-3 text-sm font-mono text-slate-800 lg:px-6 lg:py-4 lg:text-base">
+                                            {String(item.projectId).slice(-8)}
                                         </TableCell>
                                         <TableCell className="px-4 py-3 text-sm text-slate-800 lg:px-6 lg:py-4 lg:text-base">
                                             {item.projectName}
@@ -390,9 +386,7 @@ export default function RAIDD() {
                                                 {item.type}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="px-4 py-3 text-sm text-slate-600 lg:px-6 lg:py-4 lg:text-base">
-                                            {item.vendorName}
-                                        </TableCell>
+
                                         <TableCell className="px-4 py-3 text-sm text-slate-600 lg:px-6 lg:py-4 lg:text-base">
                                             {item.date}
                                         </TableCell>
@@ -431,9 +425,7 @@ export default function RAIDD() {
                                     <TableHead className="px-4 py-3 text-center text-sm font-semibold text-white">
                                         Type
                                     </TableHead>
-                                    <TableHead className="px-4 py-3 text-sm font-semibold text-white">
-                                        Vendor Name
-                                    </TableHead>
+
                                     <TableHead className="px-4 py-3 text-sm font-semibold text-white">
                                         Date
                                     </TableHead>
@@ -452,8 +444,8 @@ export default function RAIDD() {
                                         className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
                                         onClick={() => router.push(`/raidd/view/${item.id}`)}
                                     >
-                                        <TableCell className="px-4 py-3 text-sm text-slate-800">
-                                            {index + 1}
+                                        <TableCell className="px-4 py-3 text-sm font-mono text-slate-800">
+                                            {String(item.projectId).slice(-8)}
                                         </TableCell>
                                         <TableCell className="px-4 py-3 text-sm text-slate-800">
                                             {item.projectName}
@@ -467,9 +459,7 @@ export default function RAIDD() {
                                                 {item.type}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="px-4 py-3 text-sm text-slate-600">
-                                            {item.vendorName}
-                                        </TableCell>
+
                                         <TableCell className="px-4 py-3 text-sm text-slate-600">
                                             {item.date}
                                         </TableCell>
@@ -503,8 +493,8 @@ export default function RAIDD() {
                                         <h3 className="text-base font-semibold text-slate-800">
                                             {item.projectName}
                                         </h3>
-                                        <p className="mt-1 text-xs text-slate-500">
-                                            ID: {index + 1}
+                                        <p className="mt-1 text-xs font-mono text-slate-500">
+                                            ID: {String(item.projectId).slice(-8)}
                                         </p>
                                     </div>
                                     <span
@@ -516,12 +506,7 @@ export default function RAIDD() {
                                     </span>
                                 </div>
                                 <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between gap-4">
-                                        <span className="text-slate-500">Vendor</span>
-                                        <span className="text-right text-slate-700">
-                                            {item.vendorName}
-                                        </span>
-                                    </div>
+
                                     <div className="flex justify-between gap-4">
                                         <span className="text-slate-500">Date</span>
                                         <span className="text-right text-slate-700">
