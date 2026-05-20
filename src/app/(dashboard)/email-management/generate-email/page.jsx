@@ -18,13 +18,23 @@ function resolveGeneratedReply(data, emailIdFromQuery) {
 
     const formatReply = (item) => {
         if (!item || !item.generatedReply) return null;
-        if (typeof item.generatedReply === "string") {
+        
+        const genReply = item.generatedReply;
+        if (typeof genReply === "string") {
             return {
                 subject: item.subject ? `Re: ${item.subject}` : "Generated Reply",
-                body: item.generatedReply,
+                body: genReply,
             };
         }
-        return item.generatedReply;
+        
+        if (genReply?.draft) {
+            return {
+                subject: genReply.draft.subject || item.subject || "Generated Reply",
+                body: `${genReply.draft.greeting || ""}\n\n${genReply.draft.body || ""}`.trim(),
+            };
+        }
+        
+        return genReply;
     };
 
     if (!Array.isArray(data) && data.generatedReply) {
@@ -59,8 +69,7 @@ function GenerateEmailContent() {
     const regenerateMutation = useMutation({
         mutationFn: () =>
             apiPost("/api/project-manager/draft-mail/generate-reply", {
-                emailId: emailIdFromQuery,
-                type: "email",
+                emailId: emailIdFromQuery
             }),
         onSuccess: (response) => {
             const newReply = response?.data?.data || response?.data;
@@ -69,6 +78,16 @@ function GenerateEmailContent() {
                     setRegeneratedReply({
                         subject: "Regenerated AI Reply",
                         body: newReply
+                    });
+                } else if (newReply?.generatedReply?.draft) {
+                    setRegeneratedReply({
+                        subject: newReply.generatedReply.draft.subject || "Regenerated AI Reply",
+                        body: `${newReply.generatedReply.draft.greeting || ""}\n\n${newReply.generatedReply.draft.body || ""}`.trim()
+                    });
+                } else if (newReply?.draft) {
+                    setRegeneratedReply({
+                        subject: newReply.draft.subject || "Regenerated AI Reply",
+                        body: `${newReply.draft.greeting || ""}\n\n${newReply.draft.body || ""}`.trim()
                     });
                 } else if (newReply.generatedReply && typeof newReply.generatedReply === "string") {
                     setRegeneratedReply({

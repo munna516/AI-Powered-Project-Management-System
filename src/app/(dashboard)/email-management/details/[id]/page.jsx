@@ -8,9 +8,11 @@ import { FaLinkedin } from "react-icons/fa";
 import { CiSquareCheck } from "react-icons/ci";
 import { FiAlertTriangle } from "react-icons/fi";
 import { FiFile } from "react-icons/fi";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Loading from "@/components/Loading/Loading";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiDelete, apiPost } from "@/lib/api";
+import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 
 import { SiGmail } from "react-icons/si";
 import { PiMicrosoftOutlookLogo } from "react-icons/pi";
@@ -111,6 +113,7 @@ const formatDateTime = (dateValue) => {
 export default function EmailDetails() {
     const params = useParams();
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [isStarred, setIsStarred] = useState(false);
     const [category, setCategory] = useState("");
 
@@ -227,10 +230,43 @@ export default function EmailDetails() {
         window.print();
     };
 
-    const handleDelete = () => {
-        // Handle delete logic
-        router.back();
+    const deleteEmailMutation = useMutation({
+        mutationFn: (id) => apiDelete(`/api/project-manager/outlook/${id}`),
+    });
+
+    const handleDelete = async () => {
+        const result = await Swal.fire({
+            title: "Delete email?",
+            text: "This action cannot be undone.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#dc2626",
+            cancelButtonColor: "#6051E2",
+            confirmButtonText: "Yes, delete it",
+            cancelButtonText: "Cancel",
+        });
+
+        if (result.isConfirmed) {
+            try {
+                await deleteEmailMutation.mutateAsync(emailId);
+                toast.success("Email deleted successfully");
+                await queryClient.invalidateQueries({ queryKey: ["unified-emails"] });
+                router.back();
+            } catch (err) {
+                toast.error(err?.message || "Failed to delete email");
+            }
+        }
     };
+
+    const draftEmailMutation = useMutation({
+        mutationFn: () => apiPost("/api/project-manager/draft-mail/generate-reply", { emailId }),
+        onSuccess: () => {
+            router.push(`/email-management/generate-email?id=${encodeURIComponent(emailId)}`);
+        },
+        onError: (err) => {
+            toast.error(err?.message || "Failed to generate draft email");
+        },
+    });
 
     if (isLoading) {
         return <Loading />;
@@ -281,8 +317,22 @@ export default function EmailDetails() {
                                     >
                                         <FiTrash2 className="h-5 w-5 text-slate-600" />
                                     </button>
-                                    <Button onClick={() => router.push(`/email-management/generate-email?id=${encodeURIComponent(emailId)}`)} className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-3 text-sm sm:text-base font-semibold cursor-pointer">
-                                        <FiMail className="h-4 w-4" /> Draft Email
+                                    <Button 
+                                        onClick={() => draftEmailMutation.mutate()} 
+                                        disabled={draftEmailMutation.isPending}
+                                        className="bg-[#6051E2] hover:bg-[#4a3db8] text-white px-6 py-3 text-sm sm:text-base font-semibold cursor-pointer flex items-center gap-2"
+                                    >
+                                        {draftEmailMutation.isPending ? (
+                                            <>
+                                                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                Drafting...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FiMail className="h-4 w-4" /> 
+                                                Draft Email
+                                            </>
+                                        )}
                                     </Button>
                                 </div>
                             </div>
