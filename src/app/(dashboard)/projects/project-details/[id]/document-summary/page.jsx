@@ -8,6 +8,18 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import Loading from "@/components/Loading/Loading";
 
+/** Normalize points from API: either top-level arrays or rawAiResponse.{keyPoints|actionPoints}.create with { content } */
+function normalizeSummaryPoints(rawCreate, defaultStatus) {
+    if (!Array.isArray(rawCreate) || rawCreate.length === 0) return null;
+    return rawCreate.map((p) => {
+        if (typeof p === "object" && p !== null) {
+            const text = p.content ?? p.text ?? "";
+            return { text: String(text), status: p.status ?? defaultStatus };
+        }
+        return { text: String(p), status: defaultStatus };
+    });
+}
+
 export default function MeetingSummary() {
     const router = useRouter();
     const params = useParams();
@@ -39,12 +51,27 @@ export default function MeetingSummary() {
         if (documentId && rawProject.documents) {
             const doc = rawProject.documents.find((d) => d.id === documentId);
             if (doc) {
+                const raw = doc.rawAiResponse;
+                const keyFromRaw = normalizeSummaryPoints(raw?.keyPoints?.create, "validated");
+                const actionFromRaw = normalizeSummaryPoints(raw?.actionPoints?.create, "pending");
+                const keyPoints =
+                    keyFromRaw ?? (Array.isArray(doc.keyPoints) ? doc.keyPoints : []);
+                const actionPoints =
+                    actionFromRaw ?? (Array.isArray(doc.actionPoints) ? doc.actionPoints : []);
+                const summaryFromRaw =
+                    typeof raw?.aiDocumentSummary === "string" ? raw.aiDocumentSummary : null;
+                const summaryTop = Array.isArray(doc.aiDocumentSummary)
+                    ? doc.aiDocumentSummary.join(" ")
+                    : doc.aiDocumentSummary;
                 return {
                     type: "Document",
                     topic: doc.title || doc.fileName || "N/A",
-                    summary: Array.isArray(doc.aiDocumentSummary) ? doc.aiDocumentSummary.join(" ") : doc.aiDocumentSummary || "No summary available.",
-                    keyPoints: doc.keyPoints || [],
-                    actionPoints: doc.actionPoints || []
+                    summary:
+                        summaryFromRaw ||
+                        summaryTop ||
+                        "No summary available.",
+                    keyPoints,
+                    actionPoints,
                 };
             }
         } else if (meetingId && rawProject.meetings) {
