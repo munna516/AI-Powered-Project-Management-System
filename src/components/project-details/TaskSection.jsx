@@ -111,7 +111,7 @@ const getRawList = (response) =>
 const normalizeTask = (task, index) => ({
   id: task?.id || index,
   taskName: task?.title || task?.taskName || task?.name || "N/A",
-  description: task?.description || "",
+  description: task?.taskDescription || task?.description || "",
   startDate: formatDate(task?.startDate),
   endDate: formatDate(task?.endDate),
   priority: toTitleCase(task?.priority),
@@ -249,7 +249,7 @@ export default function TaskSection({
     const payload = {
       projectId,
       title,
-      description: taskForm.taskDescription?.trim() || "",
+      taskDescription: taskForm.taskDescription?.trim() || "",
       status: statusValueMap[taskForm.status] || taskForm.status,
       startDate,
       endDate,
@@ -551,8 +551,18 @@ export default function TaskSection({
                         setViewDialogOpen(true);
                       }}
                     >
-                      <TableCell className="px-4 py-3 text-slate-800">
-                        {task.taskName}
+                      <TableCell className="px-4 py-3 max-w-[200px]">
+                        <div className="font-medium text-slate-800">{task.taskName}</div>
+                        {task.description && (
+                          <div
+                            className="mt-1 text-xs text-slate-500"
+                            title={task.description}
+                          >
+                            {task.description.length > 50
+                              ? `${task.description.slice(0, 50)}...`
+                              : task.description}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="px-4 py-3 text-center text-slate-800">
                         {task.startDate}

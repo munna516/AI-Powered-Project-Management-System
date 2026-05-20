@@ -36,7 +36,7 @@ const normalizeRaiddDetails = (item) => {
     const isBulk = Array.isArray(item?.type) && item.type.length > 1;
 
     let parsedDescription = item?.description || "Not available";
-    
+
     if (isBulk) {
         const groupedDescription = {};
         if (item.risks && item.risks.length > 0) {
@@ -54,7 +54,7 @@ const normalizeRaiddDetails = (item) => {
         if (item.dependencies && item.dependencies.length > 0) {
             groupedDescription["Dependencies"] = item.dependencies.map(d => d.data || d);
         }
-        
+
         if (Object.keys(groupedDescription).length > 0) {
             parsedDescription = groupedDescription;
         }
@@ -154,7 +154,7 @@ export default function ViewRAIDD() {
 
     const handleCopyDescription = () => {
         if (!raiddData?.description) return;
-        
+
         let textToCopy = "";
         if (typeof raiddData.description === "object" && raiddData.description !== null) {
             textToCopy = Object.entries(raiddData.description)
@@ -185,7 +185,7 @@ export default function ViewRAIDD() {
                 payload.decisionDueDate = new Date(formData.decisionDueDate).toISOString();
             }
         }
-            
+
         updateMutation.mutate(payload);
     };
 
@@ -250,10 +250,10 @@ export default function ViewRAIDD() {
                                 <span className="font-medium text-slate-700">Project Name:</span>{" "}
                                 <span className="font-bold text-slate-900">{raiddData.projectName}</span>
                             </p>
-                            <p className="text-base text-slate-600">
-                                <span className="font-medium text-slate-700">Vendor Name:</span>{" "}
+                            {/* <p className="text-base text-slate-600">
+                                <span className="font-medium text-slate-700">Client Name:</span>{" "}
                                 <span className="font-medium text-slate-900">{raiddData.vendorName}</span>
-                            </p>
+                            </p> */}
                         </div>
                         {raiddData.projectDescription && raiddData.projectDescription !== "Not available" && (
                             <p className="text-sm leading-relaxed text-slate-600 sm:text-base">

@@ -60,10 +60,10 @@ export default function AddVendor() {
         contactRole: "",
         contactEmail: "",
         contactPhone: "",
-        contactProjects: "",
         contactDesignation: "",
     });
 
+    const [selectedProjects, setSelectedProjects] = useState([]);
     const [errors, setErrors] = useState({});
     const [photo, setPhoto] = useState(null);
     const [documents, setDocuments] = useState([]);
@@ -97,6 +97,23 @@ export default function AddVendor() {
         },
     });
 
+    const { data: projectsResponse, isLoading: isProjectsLoading } = useQuery({
+        queryKey: ["all-projects"],
+        queryFn: () => apiGet("/api/project-manager/project-management/my-projects"),
+    });
+
+    const projects = useMemo(() => {
+        const rawProjects = Array.isArray(projectsResponse?.data)
+            ? projectsResponse.data
+            : Array.isArray(projectsResponse?.data?.data)
+                ? projectsResponse.data.data
+                : [];
+        return rawProjects.map((p) => ({
+            id: p?.id || p?.projectId,
+            name: p?.name || p?.projectName,
+        }));
+    }, [projectsResponse]);
+
     useEffect(() => {
         if (!vendorDetails) return;
         if (initializedVendorRef.current === String(vendorDetails.id)) return;
@@ -117,6 +134,13 @@ export default function AddVendor() {
             contactDesignation: vendorDetails.contactDesignation || "",
         });
         setErrors({});
+
+        // Try to extract project IDs from vendorDetails
+        if (vendorDetails.projectIds) {
+            setSelectedProjects(vendorDetails.projectIds);
+        } else if (Array.isArray(vendorDetails.projects)) {
+            setSelectedProjects(vendorDetails.projects.map(p => p.id || p.projectId));
+        }
 
         setPhoto(
             vendorDetails.photoUrl
@@ -340,6 +364,9 @@ export default function AddVendor() {
             newErrors.photo = "Photo is required";
         }
 
+        if (selectedProjects.length === 0) {
+            newErrors.selectedProjects = "At least one project must be selected";
+        }
 
         // Key Point of Contact
         if (!formData.contactPerson.trim()) {
@@ -397,7 +424,7 @@ export default function AddVendor() {
             payload.append("contactEmail", formData.contactEmail);
             payload.append("contactPhone", formData.contactPhone);
             payload.append("contactDesignation", formData.contactDesignation);
-            payload.append("projectIds", JSON.stringify(["94f62931-3b30-4289-abd6-734796a22377"])); // Example ID from screenshot
+            payload.append("projectIds", JSON.stringify(selectedProjects));
 
             if (photo?.file) {
                 payload.append("photo", photo.file);
@@ -565,7 +592,44 @@ export default function AddVendor() {
                         )}
                     </div>
 
-
+                    {/* Select Projects */}
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-slate-700">
+                            Select Projects <span className="text-red-500">*</span>
+                        </label>
+                        <div className={`max-h-48 overflow-y-auto p-3 border rounded-md bg-white ${errors.selectedProjects ? "border-red-500" : "border-slate-200"}`}>
+                            {isProjectsLoading ? (
+                                <p className="text-sm text-slate-500">Loading projects...</p>
+                            ) : projects.length === 0 ? (
+                                <p className="text-sm text-slate-500">No projects found.</p>
+                            ) : (
+                                projects.map((project) => (
+                                    <div key={project.id} className="flex items-center space-x-2 py-1.5">
+                                        <input
+                                            type="checkbox"
+                                            id={`project-${project.id}`}
+                                            checked={selectedProjects.includes(project.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedProjects(prev => [...prev, project.id]);
+                                                    if (errors.selectedProjects) setErrors(prev => ({...prev, selectedProjects: ""}));
+                                                } else {
+                                                    setSelectedProjects(prev => prev.filter(id => id !== project.id));
+                                                }
+                                            }}
+                                            className="h-4 w-4 rounded border-slate-300 text-[#6051E2] focus:ring-[#6051E2] cursor-pointer"
+                                        />
+                                        <label htmlFor={`project-${project.id}`} className="text-sm font-medium leading-none cursor-pointer text-slate-700">
+                                            {project.name}
+                                        </label>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        {errors.selectedProjects && (
+                            <p className="text-xs text-red-500">{errors.selectedProjects}</p>
+                        )}
+                    </div>
                 </div>
 
                 {/* Key Point of Contact */}

@@ -68,19 +68,24 @@ const normalizeMilestone = (milestone, index) => ({
   phase:
     milestone?.title || milestone?.phase || milestone?.name || `Phase ${index + 1}`,
   title: milestone?.title || "",
-  date: formatDateTime(
-    milestone?.milestoneDate ||
-      milestone?.date ||
-      milestone?.deadline ||
-      milestone?.createdAt
+  startDate: formatDateTime(
+    milestone?.startDate || milestone?.milestoneDate || milestone?.date || milestone?.createdAt
   ),
-  rawDate: milestone?.milestoneDate
-    ? String(milestone.milestoneDate).slice(0, 10)
-    : milestone?.date
-      ? String(milestone.date).slice(0, 10)
-      : milestone?.deadline
-        ? String(milestone.deadline).slice(0, 10)
+  endDate: formatDateTime(
+    milestone?.endDate || milestone?.deadline
+  ),
+  rawStartDate: milestone?.startDate
+    ? String(milestone.startDate).slice(0, 10)
+    : milestone?.milestoneDate
+      ? String(milestone.milestoneDate).slice(0, 10)
+      : milestone?.date
+        ? String(milestone.date).slice(0, 10)
         : "",
+  rawEndDate: milestone?.endDate
+    ? String(milestone.endDate).slice(0, 10)
+    : milestone?.deadline
+      ? String(milestone.deadline).slice(0, 10)
+      : "",
   description: milestone?.description || "N/A",
   status: (() => {
     const s = String(milestone?.status || "").toUpperCase();
@@ -98,7 +103,8 @@ export default function MilestonesSection({ projectId }) {
   const [editingMilestoneId, setEditingMilestoneId] = useState(null);
   const [milestoneForm, setMilestoneForm] = useState({
     phase: "",
-    date: "",
+    startDate: "",
+    endDate: "",
     description: "",
     status: "",
   });
@@ -106,7 +112,8 @@ export default function MilestonesSection({ projectId }) {
   const resetMilestoneForm = () => {
     setMilestoneForm({
       phase: "",
-      date: "",
+      startDate: "",
+      endDate: "",
       description: "",
       status: "",
     });
@@ -188,7 +195,8 @@ export default function MilestonesSection({ projectId }) {
 
     if (
       !milestoneForm.phase.trim() ||
-      !milestoneForm.date ||
+      !milestoneForm.startDate ||
+      !milestoneForm.endDate ||
       !milestoneForm.description.trim() ||
       !milestoneForm.status
     ) {
@@ -196,9 +204,10 @@ export default function MilestonesSection({ projectId }) {
       return;
     }
 
-    const date = toApiDateString(milestoneForm.date);
-    if (!date) {
-      toast.error("Please provide a valid milestone date.");
+    const startDate = toApiDateString(milestoneForm.startDate);
+    const endDate = toApiDateString(milestoneForm.endDate);
+    if (!startDate || !endDate) {
+      toast.error("Please provide valid start and end dates.");
       return;
     }
 
@@ -206,7 +215,8 @@ export default function MilestonesSection({ projectId }) {
       projectId,
       title: milestoneForm.phase.trim(),
       description: milestoneForm.description.trim(),
-      milestoneDate: date,
+      startDate: startDate,
+      endDate: endDate,
       status: milestoneForm.status,
     };
 
@@ -225,7 +235,8 @@ export default function MilestonesSection({ projectId }) {
     setEditingMilestoneId(milestone.id);
     setMilestoneForm({
       phase: milestone.phase.replace("Phase: ", "Phase ").trim(),
-      date: milestone.rawDate || "",
+      startDate: milestone.rawStartDate || "",
+      endDate: milestone.rawEndDate || "",
       description: milestone.description === "N/A" ? "" : milestone.description,
       status: milestone.status,
     });
@@ -275,18 +286,34 @@ export default function MilestonesSection({ projectId }) {
                 className={inputBaseClass}
               />
             </div>
-            <div>
-              <label className={labelClass}>Date</label>
-              <div className="relative">
-                <CalendarIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="date"
-                  value={milestoneForm.date}
-                  onChange={(e) =>
-                    setMilestoneForm((p) => ({ ...p, date: e.target.value }))
-                  }
-                  className={`${inputBaseClass} pl-9`}
-                />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={labelClass}>Start Date</label>
+                <div className="relative">
+                  <CalendarIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="date"
+                    value={milestoneForm.startDate}
+                    onChange={(e) =>
+                      setMilestoneForm((p) => ({ ...p, startDate: e.target.value }))
+                    }
+                    className={`${inputBaseClass} pl-9`}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>End Date</label>
+                <div className="relative">
+                  <CalendarIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="date"
+                    value={milestoneForm.endDate}
+                    onChange={(e) =>
+                      setMilestoneForm((p) => ({ ...p, endDate: e.target.value }))
+                    }
+                    className={`${inputBaseClass} pl-9`}
+                  />
+                </div>
               </div>
             </div>
             <div>
@@ -378,14 +405,14 @@ export default function MilestonesSection({ projectId }) {
                   >
                     <div className="w-full flex-shrink-0 text-left md:w-32 md:pr-6 md:text-right">
                       <p className="text-sm font-medium text-slate-700">
-                        {milestone.date !== "N/A"
-                          ? milestone.date.split(", ")[0]
+                        {milestone.startDate !== "N/A"
+                          ? milestone.startDate.split(", ")[0]
                           : "N/A"}
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
-                        {milestone.date !== "N/A" && milestone.date.includes(", ")
-                          ? milestone.date.split(", ")[1]
-                          : "N/A"}
+                        {milestone.endDate !== "N/A"
+                          ? milestone.endDate.split(", ")[0]
+                          : ""}
                       </p>
                     </div>
 
