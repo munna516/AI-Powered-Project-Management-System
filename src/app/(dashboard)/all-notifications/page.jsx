@@ -253,7 +253,7 @@ export default function AllNotifications() {
                             </div>
                         )}
                         <div>
-                            <h2 className="text-lg font-bold text-slate-900 mb-2 mt-4">Project Summary</h2>
+                            <h2 className="text-lg font-bold text-slate-900 mb-2 mt-4">Meeting Summary</h2>
                             <div className="whitespace-pre-wrap">{selectedNotification?.previousProjectSummary || "Not Found"}</div>
                         </div>
                         {!selectedNotification?.title && !selectedNotification?.message && !selectedNotification?.content && !selectedNotification?.previousProjectSummary && (

@@ -21,6 +21,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiGet, apiPost } from "@/lib/api"
 import Loading from "@/components/Loading/Loading"
 import toast from "react-hot-toast"
+import { DEFAULT_TIMEZONE, getWorldTimezones } from "@/lib/timezones"
+
+const WORLD_TIMEZONES = getWorldTimezones()
 
 const MEETING_COLORS = [
   { color: "bg-blue-100 border-blue-300", dotColor: "bg-blue-500" },
@@ -31,19 +34,16 @@ const MEETING_COLORS = [
 ]
 
 const formatDateForMeeting = (d) => {
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
+  const year = d.getUTCFullYear()
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0")
+  const day = String(d.getUTCDate()).padStart(2, "0")
   return `${year}-${month}-${day}`
 }
 
 const formatTimeForMeeting = (d) => {
-  const hours24 = d.getHours()
-  const minutes = String(d.getMinutes()).padStart(2, "0")
-  const ampm = hours24 >= 12 ? "PM" : "AM"
-  const hours12Raw = hours24 % 12
-  const hours12 = hours12Raw === 0 ? 12 : hours12Raw
-  return `${hours12}:${minutes} ${ampm}`
+  const hours = String(d.getUTCHours()).padStart(2, "0")
+  const minutes = String(d.getUTCMinutes()).padStart(2, "0")
+  return `${hours}:${minutes}`
 }
 
 const fallbackAiSummary = "No AI summary available"
@@ -55,6 +55,7 @@ export default function CalendarMeetings() {
   const [selectedProjectId, setSelectedProjectId] = useState("")
   const [topic, setTopic] = useState("")
   const [startTime, setStartTime] = useState("")
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE)
 
   // Get today's date but in 2026
   const today = new Date()
@@ -186,6 +187,7 @@ export default function CalendarMeetings() {
       setSelectedProjectId("")
       setTopic("")
       setStartTime("")
+      setTimezone(DEFAULT_TIMEZONE)
       await queryClient.invalidateQueries({ queryKey: ["google-calendar-events"] })
     },
     onError: (err) => {
@@ -218,6 +220,7 @@ export default function CalendarMeetings() {
       projectId: selectedProjectId,
       topic: trimmedTopic,
       start_time: parsed.toISOString(),
+      timezone,
     })
   }
 
@@ -225,8 +228,10 @@ export default function CalendarMeetings() {
     const rawEvents = Array.isArray(eventsResponse?.data) ? eventsResponse.data : []
     return rawEvents
       .map((ev, idx) => {
-        const start = ev?.start ? new Date(ev.start) : null
-        const end = ev?.end ? new Date(ev.end) : null
+        const startRaw = ev?.start_time ?? ev?.start?.dateTime ?? ev?.start ?? ev?.meetingDate ?? ev?.createdAt ?? null
+        const endRaw = ev?.end_time ?? ev?.end?.dateTime ?? ev?.end ?? null
+        const start = startRaw ? new Date(startRaw) : null
+        const end = endRaw ? new Date(endRaw) : null
         if (!start || Number.isNaN(start.getTime())) return null
         const durationMinutes = (() => {
           if (!start || !end) return 60
@@ -319,14 +324,25 @@ export default function CalendarMeetings() {
   }
 
   const parseTimeToMinutes = (time) => {
-    const match = String(time || "").match(/(\d+):(\d+)\s*(AM|PM)/)
-    if (!match) return null
-    const [hours, minutes, period] = match.slice(1)
-    let hour = parseInt(hours, 10)
-    if (period === "PM" && hour !== 12) hour += 12
-    if (period === "AM" && hour === 12) hour = 0
-    const totalMinutes = hour * 60 + parseInt(minutes, 10)
-    return Number.isFinite(totalMinutes) ? totalMinutes : null
+    const cleanTime = String(time || "").trim()
+    const ampmMatch = cleanTime.match(/(\d+):(\d+)\s*(AM|PM)/i)
+    if (ampmMatch) {
+      const [hours, minutes, period] = ampmMatch.slice(1)
+      let hour = parseInt(hours, 10)
+      if (period.toUpperCase() === "PM" && hour !== 12) hour += 12
+      if (period.toUpperCase() === "AM" && hour === 12) hour = 0
+      const totalMinutes = hour * 60 + parseInt(minutes, 10)
+      return Number.isFinite(totalMinutes) ? totalMinutes : null
+    }
+    const match24 = cleanTime.match(/(\d+):(\d+)/)
+    if (match24) {
+      const [hours, minutes] = match24.slice(1)
+      const hour = parseInt(hours, 10)
+      const min = parseInt(minutes, 10)
+      const totalMinutes = hour * 60 + min
+      return Number.isFinite(totalMinutes) ? totalMinutes : null
+    }
+    return null
   }
 
   // Derive a dynamic time window for Week view so meetings like "6:15 PM" don't overflow.
@@ -468,13 +484,75 @@ export default function CalendarMeetings() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Start time</label>
-                <input
-                  type="datetime-local"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                <label className="text-sm font-medium text-slate-700">Timezone</label>
+                <select
                   className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
-                />
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                >
+                  {WORLD_TIMEZONES.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Start time</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={startTime ? startTime.split("T")[0] : ""}
+                    onChange={(e) => {
+                      const newDate = e.target.value || ""
+                      const currentTime = startTime ? startTime.split("T")[1] || "12:00" : "12:00"
+                      setStartTime(newDate ? `${newDate}T${currentTime}` : "")
+                    }}
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#6051E2] focus:outline-none"
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={startTime ? startTime.split("T")[1]?.split(":")[0] || "12" : "12"}
+                      onChange={(e) => {
+                        const newHour = e.target.value
+                        const currentDateVal = startTime ? startTime.split("T")[0] || new Date().toISOString().split("T")[0] : new Date().toISOString().split("T")[0]
+                        const currentMin = startTime ? startTime.split("T")[1]?.split(":")[1] || "00" : "00"
+                        setStartTime(`${currentDateVal}T${newHour}:${currentMin}`)
+                      }}
+                      className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#6051E2] focus:outline-none"
+                    >
+                      {Array.from({ length: 24 }).map((_, h) => {
+                        const val = String(h).padStart(2, "0")
+                        return (
+                          <option key={val} value={val}>
+                            {val}
+                          </option>
+                        )
+                      })}
+                    </select>
+                    <span className="text-slate-400 font-semibold">:</span>
+                    <select
+                      value={startTime ? startTime.split("T")[1]?.split(":")[1] || "00" : "00"}
+                      onChange={(e) => {
+                        const newMin = e.target.value
+                        const currentDateVal = startTime ? startTime.split("T")[0] || new Date().toISOString().split("T")[0] : new Date().toISOString().split("T")[0]
+                        const currentHour = startTime ? startTime.split("T")[1]?.split(":")[0] || "12" : "12"
+                        setStartTime(`${currentDateVal}T${currentHour}:${newMin}`)
+                      }}
+                      className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#6051E2] focus:outline-none"
+                    >
+                      {Array.from({ length: 60 }).map((_, m) => {
+                        const val = String(m).padStart(2, "0")
+                        return (
+                          <option key={val} value={val}>
+                            {val}
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -713,13 +791,7 @@ export default function CalendarMeetings() {
                                   className={`h-[60px] ${isLast ? "" : "border-b"} border-gray-200 flex items-start justify-end pr-3 pt-2`}
                                 >
                                   <span className="text-xs text-gray-500 font-medium">
-                                    {hour === 12
-                                      ? "12 PM"
-                                      : hour === 0
-                                        ? "12 AM"
-                                        : hour > 12
-                                          ? `${hour - 12} PM`
-                                          : `${hour} AM`}
+                                    {String(hour).padStart(2, "0")}:00
                                   </span>
                                 </div>
                               )

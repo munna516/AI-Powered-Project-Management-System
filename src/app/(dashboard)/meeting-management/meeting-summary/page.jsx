@@ -31,13 +31,13 @@ const normalizeMeeting = (raw) => {
                 .filter(Boolean)
             : [];
 
-    const meetingDateValue = detail?.meetingDate ?? detail?.createdAt ?? detail?.date ?? "";
+    const meetingDateValue = detail?.start_time ?? detail?.start?.dateTime ?? detail?.start ?? detail?.meetingDate ?? detail?.createdAt ?? detail?.date ?? "";
     const meetingDate = meetingDateValue ? new Date(meetingDateValue) : null;
     const date = meetingDate && !Number.isNaN(meetingDate.getTime())
-        ? meetingDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+        ? meetingDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })
         : fallback;
     const time = meetingDate && !Number.isNaN(meetingDate.getTime())
-        ? meetingDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })
+        ? `${String(meetingDate.getUTCHours()).padStart(2, "0")}:${String(meetingDate.getUTCMinutes()).padStart(2, "0")}`
         : fallback;
 
     // API shape from your payload:
@@ -99,21 +99,110 @@ function MeetingSummaryInner() {
     const params = useParams();
     const meetingId = searchParams.get("id") || params?.id;
 
+    const isUuid = useMemo(() => {
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(meetingId || "");
+    }, [meetingId]);
+
     const {
-        data: meetingResponse,
-        isLoading,
-        isError,
-        error,
+        data: dbMeetingResponse,
+        isLoading: isDbLoading,
+        isError: isDbError,
+        error: dbError,
     } = useQuery({
         queryKey: ["meeting-details", meetingId],
-        enabled: Boolean(meetingId),
+        enabled: Boolean(meetingId && isUuid),
         queryFn: () => apiGet(`/api/project-manager/project-meeting/${meetingId}`),
     });
 
-    const meetingData = useMemo(() => normalizeMeeting(meetingResponse), [meetingResponse]);
+    const {
+        data: calendarEventsResponse,
+        isLoading: isCalendarLoading,
+        isError: isCalendarError,
+        error: calendarError,
+    } = useQuery({
+        queryKey: ["google-calendar-events-fallback"],
+        enabled: Boolean(meetingId && !isUuid),
+        queryFn: () => apiGet("/api/project-manager/google-calendar/all-events"),
+    });
+
+    const meetingData = useMemo(() => {
+        if (isUuid) {
+            return normalizeMeeting(dbMeetingResponse);
+        } else if (calendarEventsResponse) {
+            const rawEvents = calendarEventsResponse?.data || calendarEventsResponse || [];
+            const eventsList = Array.isArray(rawEvents) ? rawEvents : (Array.isArray(rawEvents?.data) ? rawEvents.data : []);
+            const foundEvent = eventsList.find(ev => String(ev?.id) === String(meetingId) || String(ev?.meetingId) === String(meetingId));
+            
+            if (foundEvent) {
+                const participantsRaw = foundEvent?.attendees ?? foundEvent?.participants ?? foundEvent?.invitees ?? [];
+                const participants = Array.isArray(participantsRaw)
+                    ? participantsRaw.map(p => typeof p === 'string' ? p : (p?.email || p?.displayName || "")).filter(Boolean)
+                    : [];
+
+                const meetingDateValue = foundEvent?.start ?? foundEvent?.meetingDate ?? foundEvent?.createdAt ?? "";
+                const meetingDate = meetingDateValue ? new Date(meetingDateValue) : null;
+                const date = meetingDate && !Number.isNaN(meetingDate.getTime())
+                    ? meetingDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                    : fallback;
+                const time = meetingDate && !Number.isNaN(meetingDate.getTime())
+                    ? `${String(meetingDate.getHours()).padStart(2, "0")}:${String(meetingDate.getMinutes()).padStart(2, "0")}`
+                    : fallback;
+
+                const aiSummaryRaw = foundEvent?.aiSummary ?? foundEvent?.aiMeetingSummary ?? foundEvent?.description ?? "";
+                const aiMeetingSummary = Array.isArray(aiSummaryRaw)
+                    ? aiSummaryRaw.filter(Boolean)
+                    : (typeof aiSummaryRaw === "string" && aiSummaryRaw.trim() ? [aiSummaryRaw] : []);
+
+                const keyPoints = Array.isArray(foundEvent?.keyPoints)
+                    ? foundEvent.keyPoints.map(kp => typeof kp === 'string' ? kp : (kp?.content || kp?.text || "")).filter(Boolean)
+                    : [];
+
+                const actionItems = Array.isArray(foundEvent?.actionPoints)
+                    ? foundEvent.actionPoints.map(ap => ({
+                        task: typeof ap === 'string' ? ap : (ap?.content ?? ap?.task ?? ""),
+                        owner: ap?.status ?? "",
+                        dueDate: "",
+                    }))
+                    : [];
+
+                return {
+                    title: foundEvent?.summary ?? foundEvent?.title ?? foundEvent?.subject ?? "Meeting Notes",
+                    date,
+                    time,
+                    organizer: foundEvent?.organizer?.email ?? foundEvent?.organizer?.displayName ?? foundEvent?.organizer ?? foundEvent?.host ?? fallback,
+                    participants,
+                    agenda: typeof foundEvent?.agenda === 'string' ? [foundEvent.agenda] : (Array.isArray(foundEvent?.agenda) ? foundEvent.agenda : []),
+                    aiMeetingSummary,
+                    lastMeetingSummary: foundEvent?.lastMeetingSummary ?? "",
+                    keyPoints,
+                    actionItems,
+                    notes: typeof foundEvent?.notes === 'string' ? [foundEvent.notes] : (Array.isArray(foundEvent?.notes) ? foundEvent.notes : []),
+                    recordingLink: foundEvent?.htmlLink ?? foundEvent?.url ?? foundEvent?.videoPlayUrl ?? foundEvent?.meetingRecordingLink ?? "",
+                };
+            }
+        }
+        return {
+            title: fallback,
+            date: fallback,
+            time: fallback,
+            organizer: fallback,
+            participants: [],
+            agenda: [],
+            aiMeetingSummary: [],
+            lastMeetingSummary: "",
+            keyPoints: [],
+            actionItems: [],
+            notes: [],
+            recordingLink: "",
+        };
+    }, [isUuid, dbMeetingResponse, calendarEventsResponse, meetingId]);
+
+    const isLoading = isUuid ? isDbLoading : isCalendarLoading;
+    const isError = isUuid ? isDbError : isCalendarError;
+    const error = isUuid ? dbError : calendarError;
 
     if (isLoading) return <Loading />;
-    if (isError || !meetingId) {
+    if (isError || !meetingId || !meetingData || (meetingData.title === fallback && !isUuid)) {
         return (
             <Card>
                 <CardContent className="p-6 text-center text-sm text-slate-500 sm:text-base">
