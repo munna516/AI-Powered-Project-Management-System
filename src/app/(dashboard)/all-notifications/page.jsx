@@ -10,7 +10,8 @@ import { apiGet, apiPatch } from "@/lib/api";
 import Loading from "@/components/Loading/Loading";
 import toast from "react-hot-toast";
 import PageHeader from "@/components/PageHeader/PageHeader";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Zap } from "lucide-react";
 
 const NOTIFICATIONS_QUERY_KEY = ["notifications"];
 
@@ -227,38 +228,85 @@ export default function AllNotifications() {
             </div>
 
             <Dialog open={!!selectedNotification} onOpenChange={(open) => !open && setSelectedNotification(null)}>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>{selectedNotification?.title || "Meeting Summary"}</DialogTitle>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+                    <DialogHeader className="bg-gradient-to-r from-[#6051E2]/20 via-[#6051E2]/10 to-[#6051E2]/5 p-6 rounded-t-lg -mt-6 -mx-6 mb-2 border-b border-[#6051E2]/20">
+                        <DialogTitle className="flex items-center gap-3 text-xl text-slate-900 font-bold">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#6051E2]/15">
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#6051E2]"></div>
+                            </div>
+                            {selectedNotification?.title || "Meeting Summary"}
+                        </DialogTitle>
+                        <DialogDescription className="mt-4 ml-11 p-3.5 bg-white/60 backdrop-blur-md rounded-lg border border-[#6051E2]/20 shadow-sm whitespace-pre-wrap text-[15px] font-semibold text-[#3b3091] leading-relaxed">
+                            {selectedNotification?.message || selectedNotification?.content}
+                        </DialogDescription>
                     </DialogHeader>
-                    <div className="mt-4 space-y-4 text-sm text-slate-700">
-                        {selectedNotification?.type && (
-                            <div>
-                                <span className="font-semibold text-slate-900">Type: </span>
-                                {selectedNotification.type}
+
+                    <div className="mt-4 space-y-6 text-sm text-slate-700">
+                        <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
+                            <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                                <Zap className="h-4 w-4 text-[#6051E2]" />
+                                Previous Meeting Summary
+                            </h4>
+                            <div className="whitespace-pre-wrap text-slate-600 leading-relaxed">
+                                {selectedNotification?.meetingSummary || selectedNotification?.previousProjectSummary || "No summary available."}
                             </div>
-                        )}
-                        {(selectedNotification?.message || selectedNotification?.content) && (
-                            <div>
-                                <span className="font-semibold text-slate-900">Message: </span>
-                                {selectedNotification.message || selectedNotification.content}
-                            </div>
-                        )}
-                        {selectedNotification?.link && (
-                            <div>
-                                <span className="font-semibold text-slate-900">Link: </span>
-                                <a href={selectedNotification.link} target="_blank" rel="noreferrer" className="text-[#6051E2] hover:underline break-all">
-                                    {selectedNotification.link}
-                                </a>
-                            </div>
-                        )}
-                        <div>
-                            <h2 className="text-lg font-bold text-slate-900 mb-2 mt-4">Project Summary</h2>
-                            <div className="whitespace-pre-wrap">{selectedNotification?.previousProjectSummary || "Not Found"}</div>
                         </div>
-                        {!selectedNotification?.title && !selectedNotification?.message && !selectedNotification?.content && !selectedNotification?.previousProjectSummary && (
-                            <div>No summary available.</div>
+
+                        {selectedNotification?.raiddData && Object.keys(selectedNotification.raiddData).length > 0 && (
+                            <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
+                                <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                    <Zap className="h-4 w-4 text-[#6051E2]" />
+                                    RAIDD Analysis
+                                </h4>
+                                <div className="space-y-4">
+                                    {Object.entries(selectedNotification.raiddData).map(([key, items]) => {
+                                        if (!items || items.length === 0) return null;
+                                        const label = key.replace("project", "");
+                                        return (
+                                            <div key={key}>
+                                                <h5 className="text-xs font-bold text-slate-800 uppercase mb-2">{label}</h5>
+                                                <ul className="space-y-2">
+                                                    {items.map(item => (
+                                                        <li key={item.id} className="text-sm text-slate-600 flex items-start gap-2">
+                                                            <span className="text-slate-400 mt-0.5">•</span>
+                                                            <span>{item.data}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         )}
+
+                        {selectedNotification?.link && (
+                            <div className="flex items-center justify-between p-4 rounded-lg border border-blue-100 bg-blue-50/50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                        <Zap className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-blue-900">Join Meeting</p>
+                                        <p className="text-xs text-blue-700">Link is ready for your session</p>
+                                    </div>
+                                </div>
+                                <Button
+                                    asChild
+                                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200"
+                                >
+                                    <a href={selectedNotification.link} target="_blank" rel="noreferrer">
+                                        Join Now
+                                    </a>
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="mt-6 flex justify-end">
+                        <Button variant="outline" onClick={() => setSelectedNotification(null)} className="cursor-pointer">
+                            Close
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>

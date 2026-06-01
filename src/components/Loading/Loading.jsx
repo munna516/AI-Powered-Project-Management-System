@@ -1,7 +1,11 @@
 export default function Loading() {
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50">
-      <div className="w-8 h-8 border-4 border-gray-300 border-t-primary rounded-full animate-spin"></div>
+    <div
+      className="flex min-h-[50vh] w-full items-center justify-center py-16"
+      aria-busy="true"
+      aria-label="Loading"
+    >
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary" />
     </div>
   );
 }

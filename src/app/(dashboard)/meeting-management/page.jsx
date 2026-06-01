@@ -17,11 +17,20 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
 import Loading from "@/components/Loading/Loading";
 
+const ALL_CALENDAR_EVENTS_API = "/api/project-manager/google-calendar/all-events";
+
+const getEventsListFromResponse = (response) => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.data)) return response.data.data;
+  return [];
+};
+
 export default function MeetingManagement() {
   const [searchValue, setSearchValue] = useState("");
   const [selectedSource, setSelectedSource] = useState("all");
   const router = useRouter();
-  const [dateFilter, setDateFilter] = useState("today");
+  const [dateFilter, setDateFilter] = useState("all");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
 
@@ -38,44 +47,46 @@ export default function MeetingManagement() {
       return "Last 7 Days";
     } else if (dateFilter === "month") {
       return "This Month";
+    } else if (dateFilter === "all") {
+      return "All Dates";
     }
     return "";
   };
 
   const {
-    data: meetingsResponse,
-    isLoading: isMeetingsLoading,
-    isError: isMeetingsError,
-    error: meetingsError,
+    data: eventsResponse,
+    isLoading: isEventsLoading,
+    isError: isEventsError,
+    error: eventsError,
   } = useQuery({
-    queryKey: ["my-meetings"],
-    queryFn: () => apiGet("/api/project-manager/project-meeting/my-meetings"),
+    queryKey: ["google-calendar-events"],
+    queryFn: () => apiGet(ALL_CALENDAR_EVENTS_API),
   });
 
-  const meetingsRaw = useMemo(() => {
-    const r1 = meetingsResponse?.data;
-    const r2 = meetingsResponse?.data?.data;
-    const r3 = meetingsResponse?.data?.meetings;
+  const eventsRaw = useMemo(
+    () => getEventsListFromResponse(eventsResponse),
+    [eventsResponse]
+  );
 
-    if (Array.isArray(r1)) return r1;
-    if (Array.isArray(r2)) return r2;
-    if (Array.isArray(r3)) return r3;
-    return [];
-  }, [meetingsResponse]);
+  const normalizeMeeting = (ev) => {
+    const id = ev?.id ?? ev?.meetingId ?? ev?._id ?? "";
+    const dateTime = ev?.start_time ?? ev?.start?.dateTime ?? ev?.start ?? ev?.meetingDate ?? ev?.createdAt ?? null;
+    const eventType = String(ev?.type ?? "");
+    const platform =
+      ev?.location ??
+      (eventType === "ZOOM_MEETING" ? "Zoom" : eventType.replace(/_/g, " ")) ??
+      "Zoom";
+    const recordingLink =
+      ev?.url ?? ev?.htmlLink ?? ev?.videoPlayUrl ?? ev?.meetingRecordingLink ?? "";
 
-  const normalizeMeeting = (m) => {
-    const id = m?.id ?? m?.meetingId ?? m?._id ?? "";
-    const dateTime = m?.createdAt ?? m?.dateTime ?? m?.meetingDateTime ?? m?.meetingDate ?? m?.startTime ?? m?.time ?? null;
-    const platform = m?.platform ?? m?.source ?? m?.meetingPlatform ?? m?.meetingSource ?? "Zoom";
-    const recordingLink = m?.videoPlayUrl ?? m?.meetingRecordingLink ?? m?.recording_url ?? m?.link ?? m?.url ?? "";
-
-    const projectTitle = m?.project?.name || "Not available";
-    const meetingTitle = m?.title || "Not available";
+    const projectTitle = ev?.projectName ?? ev?.project?.name ?? "Not available";
+    const meetingTitle = ev?.title ?? ev?.summary ?? "Not available";
 
     return {
       id: String(id),
       dateTime,
       platform: String(platform || ""),
+      eventType,
       recordingLink: String(recordingLink || ""),
       projectTitle,
       meetingTitle,
@@ -83,8 +94,8 @@ export default function MeetingManagement() {
   };
 
   const normalizedMeetings = useMemo(
-    () => meetingsRaw.map(normalizeMeeting).filter((m) => Boolean(m.id)),
-    [meetingsRaw]
+    () => eventsRaw.map(normalizeMeeting).filter((m) => Boolean(m.id)),
+    [eventsRaw]
   );
 
   const getDateRangeLocal = () => {
@@ -131,8 +142,17 @@ export default function MeetingManagement() {
     if (selectedSource !== "all") {
       filtered = filtered.filter((item) => {
         const platformLower = String(item.platform || "").toLowerCase();
-        if (selectedSource === "zoom") return platformLower.includes("zoom");
-        if (selectedSource === "google-meet") return platformLower.includes("google") || platformLower.includes("meet");
+        const typeLower = String(item.eventType || "").toLowerCase();
+        if (selectedSource === "zoom") {
+          return platformLower.includes("zoom") || typeLower.includes("zoom");
+        }
+        if (selectedSource === "google-meet") {
+          return (
+            platformLower.includes("google") ||
+            platformLower.includes("meet") ||
+            typeLower.includes("google")
+          );
+        }
         return true;
       });
     }
@@ -147,6 +167,7 @@ export default function MeetingManagement() {
         (item) =>
           String(item.platform || "").toLowerCase().includes(searchLower) ||
           String(item.projectTitle || "").toLowerCase().includes(searchLower) ||
+          String(item.meetingTitle || "").toLowerCase().includes(searchLower) ||
           String(item.recordingLink || "").toLowerCase().includes(searchLower)
       );
     }
@@ -190,22 +211,26 @@ export default function MeetingManagement() {
     if (!value) return "";
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleDateString("en-GB", {
+    const dateStr = d.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
       year: "numeric",
+      timeZone: "UTC"
     });
+    const hours = String(d.getUTCHours()).padStart(2, "0");
+    const minutes = String(d.getUTCMinutes()).padStart(2, "0");
+    return `${dateStr} • ${hours}:${minutes}`;
   };
 
-  if (isMeetingsLoading) {
+  if (isEventsLoading) {
     return <Loading />;
   }
 
-  if (isMeetingsError) {
+  if (isEventsError) {
     return (
       <Card>
         <CardContent className="p-6 text-center text-sm text-slate-500 sm:text-base">
-          {meetingsError?.message || "Failed to load meetings."}
+          {eventsError?.message || "Failed to load calendar events."}
         </CardContent>
       </Card>
     );
@@ -271,6 +296,7 @@ export default function MeetingManagement() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All Dates</SelectItem>
                   <SelectItem value="today">Today</SelectItem>
                   <SelectItem value="7days">Last 7 Days</SelectItem>
                   <SelectItem value="month">This Month</SelectItem>
@@ -330,18 +356,19 @@ export default function MeetingManagement() {
             <Table>
               <TableHeader className="bg-[#6051E2] text-white">
                 <TableRow className="border-b-0 hover:bg-[#6051E2]">
+                  <TableHead className="py-3 px-4 text-white font-semibold">Meeting Title</TableHead>
                   <TableHead className="py-3 px-4 text-white font-semibold">Project Title</TableHead>
-                  <TableHead className="py-3 px-4 text-white font-semibold">Date</TableHead>
+                  <TableHead className="py-3 px-4 text-white font-semibold">Date & Time</TableHead>
                   <TableHead className="py-3 px-4 text-white font-semibold">Platform</TableHead>
-                  <TableHead className="py-3 px-4 text-white font-semibold">Meeting recordings link</TableHead>
-                  <TableHead className="py-3 px-4 text-white font-semibold">Action</TableHead>
+                  <TableHead className="py-3 px-4 text-white font-semibold">Link</TableHead>
+                  <TableHead className="py-3 px-4 text-white font-semibold text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="text-center py-8 text-slate-500"
                     >
                       No data found
@@ -351,12 +378,16 @@ export default function MeetingManagement() {
                   filteredData.map((item) => (
                     <TableRow
                       key={item.id}
-                      className="border-b border-slate-100 hover:bg-slate-50"
+                      onClick={() => handleViewDetails(item.id)}
+                      className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
                     >
-                      <TableCell className="py-3 px-4 text-slate-800">
+                      <TableCell className="py-3 px-4 text-slate-800 font-semibold max-w-[200px] truncate" title={item.meetingTitle}>
+                        {item.meetingTitle}
+                      </TableCell>
+                      <TableCell className="py-3 px-4 text-slate-800 max-w-[150px] truncate" title={item.projectTitle}>
                         {item.projectTitle}
                       </TableCell>
-                      <TableCell className="py-3 px-4 text-slate-800">
+                      <TableCell className="py-3 px-4 text-slate-800 whitespace-nowrap">
                         {formatMeetingDate(item.dateTime)}
                       </TableCell>
                       <TableCell className="py-3 px-4 text-slate-800">{item.platform || "-"}</TableCell>
@@ -366,6 +397,7 @@ export default function MeetingManagement() {
                             href={item.recordingLink}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
                           >
                             Click to view
@@ -378,7 +410,10 @@ export default function MeetingManagement() {
                         <div className="flex items-center justify-end gap-3">
                           <button
                             type="button"
-                            onClick={() => handleViewDetails(item.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewDetails(item.id);
+                            }}
                             className="text-[#6051E2] hover:text-[#4a3db8] transition-colors cursor-pointer"
                             title="View details"
                             aria-label="View details"
@@ -406,15 +441,20 @@ export default function MeetingManagement() {
                 {filteredData.map((item) => (
                   <div
                     key={item.id}
-                    className="p-4 space-y-3 hover:bg-slate-50 transition-colors"
+                    onClick={() => handleViewDetails(item.id)}
+                    className="p-4 space-y-3 hover:bg-slate-50 transition-colors cursor-pointer"
                   >
                     <div className="flex items-start justify-between">
                       <div className="space-y-1 flex-1">
-                        <p className="text-xs text-slate-500">Project Title</p>
+                        <p className="text-xs text-slate-500">Meeting Title</p>
                         <p className="text-sm font-semibold text-slate-900">
+                          {item.meetingTitle}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-2">Project Title</p>
+                        <p className="text-sm font-medium text-slate-700">
                           {item.projectTitle}
                         </p>
-                        <p className="text-xs text-slate-500 mt-2">Date</p>
+                        <p className="text-xs text-slate-500 mt-2">Date & Time</p>
                         <p className="text-sm font-semibold text-slate-900">
                           {formatMeetingDate(item.dateTime)}
                         </p>
@@ -424,7 +464,10 @@ export default function MeetingManagement() {
                         </p>
                       </div>
                       <button
-                        onClick={() => handleViewDetails(item.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewDetails(item.id);
+                        }}
                         className="text-[#6051E2] hover:text-[#4a3db8] transition-colors cursor-pointer flex-shrink-0 ml-2"
                         title="View details"
                         aria-label="View details"
@@ -434,12 +477,13 @@ export default function MeetingManagement() {
                     </div>
                     <div className="grid grid-cols-1 gap-2 text-xs">
                       <div>
-                        <p className="text-slate-500">Meeting recordings link</p>
+                        <p className="text-slate-500">Link</p>
                         {item.recordingLink ? (
                           <a
                             href={item.recordingLink}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="text-blue-600 hover:text-blue-800 hover:underline transition-colors break-all"
                           >
                             Click to view

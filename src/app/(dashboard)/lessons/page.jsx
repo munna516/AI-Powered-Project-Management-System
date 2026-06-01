@@ -56,12 +56,10 @@ const normalizeLesson = (lesson, index) => ({
         lesson?.owner ||
         lesson?.clientName ||
         "Not available",
-    mail: lesson?.mail || lesson?.email || "Not available",
     source: lesson?.source || "Not available",
     date: formatDate(lesson?.loggedDate || lesson?.created_at || lesson?.createdAt),
     rawDate: lesson?.loggedDate || lesson?.created_at || lesson?.createdAt || null,
     logger: lesson?.source || "Not available",
-    title: lesson?.title || "Not available",
     client: lesson?.clientName || lesson?.project?.client?.name || "Not available",
     description: lesson?.description || "Not available",
 });
@@ -183,10 +181,8 @@ export default function Lessons() {
                     lesson.projectId.toLowerCase().includes(searchLower) ||
                     lesson.projectName.toLowerCase().includes(searchLower) ||
                     lesson.owner.toLowerCase().includes(searchLower) ||
-                    lesson.mail.toLowerCase().includes(searchLower) ||
                     lesson.date.toLowerCase().includes(searchLower) ||
                     lesson.logger.toLowerCase().includes(searchLower) ||
-                    lesson.title.toLowerCase().includes(searchLower) ||
                     lesson.description.toLowerCase().includes(searchLower)
             );
         }
@@ -289,13 +285,11 @@ export default function Lessons() {
             columns: [
                 { header: "Project ID", key: "projectId" },
                 { header: "Project Name", key: "projectName" },
-                { header: "Title", key: "title" },
                 { header: "Description", key: "description" },
                 { header: "Client", key: "client" },
                 { header: "Owner", key: "owner" },
-                { header: "Mail", key: "mail" },
                 { header: "Source", key: "source" },
-                { header: "Date", key: "date" }
+                { header: "Date", value: (row) => `="${row.date}"` }
             ]
         });
         toast.success("Lessons learned data exported successfully!");
@@ -508,12 +502,7 @@ export default function Lessons() {
                                                     {lesson.client}
                                                 </p>
                                             </div>
-                                            <div>
-                                                <p className="text-slate-500">Mail</p>
-                                                <p className="text-slate-800 font-medium">
-                                                    {lesson.mail}
-                                                </p>
-                                            </div>
+
                                             <div>
                                                 <p className="text-slate-500">Date</p>
                                                 <p className="text-slate-800 font-medium">
@@ -542,7 +531,7 @@ export default function Lessons() {
                         <DialogHeader className="relative">
                             <div className="flex items-start justify-between gap-4">
                                 <DialogTitle className="text-xl sm:text-2xl font-bold text-slate-900 pr-8 flex-1">
-                                    {selectedLesson?.title || ""}
+                                    Lesson Learned Details
                                 </DialogTitle>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                     {!isEditMode && (
