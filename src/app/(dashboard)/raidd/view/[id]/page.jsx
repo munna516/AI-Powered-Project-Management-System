@@ -62,7 +62,7 @@ const normalizeRaiddDetails = (item) => {
 
     return {
         id: String(item?.id || ""),
-        type: isBulk ? "All Type" : formatLabel(item?.type),
+        type: isBulk ? item.type.map(t => formatLabel(t)).join(", ") : formatLabel(item?.type),
         title: item?.title || "Not available",
         description: parsedDescription,
         projectId: item?.project?.id || item?.projectId || "Not available",
@@ -269,60 +269,85 @@ export default function ViewRAIDD() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <div className="lg:col-span-2">
-                    <Card className="bg-[#EFEEFC] p-4 sm:p-5">
-                        <CardContent className="space-y-4 p-0">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-slate-900 sm:text-lg">
-                                    AI {raiddData.type}
-                                </h3>
-                                <button
-                                    onClick={handleCopyDescription}
-                                    title="Copy Description"
-                                    className="flex items-center gap-1.5 text-xs font-medium text-[#6051E2] hover:text-white bg-[#6051E2]/10 hover:bg-[#6051E2] px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
-                                >
-                                    <FiCopy className="h-3.5 w-3.5" />
-                                    <span>Copy</span>
-                                </button>
-                            </div>
-                            <div className="rounded-lg p-3">
-                                <div className="flex items-start gap-2">
-                                    <HiOutlineSparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
-                                    <div>
-                                        <p className="mb-1 text-xs font-medium text-slate-700 uppercase">
-                                            Description
-                                        </p>
-                                        <div className="text-xs leading-relaxed text-slate-600 sm:text-sm">
-                                            {typeof raiddData.description === "object" && raiddData.description !== null ? (
-                                                <div className="space-y-3">
-                                                    {Object.entries(raiddData.description).map(([key, value]) => {
-                                                        const items = Array.isArray(value) ? value : [value];
-                                                        if (items.length === 0) return null;
-                                                        return (
-                                                            <div key={key} className="space-y-1">
-                                                                <p className="text-[10px] font-bold uppercase tracking-wider text-primary/80">
-                                                                    {key}
-                                                                </p>
-                                                                <ul className="space-y-1 list-disc pl-4">
-                                                                    {items.map((item, idx) => (
-                                                                        <li key={idx} className="text-slate-600">
-                                                                            {String(item)}
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            </div>
-                                                        );
-                                                    })}
+                <div className="lg:col-span-2 space-y-6">
+                    {typeof raiddData.description === "object" && raiddData.description !== null ? (
+                        Object.entries(raiddData.description).map(([key, value]) => {
+                            const items = Array.isArray(value) ? value : [value];
+                            if (items.length === 0) return null;
+                            return (
+                                <Card key={key} className="bg-[#EFEEFC] p-4 sm:p-5">
+                                    <CardContent className="space-y-4 p-0">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-base font-semibold text-slate-900 sm:text-lg">
+                                                AI {key}
+                                            </h3>
+                                            <button
+                                                onClick={() => {
+                                                    const textToCopy = `${key.toUpperCase()}:\n${items.map(item => `- ${String(item)}`).join('\n')}`;
+                                                    navigator.clipboard.writeText(textToCopy)
+                                                        .then(() => toast.success(`${key} copied successfully!`))
+                                                        .catch(() => toast.error(`Failed to copy ${key}`));
+                                                }}
+                                                title={`Copy ${key}`}
+                                                className="flex items-center gap-1.5 text-xs font-medium text-[#6051E2] hover:text-white bg-[#6051E2]/10 hover:bg-[#6051E2] px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+                                            >
+                                                <FiCopy className="h-3.5 w-3.5" />
+                                                <span>Copy</span>
+                                            </button>
+                                        </div>
+                                        <div className="rounded-lg p-3">
+                                            <div className="flex items-start gap-2">
+                                                <HiOutlineSparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+                                                <div className="w-full">
+                                                    <p className="mb-1 text-xs font-medium text-slate-700 uppercase">
+                                                        Description
+                                                    </p>
+                                                    <ul className="space-y-1 list-disc pl-4 text-xs leading-relaxed text-slate-600 sm:text-sm">
+                                                        {items.map((item, idx) => (
+                                                            <li key={idx} className="text-slate-600">
+                                                                {String(item)}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
                                                 </div>
-                                            ) : (
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })
+                    ) : (
+                        <Card className="bg-[#EFEEFC] p-4 sm:p-5">
+                            <CardContent className="space-y-4 p-0">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-base font-semibold text-slate-900 sm:text-lg">
+                                        {raiddData.type === "All Type" ? "AI Summary" : `AI ${raiddData.type}`}
+                                    </h3>
+                                    <button
+                                        onClick={handleCopyDescription}
+                                        title="Copy Description"
+                                        className="flex items-center gap-1.5 text-xs font-medium text-[#6051E2] hover:text-white bg-[#6051E2]/10 hover:bg-[#6051E2] px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+                                    >
+                                        <FiCopy className="h-3.5 w-3.5" />
+                                        <span>Copy</span>
+                                    </button>
+                                </div>
+                                <div className="rounded-lg p-3">
+                                    <div className="flex items-start gap-2">
+                                        <HiOutlineSparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+                                        <div>
+                                            <p className="mb-1 text-xs font-medium text-slate-700 uppercase">
+                                                Description
+                                            </p>
+                                            <div className="text-xs leading-relaxed text-slate-600 sm:text-sm">
                                                 <p>{raiddData.description}</p>
-                                            )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
                 <div className="space-y-4 sm:space-y-6">
                     <div>

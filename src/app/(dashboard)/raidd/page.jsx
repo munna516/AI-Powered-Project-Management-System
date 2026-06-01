@@ -125,6 +125,11 @@ const normalizeRaiddItem = (item, index) => {
     const rawDueDate = item?.decisionDueDate || item?.dueDate || item?.due_date;
     const type = normalizeTabType(item?.type);
     
+    let exportType = type;
+    if (Array.isArray(item?.type) && item.type.length > 1) {
+        exportType = item.type.map(t => normalizeTabType(t)).join(", ");
+    }
+    
     let formattedDueDate = formatDate(rawDueDate);
     if (formattedDueDate === "Not available") {
         formattedDueDate = "Pending due date";
@@ -134,6 +139,7 @@ const normalizeRaiddItem = (item, index) => {
         id: String(item?.id || index),
         tabType: normalizeTabId(item?.type),
         type,
+        exportType,
         projectId: String(item?.projectId || item?.project?.id || "Not available"),
         projectName: item?.project?.name || "Not available",
         vendorName: item?.project?.vendorName || item?.project?.vendor?.name || "Not available",
@@ -228,15 +234,13 @@ export default function RAIDD() {
             rows: filteredData,
             filename: `raidd_export_${activeTab}.csv`,
             columns: [
-                { header: "Type", key: "type" },
+                { header: "Type", key: "exportType" },
                 { header: "Project ID", key: "projectId" },
                 { header: "Project Name", key: "projectName" },
                 { header: "Vendor Name", key: "vendorName" },
-                { header: "Title", key: "title" },
                 { header: "Description", key: "description" },
-                { header: "Status", key: "status" },
-                { header: "Date", key: "date" },
-                { header: "Due Date", key: "dueDate" }
+                { header: "Date", value: (row) => `="${row.date}"` },
+                { header: "Due Date", value: (row) => `="${row.dueDate}"` }
             ]
         });
         toast.success(`${tabLabelMap[activeTab] || formatLabel(activeTab)} data exported successfully!`);

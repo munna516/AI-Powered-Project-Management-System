@@ -110,8 +110,9 @@ function MeetingSummaryInner() {
         error: dbError,
     } = useQuery({
         queryKey: ["meeting-details", meetingId],
-        enabled: Boolean(meetingId && isUuid),
+        enabled: Boolean(meetingId),
         queryFn: () => apiGet(`/api/project-manager/project-meeting/${meetingId}`),
+        retry: false,
     });
 
     const {
@@ -121,12 +122,12 @@ function MeetingSummaryInner() {
         error: calendarError,
     } = useQuery({
         queryKey: ["google-calendar-events-fallback"],
-        enabled: Boolean(meetingId && !isUuid),
+        enabled: Boolean(meetingId),
         queryFn: () => apiGet("/api/project-manager/google-calendar/all-events"),
     });
 
     const meetingData = useMemo(() => {
-        if (isUuid) {
+        if (dbMeetingResponse && !dbMeetingResponse.error) {
             return normalizeMeeting(dbMeetingResponse);
         } else if (calendarEventsResponse) {
             const rawEvents = calendarEventsResponse?.data || calendarEventsResponse || [];
@@ -197,12 +198,12 @@ function MeetingSummaryInner() {
         };
     }, [isUuid, dbMeetingResponse, calendarEventsResponse, meetingId]);
 
-    const isLoading = isUuid ? isDbLoading : isCalendarLoading;
-    const isError = isUuid ? isDbError : isCalendarError;
-    const error = isUuid ? dbError : calendarError;
+    const isLoading = isDbLoading && isCalendarLoading;
+    const isError = isDbError && isCalendarError;
+    const error = dbError || calendarError;
 
     if (isLoading) return <Loading />;
-    if (isError || !meetingId || !meetingData || (meetingData.title === fallback && !isUuid)) {
+    if (!meetingId || !meetingData || (meetingData.title === fallback && isDbError && isCalendarError)) {
         return (
             <Card>
                 <CardContent className="p-6 text-center text-sm text-slate-500 sm:text-base">
@@ -292,29 +293,6 @@ function MeetingSummaryInner() {
                             </ul>
                         ) : (
                             <p className="text-sm text-slate-500">No agenda found.</p>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* AI Meeting Summary */}
-            <div className="space-y-3">
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
-                    🤖 AI Meeting Summary
-                </h2>
-                <Card>
-                    <CardContent className="p-6">
-                        {meetingData.aiMeetingSummary?.length ? (
-                            <ul className="space-y-2">
-                                {meetingData.aiMeetingSummary.map((item, index) => (
-                                    <li key={index} className="text-slate-700 flex items-start gap-2">
-                                        <span className="text-slate-400 mt-1">•</span>
-                                        <span>{item}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-sm text-slate-500">No AI meeting summary found.</p>
                         )}
                     </CardContent>
                 </Card>

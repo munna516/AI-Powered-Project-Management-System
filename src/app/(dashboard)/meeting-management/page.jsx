@@ -378,7 +378,8 @@ export default function MeetingManagement() {
                   filteredData.map((item) => (
                     <TableRow
                       key={item.id}
-                      className="border-b border-slate-100 hover:bg-slate-50"
+                      onClick={() => handleViewDetails(item.id)}
+                      className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
                     >
                       <TableCell className="py-3 px-4 text-slate-800 font-semibold max-w-[200px] truncate" title={item.meetingTitle}>
                         {item.meetingTitle}
@@ -396,6 +397,7 @@ export default function MeetingManagement() {
                             href={item.recordingLink}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
                           >
                             Click to view
@@ -408,7 +410,10 @@ export default function MeetingManagement() {
                         <div className="flex items-center justify-end gap-3">
                           <button
                             type="button"
-                            onClick={() => handleViewDetails(item.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewDetails(item.id);
+                            }}
                             className="text-[#6051E2] hover:text-[#4a3db8] transition-colors cursor-pointer"
                             title="View details"
                             aria-label="View details"
@@ -436,7 +441,8 @@ export default function MeetingManagement() {
                 {filteredData.map((item) => (
                   <div
                     key={item.id}
-                    className="p-4 space-y-3 hover:bg-slate-50 transition-colors"
+                    onClick={() => handleViewDetails(item.id)}
+                    className="p-4 space-y-3 hover:bg-slate-50 transition-colors cursor-pointer"
                   >
                     <div className="flex items-start justify-between">
                       <div className="space-y-1 flex-1">
@@ -458,7 +464,10 @@ export default function MeetingManagement() {
                         </p>
                       </div>
                       <button
-                        onClick={() => handleViewDetails(item.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewDetails(item.id);
+                        }}
                         className="text-[#6051E2] hover:text-[#4a3db8] transition-colors cursor-pointer flex-shrink-0 ml-2"
                         title="View details"
                         aria-label="View details"
@@ -474,6 +483,7 @@ export default function MeetingManagement() {
                             href={item.recordingLink}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="text-blue-600 hover:text-blue-800 hover:underline transition-colors break-all"
                           >
                             Click to view

@@ -592,7 +592,7 @@ export default function CalendarMeetings() {
               <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
                 <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
                   <Zap className="h-4 w-4 text-[#6051E2]" />
-                  AI Meeting Summary
+                  Previous Meeting Summary
                 </h4>
                 {renderSummary(selectedMeeting?.aiSummary)}
               </div>

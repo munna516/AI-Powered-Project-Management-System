@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -79,7 +79,7 @@ function saveOrder(hrefs) {
 }
 
 // Sortable nav item with drag handle - uses div + router.push to avoid Link click-after-drag reload
-const SortableNavItem = ({ item, isActive, isMobile, preventClickRef }) => {
+const SortableNavItem = ({ item, isActive, isMobile, preventClickRef, unreadCount }) => {
   const router = useRouter();
   const {
     attributes,
@@ -111,7 +111,14 @@ const SortableNavItem = ({ item, isActive, isMobile, preventClickRef }) => {
         <MdDragIndicator className="w-5 h-5" />
       </div>
       <span className={`w-5 h-5 text-white ${iconSize}`}>{item.icon}</span>
-      <span className={`text-white ${labelSize} flex-1 text-left`}>{item.name}</span>
+      <span className={`text-white ${labelSize} flex-1 text-left flex items-center justify-between pr-2`}>
+        {item.name}
+        {item.name === "All Notification" && unreadCount > 0 && (
+          <span className="bg-red-500 text-white text-[10px] md:text-xs font-bold px-1.5 md:px-2 py-0.5 rounded-full ml-2">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+      </span>
     </>
   );
 
@@ -188,6 +195,20 @@ export default function Sidebar() {
   const avatarUrl = profile?.avatarUrl;
   const avatarInitial = (profile?.firstName || "?").charAt(0).toUpperCase();
 
+  const { data: notificationsResponse } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => apiGet("/api/project-manager/notifications"),
+  });
+
+  const unreadCount = useMemo(() => {
+    const rawNotifications = Array.isArray(notificationsResponse?.data)
+      ? notificationsResponse.data
+      : Array.isArray(notificationsResponse?.data?.data)
+        ? notificationsResponse.data.data
+        : [];
+    return rawNotifications.filter(n => n.status !== "READ").length;
+  }, [notificationsResponse]);
+
   const handleLogout = () => {
     toast.success("Logging out...");
     logoutAndRedirect("/login", 2000);
@@ -261,6 +282,7 @@ export default function Sidebar() {
                 isActive={isActive}
                 isMobile={isMobile}
                 preventClickRef={justDidDragRef}
+                unreadCount={unreadCount}
               />
             );
           })}
