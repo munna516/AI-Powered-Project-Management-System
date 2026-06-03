@@ -121,9 +121,9 @@ export default function TopNavbar() {
   return (
     <header className="h-16 bg-white hidden md:flex items-center justify-end px-3 md:px-10 gap-6">
       {/* Notification icon with dropdown */}
-      <div className="hidden">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      {profile?.role === "PROJECT_MANAGER" && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
           <button className="relative h-10 w-10 rounded-full flex items-center justify-center text-primary hover:bg-slate-100 cursor-pointer transition outline-none">
             <FaBell className="h-5 w-5" />
             {unreadCount > 0 && (
@@ -204,7 +204,7 @@ export default function TopNavbar() {
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
-      </div>
+      )}
 
       {/* Avatar + dropdown */}
       <DropdownMenu>
