@@ -213,6 +213,8 @@ export default function ViewRAIDD() {
         );
     }
 
+    const displayType = raiddData?.type && raiddData.type !== "All Type" ? raiddData.type : "Decision";
+
     return (
         <div className="space-y-6">
             <button
@@ -234,7 +236,7 @@ export default function ViewRAIDD() {
                         className="flex items-center gap-2 border-[#6051E2]/20 text-[#6051E2] hover:bg-[#6051E2]/5 font-semibold cursor-pointer"
                     >
                         <FiPlus className="h-4 w-4" />
-                        Add Decision Due Date
+                        Add {displayType} Due Date
                     </Button>
                 </div>
                 <Card className="border-slate-200 bg-[#EFEEFC]">
@@ -417,7 +419,7 @@ export default function ViewRAIDD() {
                                 <div className="flex items-center gap-2">
                                     <FiFlag className="h-4 w-4 text-[#6051E2]" />
                                     <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
-                                        Decision Details
+                                        {displayType} Details
                                     </h3>
                                 </div>
                                 <button
@@ -435,7 +437,7 @@ export default function ViewRAIDD() {
                                     </div>
                                     <div>
                                         <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                                            Decision Owner
+                                            {displayType} Owner
                                         </p>
                                         <p className="font-semibold text-slate-900 text-sm sm:text-base">
                                             {raiddData.decisionOwner}
@@ -449,7 +451,7 @@ export default function ViewRAIDD() {
                                     </div>
                                     <div>
                                         <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                                            Decision Due Date
+                                            {displayType} Due Date
                                         </p>
                                         <p className="font-semibold text-slate-900 text-sm sm:text-base">
                                             {raiddData.decisionDueDate
@@ -472,14 +474,14 @@ export default function ViewRAIDD() {
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-bold text-slate-900">
-                            {editMode === "owner" ? "Update Decision Owner" : "Update Decision Due Date"}
+                            {editMode === "owner" ? `Update ${displayType} Owner` : `Update ${displayType} Due Date`}
                         </DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-6 py-4">
                         {editMode === "owner" ? (
                             <div className="space-y-2">
                                 <label htmlFor="decisionOwner" className="text-sm font-semibold text-slate-700">
-                                    Decision Owner
+                                    {displayType} Owner
                                 </label>
                                 <Input
                                     id="decisionOwner"
@@ -492,7 +494,7 @@ export default function ViewRAIDD() {
                         ) : (
                             <div className="space-y-2">
                                 <label htmlFor="decisionDueDate" className="text-sm font-semibold text-slate-700">
-                                    Decision Due Date
+                                    {displayType} Due Date
                                 </label>
                                 <Input
                                     id="decisionDueDate"

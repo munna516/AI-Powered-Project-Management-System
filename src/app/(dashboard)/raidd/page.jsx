@@ -237,8 +237,6 @@ export default function RAIDD() {
                 { header: "Type", key: "exportType" },
                 { header: "Project ID", key: "projectId" },
                 { header: "Project Name", key: "projectName" },
-                { header: "Vendor Name", key: "vendorName" },
-                { header: "Description", key: "description" },
                 { header: "Date", value: (row) => `="${row.date}"` },
                 { header: "Due Date", value: (row) => `="${row.dueDate}"` }
             ]

@@ -4,8 +4,9 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Swal from "sweetalert2";
 import toast from "react-hot-toast";
-import { Search, Plus, Trash2 } from "lucide-react";
+import { Search, Plus, Trash2, Download } from "lucide-react";
 import Loading from "@/components/Loading/Loading";
+import { downloadCsv } from "@/lib/csv";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -210,6 +211,20 @@ export default function UsersPage() {
     });
   };
 
+  const handleExport = () => {
+    downloadCsv({
+      rows: filteredManagers,
+      filename: "project_managers_export.csv",
+      columns: [
+        { header: "Name", key: "name" },
+        { header: "Email", key: "email" },
+        { header: "Role", key: "role" },
+        { header: "Status", key: "status" },
+      ],
+    });
+    toast.success("Project managers exported successfully!");
+  };
+
   const handleDeleteManager = async (managerId) => {
     const result = await Swal.fire({
       title: "Delete manager?",
@@ -281,8 +296,18 @@ export default function UsersPage() {
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-          <DialogTrigger asChild>
+        <div className="flex w-full sm:w-auto flex-col sm:flex-row gap-3">
+          <Button
+            type="button"
+            onClick={handleExport}
+            className="w-full sm:w-auto border border-[#6051E2]/20 text-[#6051E2] hover:bg-[#6051E2]/5 gap-2 px-6 py-5 cursor-pointer font-semibold bg-transparent"
+          >
+            <Download className="w-5 h-5" />
+            Export
+          </Button>
+
+          <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
+            <DialogTrigger asChild>
             <Button
               type="button"
               onClick={resetForm}
@@ -416,6 +441,7 @@ export default function UsersPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">

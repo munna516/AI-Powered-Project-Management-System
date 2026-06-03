@@ -17,6 +17,13 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
 import Loading from "@/components/Loading/Loading";
+import { useState } from "react";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import {
     LineChart,
     Line,
@@ -103,6 +110,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function AdminDashboard() {
+    const [selectedManager, setSelectedManager] = useState(null);
     const { data: dashboardResponse, isLoading, isError } = useQuery({
         queryKey: ["admin-dashboard"],
         queryFn: () => apiGet("/api/admin/dashboard"),
@@ -264,7 +272,11 @@ export default function AdminDashboard() {
                         <TableBody>
                             {managers.length > 0 ? (
                                 managers.map((manager, index) => (
-                                    <TableRow key={manager.id || index} className="hover:bg-slate-50 border-slate-100">
+                                    <TableRow 
+                                        key={manager.id || index} 
+                                        className="hover:bg-slate-50 border-slate-100 cursor-pointer transition-colors"
+                                        onClick={() => setSelectedManager(manager)}
+                                    >
                                         <TableCell className="font-medium text-slate-700 pl-6 py-4">
                                             {manager.name}
                                         </TableCell>
@@ -287,6 +299,31 @@ export default function AdminDashboard() {
                     </Table>
                 </div>
             </div>
+            <Dialog open={!!selectedManager} onOpenChange={(open) => !open && setSelectedManager(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold text-slate-900">Project Manager Details</DialogTitle>
+                    </DialogHeader>
+                    {selectedManager && (
+                        <div className="space-y-4 py-4">
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Name</h4>
+                                <p className="text-base font-medium text-slate-900">{selectedManager.name}</p>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Email</h4>
+                                <p className="text-base font-medium text-slate-900">{selectedManager.email}</p>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Assigned Projects</h4>
+                                <p className="text-base font-medium text-slate-900">
+                                    {selectedManager.assignedProjects} {selectedManager.assignedProjects === 1 ? 'Project' : 'Projects'}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
