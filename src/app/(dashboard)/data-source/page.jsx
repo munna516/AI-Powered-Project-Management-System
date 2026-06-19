@@ -10,6 +10,8 @@ import { GoMail } from "react-icons/go";
 import { SiGooglecalendar } from "react-icons/si";
 import { SiZoom } from "react-icons/si";
 import { apiDelete, apiGet } from "@/lib/api";
+import { Calendar } from "lucide-react";
+
 // Tool Connection Data
 const tools = [
     {
@@ -19,6 +21,14 @@ const tools = [
             <PiMicrosoftOutlookLogo className="w-10 h-10 text-blue-500" />
         ),
         connected: false
+    },
+    {
+        id: 2,
+        name: "Outlook Calendar",
+        icon: (
+            <Calendar className="w-10 h-10 text-blue-500" />
+        ),
+        connected: false,
     },
     {
         id: 3,
@@ -46,6 +56,7 @@ const tools = [
 ];
 
 const OUTLOOK_TOOL_ID = 1;
+const OUTLOOK_CALENDAR_TOOL_ID = 2;
 const GOOGLE_CALENDAR_TOOL_ID = 3;
 const GMAIL_TOOL_ID = 4;
 const ZOOM_TOOL_ID = 5;
@@ -135,6 +146,7 @@ export default function DataSource() {
     const [loadingToolId, setLoadingToolId] = useState(null);
     const [isCheckingStatus, setIsCheckingStatus] = useState(true);
     const isGmailConnected = Boolean(connectedTools[GMAIL_TOOL_ID]);
+    const isOutlookConnected = Boolean(connectedTools[OUTLOOK_TOOL_ID]);
 
     useEffect(() => {
         loadConnectionStatuses();
@@ -158,6 +170,7 @@ export default function DataSource() {
         setConnectedTools((prev) => ({
             ...prev,
             [GOOGLE_CALENDAR_TOOL_ID]: isGmailConnected,
+            [OUTLOOK_CALENDAR_TOOL_ID]: isOutlookConnected,
         }));
         setToolConnectionInfo((prev) => ({
             ...prev,
@@ -167,8 +180,14 @@ export default function DataSource() {
                     ? prev[GMAIL_TOOL_ID]?.email || ""
                     : "",
             },
+            [OUTLOOK_CALENDAR_TOOL_ID]: {
+                isConnected: isOutlookConnected,
+                email: isOutlookConnected
+                    ? prev[OUTLOOK_TOOL_ID]?.email || ""
+                    : "",
+            },
         }));
-    }, [isGmailConnected, toolConnectionInfo[GMAIL_TOOL_ID]?.email]);
+    }, [isGmailConnected, isOutlookConnected, toolConnectionInfo[GMAIL_TOOL_ID]?.email, toolConnectionInfo[OUTLOOK_TOOL_ID]?.email]);
 
     const loadConnectionStatuses = async (showLoader = true) => {
         if (showLoader) {
@@ -330,7 +349,7 @@ export default function DataSource() {
                 <div className="space-y-4">
                     {tools.map((tool, index) => {
                         const isSupportedTool = Boolean(CONNECTABLE_TOOLS[tool.id]);
-                        const isAutoConnectedTool = tool.id === GOOGLE_CALENDAR_TOOL_ID;
+                        const isAutoConnectedTool = tool.id === GOOGLE_CALENDAR_TOOL_ID || tool.id === OUTLOOK_CALENDAR_TOOL_ID;
                         const isActionDisabled =
                             !isSupportedTool ||
                             isAutoConnectedTool ||
@@ -382,7 +401,9 @@ export default function DataSource() {
                                             )}
                                             {isAutoConnectedTool ? (
                                                 <p className="text-xs text-slate-400 mt-1">
-                                                    Synced with Gmail connection
+                                                    {tool.id === GOOGLE_CALENDAR_TOOL_ID 
+                                                        ? "Synced with Gmail connection" 
+                                                        : "Synced with Outlook connection"}
                                                 </p>
                                             ) : !isSupportedTool ? (
                                                 <p className="text-xs text-slate-400 mt-1">
@@ -410,10 +431,14 @@ export default function DataSource() {
                                                                 : "bg-slate-300"
                                                         }`}
                                                     />
-                                                    Auto connected
+                                                    {connectedTools[tool.id]
+                                                        ? `Auto connected by ${tool.id === GOOGLE_CALENDAR_TOOL_ID ? 'Gmail' : 'Outlook'}`
+                                                        : "Auto connect"}
                                                 </button>
                                                 <div className="pointer-events-none absolute -top-12 left-1/2 z-10 w-64 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-center text-xs text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
-                                                    When you connect Gmail, Google Calendar connects automatically.
+                                                    {tool.id === GOOGLE_CALENDAR_TOOL_ID 
+                                                        ? "When you connect Gmail, Google Calendar connects automatically."
+                                                        : "When you connect Microsoft Outlook, Outlook Calendar connects automatically."}
                                                 </div>
                                             </div>
                                         ) : connectedTools[tool.id] ? (
