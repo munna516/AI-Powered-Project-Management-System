@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { Settings, LogOut, Zap } from "lucide-react";
@@ -110,6 +110,28 @@ export default function TopNavbar() {
 
   const unreadCount = useMemo(() => {
     return notifications.filter(n => !n.isRead).length;
+  }, [notifications]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && notifications.length > 0) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const notifId = urlParams.get('notificationId');
+      
+      if (notifId) {
+        const found = notifications.find(n => n.id === notifId);
+        if (found) {
+          setSelectedNotification(found);
+          if (!found.isRead) {
+            readSingleMutation.mutate(found.id);
+          }
+          // Remove from URL to avoid reopening on refresh
+          urlParams.delete('notificationId');
+          const newSearch = urlParams.toString();
+          const newUrl = `${window.location.pathname}${newSearch ? '?' + newSearch : ''}`;
+          window.history.replaceState({}, '', newUrl);
+        }
+      }
+    }
   }, [notifications]);
 
   const profile = profileData?.data;

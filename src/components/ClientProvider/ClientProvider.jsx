@@ -2,7 +2,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-
+import PushNotificationManager from "@/components/PushNotificationManager";
 
 export default function ClientProvider({ children }) {
     const [queryClient] = useState(() => new QueryClient());
@@ -16,6 +16,7 @@ export default function ClientProvider({ children }) {
     return (
         <QueryClientProvider client={queryClient}>
             {/* <Toaster position="top-center" /> */}
+            <PushNotificationManager />
             {children}
         </QueryClientProvider>
     );
