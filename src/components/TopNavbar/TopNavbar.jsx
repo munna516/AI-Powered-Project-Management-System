@@ -99,6 +99,7 @@ export default function TopNavbar() {
       title: n.title,
       type: n.type,
       link: n.link,
+      externalLink: n.externalLink,
       message: n.message || n.content || "",
       timestamp: formatRelativeTime(n.createdAt),
       isRead: n.status === "READ",
@@ -319,7 +320,7 @@ export default function TopNavbar() {
               </div>
             )}
 
-            {selectedNotification?.link && (
+            {(selectedNotification?.externalLink || selectedNotification?.link) && (
               <div className="flex items-center justify-between p-4 rounded-lg border border-blue-100 bg-blue-50/50">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -334,7 +335,7 @@ export default function TopNavbar() {
                   asChild
                   className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200"
                 >
-                  <a href={selectedNotification.link} target="_blank" rel="noreferrer">
+                  <a href={selectedNotification.externalLink || selectedNotification.link} target="_blank" rel="noreferrer">
                     Join Now
                   </a>
                 </Button>
