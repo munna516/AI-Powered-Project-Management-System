@@ -229,6 +229,15 @@ export default function Sidebar() {
     }
   }, []);
 
+  const visibleItems = useMemo(() => {
+    return orderedItems.filter((item) => {
+      if (profile?.role !== "PROJECT_MANAGER" && item.name === "All Notification") {
+        return false;
+      }
+      return true;
+    });
+  }, [orderedItems, profile?.role]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 10 },
@@ -270,10 +279,10 @@ export default function Sidebar() {
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={orderedItems.map((i) => i.href)}
+          items={visibleItems.map((i) => i.href)}
           strategy={verticalListSortingStrategy}
         >
-          {orderedItems.map((item) => {
+          {visibleItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
             return (
               <SortableNavItem
@@ -319,9 +328,11 @@ export default function Sidebar() {
         </p>
       </div>
       <div className="h-16 bg-white flex items-center justify-end px-3 md:px-10 gap-6">
-        <button className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-primary hover:bg-slate-200 transition">
-          <FiBell className="h-5 w-5" />
-        </button>
+        {profile?.role === "PROJECT_MANAGER" && (
+          <button className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-primary hover:bg-slate-200 transition">
+            <FiBell className="h-5 w-5" />
+          </button>
+        )}
         <div className="flex items-center gap-3">
           <div className="relative h-9 w-9 rounded-full overflow-hidden flex-shrink-0">
             {avatarUrl ? (
